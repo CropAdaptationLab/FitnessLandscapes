@@ -1,6 +1,6 @@
 Fitness Landscapes<br />
 
-Author: Ted Monyak, PhD Student<br />
+Author: Ted Monyak<br />
 Crop Adaptation Lab<br />
 Colorado State University<br />
 Soil and Crop Sciences Department<br />
