@@ -1,0 +1,94 @@
+---
+title: "Fitness Functions"
+output: html_notebook
+author: Ted Monyak
+description: This notebook is for plotting various fitness functions.
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+require("knitr")
+
+rm(list = ls())
+
+# Set to false if running on Alpine
+runLocal = TRUE
+
+if (runLocal) {
+  opts_knit$set(root.dir = "~/Documents/CSU/Lab-Notebooks/members/Ted/breeding_sims")
+} else {
+  opts_knit$set(root.dir = "/pl/active/Morris_CSU/Ted_Monyak/BreedingSims")
+}
+```
+
+Imports
+```{r}
+library(AlphaSimR)
+library(devtools)
+library(dplyr)
+library(ggplot2)
+library(factoextra)
+library(patchwork)
+library(plotly)
+library(purrr)
+library(reshape2)
+library(snow)
+library(tibble)
+library(tidyr)
+library(viridis)
+library(notly)
+
+set.seed(123)
+
+if (runLocal) {
+  #setwd("~/Documents/CSU/Lab-Notebooks/members/Ted/breeding_sims")
+  output_dir <- file.path("output")
+} else {
+  #setwd("/pl/active/Morris_CSU/Ted_Monyak/breeding_sims")
+  output_dir <- ("/scratch/alpine/c837220672@colostate.edu/output")
+}
+
+source("functions/Epistasis.R")
+source("functions/Fitness.R")
+source("functions/TraitArchitecture.R")
+source("scripts/GlobalParameters.R")
+#source("scripts/CreateFounderPop.R")
+
+if (!dir.exists(output_dir)) dir.create(output_dir)
+```
+
+View a fitness landscape
+```{r}
+source("functions/Fitness.R")
+p <- plotFitnessLandscape(calculateFitnessGaussian)
+p
+```
+
+Plot different trait architectures according to different algorithms
+```{r}
+source("functions/TraitArchitecture.R")
+
+save_dir <- file.path(output_dir, "trait_architecture")
+if (!dir.exists(save_dir)) dir.create(save_dir)
+save_dir <- file.path(save_dir, format(Sys.time(), "%F_%H_%M_%S"))
+if (!dir.exists(save_dir)) dir.create(save_dir)
+write.table(getParams(), file.path(save_dir, "params.txt"), col.names=FALSE, quote=FALSE, sep=":\t")
+
+# Additive effects
+methodType <- "Additive"
+g <- plotTraitArchitecture(founderPop, methodType)
+ggplot2::ggsave(filename = paste0("traitarchitecture_", methodType, ".pdf"),
+                path=save_dir,
+                device = "pdf")
+
+# Effect of each allele on fitness
+methodType <- "Fitness"
+g <- plotTraitArchitecture(founderPop, methodType)
+ggplot2::ggsave(filename = paste0("traitarchitecture_", methodType, ".pdf"),
+                path=save_dir,
+                device = "pdf")
+
+p <- plot3dPopulationFitness(founderPop, calculateFitnessTwoTrait)
+
+fname <- file.path(save_dir, "3dpopulationfitness.html")
+htmlwidgets::saveWidget(as_widget(p), fname)
+```
