@@ -1,3 +1,5 @@
+# 
+
 library(AlphaSimR)
 library(dplyr)
 library(ggplot2)
@@ -17,33 +19,27 @@ n.cores <- 8
 
 source("Functions/Fitness.R")
 source("Scripts/GlobalParameters.R")
-
-
-SAMPLING <- 'geometric'
-n.popSize <- 2000
-n.h2 <- 0.1
-n.r <- 0.9
-
 source("Scripts/CreateFounderPop.R")
 
-fitCalc <- calculateFitnessGaussian
-fitFunc <- gaussianLandraceFitFunc
-
+suitFunc <- suitabilityGaussian
 n.gens <- 50
 
+# For storing the results at each generation
 res.df <- data.frame(Trait1=c(),
                      Trait2=c(),
-                     Fitness=c(),
+                     Suit=c(),
                      Gen=c())
 
 
-
+# Select 1000 random individuals
 pop <- selectInd(founderPop, nInd=1000, use="rand")
 res_agg.df <- data.frame(Trait1=c(),
                          Trait2=c(),
-                         Fitness=c(),
+                         Suit=c(),
                          Gen=c())
 
+# Specify the "middle" range of the large population from which to
+# sample individuals
 mid <- 500
 int <- 50
 

@@ -29,25 +29,6 @@ getLodPeaks <- function(RIL, parent1, parent2, save_dir) {
     return (0)
   }
   
-  # R/qtl1:
-  # Get the phenotype names
-  ## Run QTL mapping
-  #phes <- phenames(cross)[c(1,2,3,4)]
-  #cross <- calc.genoprob(cross, step=n.step, error.prob=n.errorProb)
-  #out.hk <- scanone(cross, pheno.col=phes, method=n.mappingMethod,
-  #                  n.cluster=n.cores)
-  #operm.hk <- scanone(cross, pheno.col=phes, method=n.mappingMethod,
-  #                    n.perm=1000,n.cluster=n.cores)
-  #plot(out.hk, lodcolumn=2)
-  # Extract the signficant QTL based on LOD peaks being above the significance threshold
-  #sigQtl <- pullSigQTL(cross,
-  #                     pheno.col=phes[1:2],
-  #                     s1.output=out.hk,
-  #                     perm.output=operm.hk,
-  #                     returnQTLModel=FALSE,
-  #                     alpha=0.05,
-  #                     controlAcrossCol=TRUE)
-  
   # R/qtl2
   cross2 <- convert2cross2(cross)
   map <- insert_pseudomarkers(cross2$gmap, step=n.step)
@@ -114,30 +95,24 @@ epistaticLodPeaks <- function(RIL, parent1, parent2, trait, save_dir) {
   # It does not account for multiple QTL per chromosome
   peaks <- summary(object=s2.output, thresholds=thresholds, what="int")
   
-  findQtl <- function(chr, pos) {
-    n.genMapLen <- 100
-    qtls <- twoTraitArchitecture(RIL) %>%
-      separate(id, into = c("chrId", "loc"), sep = "_", remove = FALSE) %>%
-      mutate(
-        chrId = as.numeric(chrId),
-        loc = as.numeric(loc)
-      ) %>%
-      filter(chrId==chr)
-      
+  findQtl <- function(chrId, pos) {
+    qtls <- getQtlEffectSizes(RIL) %>%
+      dplyr::filter(chr==chrId)
     
     if (nrow(qtls) == 0) {
       return(NA)
     }
     
-    chrMap <- as.data.frame(SP$genMap[[chr]])
+    chrMap <- as.data.frame(SP$genMap[[chrId]])
     colnames(chrMap) <- c("pos")
+    
     chrMap <- chrMap %>%
       dplyr::mutate(pos=pos*n.genMapLen)
     
     snp <- rownames(chrMap)[which.min(abs(chrMap$pos - pos))]
-    snp_loc <- as.numeric(sub(".*_", "", snp))
+    snp_pos <- as.numeric(sub(".*_", "", snp))
 
-    qtl_id <- qtls$id[which.min(abs(qtls$loc - snp_loc))]
+    qtl_id <- qtls$id[which.min(abs(qtls$pos - snp_pos))]
     
     return(qtl_id)
   }

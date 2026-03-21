@@ -1,5 +1,8 @@
+# Title: GENERATE SUBPOP PLOTS
+# Author: Ted Monyak
+# Description: After CreateIndependentPops.R, this script creates figures 
+# reflecting the independent adaptive walks
 
-# Make the plots for each subpopulation 
 if (saveAllelePlots) {
   for (p in 1:n.nPops) {
     pop <- pops[[p]]
@@ -144,18 +147,18 @@ if (saveFitnessPlots) {
       fig,
       fit.df,
       name = p,
-      x = fit.df$traitValA,
-      y = fit.df$traitValB,
-      z = fit.df$fitness,
+      x = fit.df$traitVal1,
+      y = fit.df$traitVal2,
+      z = fit.df$suit,
       type = 'scatter3d',
       mode = 'lines',
       opacity = 1,
       color = p,
       line = list(width = 5))
     fig <- fig %>% layout(legend=list(title=list(text='Population Size')),
-                          scene = list(xaxis = list(title = "Trait A"),
-                                       yaxis = list(title = "Trait B"),
-                                       zaxis = list(title = "Fitness"),
+                          scene = list(xaxis = list(title = "Trait 1"),
+                                       yaxis = list(title = "Trait 2"),
+                                       zaxis = list(title = "Suitability"),
                                        aspectmode='cube')) %>% hide_colorbar()
     
     fname <- file.path(subpop_dir, "adaptivewalk.html")
@@ -169,9 +172,9 @@ if (saveFitnessPlots) {
                     width=10,
                     height=7)
     
-    g <- ggplot(fit.df, aes(x=gen, y=meanFitness)) +
+    g <- ggplot(fit.df, aes(x=gen, y=meanSuit)) +
       geom_line()
-    ggplot2::ggsave(filename = "meanFitness.jpg",
+    ggplot2::ggsave(filename = "meanSuit.jpg",
                     path=subpop_dir,
                     device = "jpg",
                     width=10,
@@ -183,7 +186,6 @@ if (saveFitnessPlots) {
   contour <- overlayWalkOnLandscape(fit_dfs[[1]],
                                     fit_dfs[[2]],
                                     type="CONTOUR",
-                                    fitCalc=fitCalc,
                                     traitMin=-n.initTraitVal*1.1,
                                     traitMax=n.initTraitVal*1.1,
                                     popId_1="1",
@@ -194,7 +196,7 @@ if (saveFitnessPlots) {
   surface <- overlayWalkOnLandscape(fit_dfs[[1]],
                                     fit_dfs[[2]],
                                     type="SURFACE",
-                                    fitCalc=fitCalc,
+                                    suitFunc=suitFunc,
                                     traitMin=-n.initTraitVal-1,
                                     traitMax=n.initTraitVal+1,
                                     popId_1="1",

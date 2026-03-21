@@ -111,7 +111,7 @@ getCross <- function(pop, parentA, parentB, popType="riself", genoEnc=c(NA,1,NA,
 
   # Pull the phenotype data from AlphaSim
   pheno <- data.frame(pheno=pop@pheno) %>%
-    dplyr::mutate(pheno.Suitability=fitCalc(pheno.Trait1, pheno.Trait2),
+    dplyr::mutate(pheno.Suitability=suitFunc(pheno.Trait1, pheno.Trait2),
                   pheno.W=calculateBreedingFitness(pheno.Trait1, pheno.Trait2, pheno.Trait3))
   
   geno <- list()
@@ -142,7 +142,7 @@ getCross <- function(pop, parentA, parentB, popType="riself", genoEnc=c(NA,1,NA,
 # pop: the population to convert
 # Returns: a dataframe with the following columns: 'snp' (the marker id), 'chr'
 # (the chromosome), 'pos' (the genetic location), and a column for every individual
-getGwasGeno <- function(pop) {
+rrBlupGeno <- function(pop) {
   # Get marker data from the population
   snpGeno <- as.data.frame(pullSnpGeno(pop))
   # Filter out monomorphic snps

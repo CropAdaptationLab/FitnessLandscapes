@@ -42,14 +42,12 @@ if (generateNewData) {
         print(paste0("Sim: ", s))
         source("Scripts/CreateFounderPop.R")
         # Order by eff_size, and add 'rank' column
-        eff_sizes_1 <- singleTraitArchitecture(founderPop, 1) %>%
-          rownames_to_column("rank")
+        eff_sizes_1 <- singleTraitArchitecture(founderPop, 1)
         alpha_1 <- eff_sizes_1[1,3]
         eff_sizes_1 <- eff_sizes_1 %>%
           dplyr::mutate(scaled=((1-n.R)/alpha_1)*eff_size)
 
-        eff_sizes_2 <- singleTraitArchitecture(founderPop, 2) %>%
-          rownames_to_column("rank")
+        eff_sizes_2 <- singleTraitArchitecture(founderPop, 2)
         alpha_2 <- eff_sizes_2[1,3]
         eff_sizes_2 <- eff_sizes_2 %>%
           dplyr::mutate(scaled=((1-n.R)/alpha_2)*eff_size)

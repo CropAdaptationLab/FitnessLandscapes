@@ -1,36 +1,4 @@
 if (saveTraitPlots) {
-  # Get the max number of individuals
-  n <- max(nInd(pop1), nInd(pop2), nInd(RIL))
-  
-  # Normalize all of the phenotype vectors to have the same length (filling with NA)
-  # to allow for cbind()
-  phenoAT1 <- pheno(pop1)[,1]
-  phenoAT2 <- pheno(pop1)[,2]
-  phenoAT3 <- pheno(pop1)[,3]
-  phenoAFit <- fitCalc(phenoAT1, phenoAT2)
-  length(phenoAT1) <- n
-  length(phenoAT2) <- n
-  length(phenoAT3) <- n
-  length(phenoAFit) <-n
-  
-  phenoBT1 <- pheno(pop2)[,1]
-  phenoBT2 <- pheno(pop2)[,2]
-  phenoBT3 <- pheno(pop2)[,3]
-  phenoBFit <- fitCalc(phenoBT1, phenoBT2)
-  length(phenoBT1) <- n
-  length(phenoBT2) <- n
-  length(phenoBT3) <- n
-  length(phenoBFit) <-n
-  
-  phenoRilT1 <- pheno(RIL)[,1]
-  phenoRilT2 <- pheno(RIL)[,2]
-  phenoRilT3 <- pheno(RIL)[,3]
-  phenoRilFit <- fitCalc(phenoRilT1, phenoRilT2)
-  length(phenoRilT1) <- n
-  length(phenoRilT2) <- n
-  length(phenoRilT3) <- n
-  length(phenoRilFit) <-n
-  
   theme <- theme_minimal(base_size = 8,
                 base_family="Helvetica") +
     theme(
@@ -152,17 +120,26 @@ if (saveTraitPlots) {
                   width=6.5,
                   height=2)
   
-  plotTraitArchitecture(pop=RIL, traits=c(1,2), popName="RIL")
-  ggplot2::ggsave(filename = "RIL_traitarchitecture.jpg",
+  plotTraitArchitecture(pop=RIL, trait=1, popName="RIL Trait 1")
+  ggplot2::ggsave(filename = "RIL_traitarchitecture_1.jpg",
                   path=save_dir,
                   device = "jpg",
                   width=10,
                   height=7)
   
   
+  plotTraitArchitecture(pop=RIL, trait=2, popName="RIL Trait 2")
+  ggplot2::ggsave(filename = "RIL_traitarchitecture_2.jpg",
+                  path=save_dir,
+                  device = "jpg",
+                  width=10,
+                  height=7)
+  
+  
+  
 } # saveTraitPlots
 if (saveFitnessPlots) {
   fname <- file.path(save_dir, "3DFitness.html")
-  fig <- plot3dPopulationFitnessTwoPops(pop1, pop2, fitCalc=calculateFitnessGaussian)
+  fig <- plot3dPopulationFitnessTwoPops(pop1, pop2, suitFunc)
   htmlwidgets::saveWidget(as_widget(fig), fname)
 }

@@ -190,7 +190,7 @@ plot_1D_PCA <- function(RIL, pop1, pop2, parent1, parent2, qtl1, qtl2, save_dir)
     dplyr::mutate(cat=categorize(qtl1, qtl2)) %>%
     dplyr::ungroup()
   
-  RIL_pheno.df <- data.frame(fitness=gaussianLandraceFitFunc(pheno(RIL)),
+  RIL_pheno.df <- data.frame(fitness=breedingFitness(pheno(RIL)),
                              haplo=haplo$cat)
   
   pca <- prcomp(subpops_geno)

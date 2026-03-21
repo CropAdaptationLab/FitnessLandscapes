@@ -35,11 +35,9 @@ qtl2toqtl1 <- function(s1.output, map) {
 # save_dir: where to write the resulting plot
 # Returns: nothing
 plotLinkageMap <- function(RIL, s1.output, s1.perm, save_dir) {
-  # cM per linkage group
-  n.genMapLen <- 100
   
   # Get a dataframe of effect sizes per trait (including fitness)
-  eff_sizes <- getPerTraitQtlEffectSizesAndLocations(RIL)
+  eff_sizes <- getQtlEffectSizes(RIL)
   
   # Create a tidy version of the scanone output
   plot_data <- as.data.frame(s1.output) %>%
@@ -78,7 +76,7 @@ plotLinkageMap <- function(RIL, s1.output, s1.perm, save_dir) {
   eff_data <- eff_sizes %>%
     dplyr::left_join(chr_lengths %>% dplyr::select(chr, cumul_start), by = "chr") %>%
     dplyr::mutate(
-      cumul_pos = pos*n.genMapLen + cumul_start,
+      cumul_pos = pos + cumul_start,
       phenotype = trait  # Rename trait to phenotype for matching
     ) %>%
     dplyr::select(chr, pos, cumul_start, cumul_pos, phenotype, eff_size)
@@ -214,9 +212,6 @@ plotLinkageMap <- function(RIL, s1.output, s1.perm, save_dir) {
 # save_dir: the directory to write the result
 # Returns: nothing
 plot2DLinkageMap <- function(RIL, s2.output, save_dir) {
-  # cM per linkage group
-  n.genMapLen <- 100
-
   # Extract the interaction LOD scores matrix
   lod_int <- s2.output$lod
   
@@ -238,10 +233,10 @@ plot2DLinkageMap <- function(RIL, s2.output, save_dir) {
   }
   
   # Get a dataframe of effect sizes per trait (including fitness)
-  eff_sizes <- getPerTraitQtlEffectSizesAndLocations(RIL) %>%
+  eff_sizes <- getQtlEffectSizes(RIL) %>%
     dplyr::filter(trait %in% c("Trait 1", "Trait 2")) %>%
     dplyr::rowwise() %>%
-    dplyr::mutate(idx = find_closest_idx(chr, pos*n.genMapLen)) %>%
+    dplyr::mutate(idx = find_closest_idx(chr, pos)) %>%
     dplyr::ungroup()
   
   mar_per_chr <- map %>%

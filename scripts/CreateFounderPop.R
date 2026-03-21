@@ -5,28 +5,12 @@
 # For reproducibility
 set.seed(123)
 # Create initial population
-if (basicPop) {
-  # default founder parameters
-  founders = runMacs(
-    nInd=n.popSize,
-    nChr=n.chr,
-    segSites=n.segSites,
-    nThreads=n.cores
-  )
-} else {
-  # NOT BEING USED
-  # This is from a Brian Rice script
-  founders = runMacs(nInd=n.ne,
-                     nChr=10,
-                     segSites=n.segSites,
-                     inbred=TRUE,
-                     manualCommand = paste(
-                       "1000000000 -t", #Physical length 1e8 base pairs
-                       2.5/1E8*(4*n.ne), #Mutation rate adjusted for Ne
-                       "-r",1/1E8*(4*n.ne), #Recombination rate adjusted for Ne
-                       "-eN",10/(4*n.ne),100/n.ne), #Modeling Ne=100 at 10 generations ago
-                     manualGenLen=1, nThreads=n.cores) #Genetic length 1 Morgan
-}
+founders = runMacs(
+  nInd=n.popSize,
+  nChr=n.chr,
+  segSites=n.segSites,
+  nThreads=n.cores
+)
 
 SP <- SimParam$new(founders)
 
@@ -75,33 +59,41 @@ addGeometricAdditiveTrait <- function() {
     return(unname(qtls))
   }
   
+  # Create a geometric series
+  # a: Scaling term
+  # r: Decay term
+  # n: Length of the series
+  # Returns: a vector of size n
   geom_series <- function(a, r, n) {
     res <- a * r ** c(0:(n-1))
     return (res)
   }
   sample(c(0,1), size=1) == 1
   
+  # Select random QTL
   markerNames <- selectQtl()
+  # Create the geometric series of effect sizes
   addEff <- geom_series(a=1,r=n.a,n=n.L)
   # Randomly assign some effects as negative
   addEff <- sapply(addEff, function(x) if(sample(c(0,1), size=1) == 1) -x else x)
   
-  #varScale <- n.var#*(1-n.R)
-  #addEff <- addEff * varScale
+  # Randomize the order of effect sizes
   addEff <- sample(addEff)
   SP$importTrait(markerNames, addEff)
   
 }
 
+# Total number of QTL in the genome
 n.L <- n.qtlPerChr * n.chr
+# Calculate the decay parameter based on a formula from Lande and Thompson 1990
 n.a <- (n.L-1) / (n.L+1)
 
-if (n.relAA == 0) { # Additive G > T
+# Additive G > T
+if (n.relAA == 0) { 
   if (SAMPLING=="normal") {
     SP$addTraitA(mean=n.initTraitVal, var=n.var, nQtlPerChr=n.qtlPerChr)
     SP$addTraitA(mean=n.initTraitVal, var=n.var, nQtlPerChr=n.qtlPerChr)
   } else if (SAMPLING=="gamma") {
-    # Higher shape parameter means more oligogenic
     SP$addTraitA(mean=n.initTraitVal, var=n.var, nQtlPerChr=n.qtlPerChr, gamma=TRUE, shape=n.shape)
     SP$addTraitA(mean=n.initTraitVal, var=n.var, nQtlPerChr=n.qtlPerChr, gamma=TRUE, shape=n.shape)
   } else if (SAMPLING=="geometric") {
@@ -129,19 +121,12 @@ SP$addSnpChip(nSnpPerChr=n.markers)
 # Create base population
 founderPop <- newPop(founders, simParam = SP)
 
+# Save the initial trait architecture
 if (saveFitnessPlots) {
-  plotTraitArchitecture(founderPop, traits=c(1,2), popName=paste0("QTL: ", n.L))
+  plotTraitArchitecture(founderPop, trait=1, popName=paste0("QTL: ", n.L))
   ggplot2::ggsave(filename = paste0("founderarchitecture.jpg"),
                   path=pop_dir,
                   device = "jpg",
                   width=10,
                   height=7)
 }
-#alpha_1 <- singleTraitArchitecture(founderPop, 2)[1,1]
-
-#singleTraitArchitecture(RIL, 1) %>%
-#  dplyr::mutate(scaled=(eff_size/0.015)*(1-0.9)) %>%
-#  summarize(sum=sum(scaled))
-
-#varG(RIL)
-#sum(eff_sizes$scaled)
