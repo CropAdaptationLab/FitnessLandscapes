@@ -10,4 +10,4 @@ This work contains breeding simulations
 that investigate how the dynamics of adaptive walks affect the trait architecture
 of complex traits in breeding metapopulations.<br />
 
-scripts/QtlMonteCarlo.R is the main simulation pipeline.
+scripts/SimulationPipeline.R is the main simulation pipeline.

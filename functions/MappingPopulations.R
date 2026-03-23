@@ -6,11 +6,10 @@
 # Creates a biparental recombinant inbred line (RIL) population with n.RILFams families
 # pop1: the first population to sample an individual from
 # pop2: the second population to sample an individual from.
-# save_dir: directory to write plots t
 # if FALSE, will cross two individuals from pop1
 # Returns: a population where the first two individuals are parent1 and parent2,
 # and the rest is the RIL
-createRIL <- function(pop1, pop2, save_dir) {
+createRIL <- function(pop1, pop2) {
   # Select 1 random individual from pop1 and pop2
   parent1 <- pop1[sample.int(nInd(pop1),1)]
   parent2 <- pop2[sample.int(nInd(pop2),1)]

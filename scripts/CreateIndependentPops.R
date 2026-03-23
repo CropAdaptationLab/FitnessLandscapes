@@ -4,7 +4,7 @@
 # population and has them follow independent adaptive walks to a fitness optimum
 
 # Assumes that CreateFounderPop.R has been run already
-# Each simulation should create a new save_dir, where this data is stored
+# Each replication should create a new subpop_dir, where this data is stored
 
 # founderPop is created in CreateFounderPop.R
 pop <- founderPop
@@ -49,7 +49,7 @@ for (p in 1:n.nPops) {
   fit_dfs[[p]] <- fit.df
   
   # Create subpop dirs
-  subpop_dir <- file.path(sim_dir, paste0("Subpop_", p))
+  subpop_dir <- file.path(rep_dir, paste0("Subpop_", p))
   if (!dir.exists(subpop_dir)) dir.create(subpop_dir)
   subpop_dirs[[p]] <- subpop_dir
   
@@ -176,10 +176,10 @@ for (gen in 1:n.gens) {
           dplyr::inner_join(prevAlleleFreq, by="id") %>% # Join new allele frequencies with previous
           dplyr::mutate(fixed=((newFreq==1 | newFreq==0) & newFreq != prevFreq)) %>% # Determine which were fixed
           dplyr::filter(fixed==TRUE) %>%
-          dplyr::mutate(order_fixed=fixation_order,
+          dplyr::mutate(rank=fixation_order,
                         subpop=p,
                         qtl=n.L) %>%
-          dplyr::select(c(id,eff_size,order_fixed,subpop, qtl))
+          dplyr::select(c(id,eff_size,rank,subpop, qtl))
         
         return(fixedAlleles)
       }

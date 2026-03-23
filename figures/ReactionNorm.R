@@ -10,8 +10,8 @@
 # parent1: One of the parents from the biparental cross
 # parent2: The other parent from the biparental cross
 # suitFunc: See Fitness.R
-# save_dir: Where to save the resulting plot
-plotReactionNorm <- function(pop, qtl1, qtl2, parent1, parent2, suitFunc, save_dir) {
+# ril_dir: Where to save the resulting plot
+plotReactionNorm <- function(pop, qtl1, qtl2, parent1, parent2, suitFunc, ril_dir) {
   # Determine the mean fitness of each haplotype w.r.t. two QTL
   
   # Returns: a 2x2 matrix storing the mean fitness for each haplotype,
@@ -129,13 +129,13 @@ plotReactionNorm <- function(pop, qtl1, qtl2, parent1, parent2, suitFunc, save_d
     )  +
     ylim(min(df$fitness)*0.97, max(df$fitness)*1.03)
 
-  ggplot2::ggsave(filename = file.path(save_dir, "rxn_norm.jpg"),
+  ggplot2::ggsave(filename = file.path(ril_dir, "rxn_norm.jpg"),
                   device = "jpg",
                   height=2,
                   width=3.5,
                   units="in",
                   dpi=600)
-  ggplot2::ggsave(filename = file.path(save_dir, "rxn_norm.pdf"),
+  ggplot2::ggsave(filename = file.path(ril_dir, "rxn_norm.pdf"),
                   device = "pdf",
                   height=2,
                   width=3.5)

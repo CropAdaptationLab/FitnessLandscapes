@@ -123,13 +123,13 @@ if (saveAllelePlots) {
             
     
     ggplot2::ggsave(filename = "allelefrequencies_contrast.jpg",
-                    path=sim_dir,
+                    path=rep_dir,
                     device = "jpg",
                     height=1.3,
                     width=4,
                     dpi=600)
     ggplot2::ggsave(filename = "allelefrequencies_contrast.pdf",
-                    path=sim_dir,
+                    path=rep_dir,
                     device = "pdf",
                     height=1.3,
                     width=4)
@@ -145,7 +145,7 @@ if (saveFitnessPlots) {
   
     adaptiveWalk <- plotAdaptiveWalk(fit.df)
     fname <- file.path(subpop_dir, "adaptivewalk.html")
-    htmlwidgets::saveWidget(as_widget(fig), fname)
+    htmlwidgets::saveWidget(as_widget(adaptiveWalk), fname)
     
     # Plot the yield potential gain over generations
     g <- ggplot(fit.df, aes(x=gen, y=yieldPotential)) +
@@ -175,7 +175,7 @@ if (saveFitnessPlots) {
                                     traitMax=n.initTraitVal*1.1,
                                     popId_1="1",
                                     popId_2="2")
-  fname <- file.path(sim_dir, "adaptivewalk_contour.html")
+  fname <- file.path(rep_dir, "adaptivewalk_contour.html")
   htmlwidgets::saveWidget(as_widget(contour), fname)
   
   surface <- overlayWalkOnLandscape(fit_dfs[[1]],
@@ -186,11 +186,11 @@ if (saveFitnessPlots) {
                                     traitMax=n.initTraitVal+1,
                                     popId_1="1",
                                     popId_2="2")
-  fname <- file.path(sim_dir, "adaptivewalk_surface.html")
+  fname <- file.path(rep_dir, "adaptivewalk_surface.html")
   htmlwidgets::saveWidget(as_widget(surface), fname)
  
   # Plot the suitability of both subpopulations
   fig <- plot3dPopulationFitnessTwoPops(pops[[1]], pops[[2]], suitFunc)
-  fname <- file.path(sim_dir, "3DFitness.html")
+  fname <- file.path(rep_dir, "3DFitness.html")
   htmlwidgets::saveWidget(as_widget(fig), fname)
 }

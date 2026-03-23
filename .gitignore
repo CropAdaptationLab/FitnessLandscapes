@@ -2,5 +2,5 @@
 .RData
 .Rhistory
 output/*
-data/*
-unused/*
+notebooks/*.nb.html
+

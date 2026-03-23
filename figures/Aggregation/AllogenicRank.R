@@ -1,3 +1,11 @@
+# Title: ALLOGENIC RANK
+# Author: Ted Monyak
+# Description: Determine, for a particular set of parameters, the rank of the largest
+# segregating QTL from the initial founder trait architecture series that is segregating in
+# an admixed RIL family
+# Allogenic = differentially fixed (i.e. not isogenic)
+# This script should be called only from AggregateFigures.R
+
 theme <- theme_minimal(base_size = 8,
                        base_family="Helvetica") +
   theme(
@@ -7,24 +15,23 @@ theme <- theme_minimal(base_size = 8,
     panel.background = element_rect(fill = "white", color = "black"),
     plot.margin= unit(c(10,10,10,10), unit="pt"))
 
+# Aggregate attained traits 1 and 2
 allo_1.df <- res.df %>%
   dplyr::filter(type=="Admixed") %>%
   dplyr::select(qtl, relRank_T1, isoElite_T1) %>%
   dplyr::rename("relRank"=relRank_T1,
                 "isoElite"=isoElite_T1)
-
 allo_2.df <- res.df %>%
   dplyr::filter(type=="Admixed") %>%
   dplyr::select(qtl, relRank_T2, isoElite_T2) %>%
   dplyr::rename("relRank"=relRank_T2,
                 "isoElite"=isoElite_T2)
-
-
 allo.df <- rbind(
   allo_1.df[is.finite(allo_1.df$relRank), ],
   allo_2.df[is.finite(allo_2.df$relRank), ]
 )
 
+# Make a boxplot of the mean relative ranks, sorted by number of initial QTL
 allo.df %>%
   ggplot(aes(x=qtl, y=relRank, fill=qtl)) +
   geom_boxplot(
@@ -44,9 +51,12 @@ allo.df %>%
   labs(x="QTL per Attained Trait ", y="Mean Rank\nFirst Allogenic QTL") +
   theme
 
-fname <- file.path(output_dir, "relRank.jpg")
-ggplot2::ggsave(filename = fname,
+ggplot2::ggsave(filename = file.path(output_dir, "relRank.jpg"),
                 device = "jpg",
                 height=3,
                 width=3,
                 dpi=600)
+ggplot2::ggsave(filename = file.path(output_dir, "relRank.pdf"),
+                device = "pdf",
+                height=3,
+                width=3)

@@ -1,8 +1,8 @@
 # Title: AGGREGATE FIGURES
 # Author: Ted Monyak
-# Description: Run this from QtlMonteCarlo.R as a diagnostic check of results from
-# each set of parameters, or on its own to aggregate across several runs, by
-# setting aggregateData to TRUE
+# Description: This is called at the end of SimulationPipeline.R to aggregate
+# the reults into a multi-panel, but can also be overridden by manually specifying paths
+# to datasets
 
 library(dplyr)
 library(ggplot2)
@@ -10,37 +10,27 @@ library(ggpubr)
 library(grid)
 library(patchwork)
 
-# Set to TRUE for aggregating across multiple QtlMonteCarlo runs
-# Set to FALSE for aggregating across a single QtlMonteCarlo run
-aggregateData <- FALSE
-
-if (aggregateData) {
-  setwd("~/Documents/CSU/Lab-Notebooks/members/Ted/breeding_sims/output/QtlMonteCarlo/figure_data")
-  output_dir <- file.path(getwd(), "../../AggregateQtl/3_15")
+# Manually override this to load old data
+if (FALSE) {
+  setwd("~/Documents/CSU/FitnessLandscapes/output/AggregatedResults")
+  output_dir <- file.path(getwd(), "Sim_manuscript2")
   if (!dir.exists(output_dir)) dir.create(output_dir)
   
-  # 400 sims
-  qtl1 <- read.csv("qtl_1_Ne_1000_var_0.4_2026-03-14_00_04/sim_results.csv")
-  qtl2 <- read.csv("qtl_2_Ne_1000_var_0.4_2026-03-14_19_10/sim_results.csv")
-  qtl5 <- read.csv("qtl_5_Ne_1000_var_0.4_2026-03-15_05_51/sim_results.csv")
-  
-  res.df <- rbind(qtl1,
-                  qtl2,
-                  qtl5)
+  res.df <- readRDS("Sim_manuscript/figure_data/sim_results.rds")
+  effectSizes.df <- readRDS("Sim_manuscript/figure_data/effect_sizes.rds")
+  fixedAlleles.df <- readRDS("Sim_manuscript/figure_data/fixed_alleles.rds")
 }
-
 
 res.df$qtl <- as.factor(res.df$qtl)
 res.df$var <- as.factor(res.df$var)
 res.df$type <- factor(res.df$type)
 
-## DATA ANALYSIS FOR TABLES
+# Post-processing of data for plotting and tables
 res.df <- res.df %>%
   dplyr::mutate(
-    relRank_T1 = as.numeric(log(rilA_T1 / initA_T1) / log(a)),
+    relRank_T1 = as.numeric(log(rilA_T1 / initA_T1) / log(a)), # Solve for k from the founder architecture
     relRank_T2 = as.numeric(log(rilA_T2 / initA_T2) / log(a)),
-    emergentLod_Suit = nLod_Int-nLod_Suit,
-    emergentLod_W = nLod_Int-nLod_W,
+    emergentLod_W = nLod_Int-nLod_W, # The difference between interaction LOD peaks and single LOD peaks
     hamm_Att=hamm_T1+hamm_T2,
   ) %>%
   dplyr::rowwise() %>%
@@ -61,6 +51,7 @@ res.df <- res.df %>%
     initVar = mean(c(initVar_T1,initVar_T2), na.rm=TRUE),
   )
 
+# Common theme elements for each plot
 scale_fill <- scale_fill_manual(name = "RIL Family",
                   values = c("Admixed" = "gold2",
                              "Unadmixed" = "#FFFDD9"),
@@ -77,14 +68,17 @@ scale_fill_qtl <- scale_fill_manual(name = "QTL per\nAttained Trait",
                                              "50" = "#D7B8F3"),
                                   guide="none")
 
+# The maximum allelic effect size, to have a consistent y-axis
 a <- 0.6
 
-setwd("~/Documents/CSU/Lab-Notebooks/members/Ted/breeding_sims/Plotting/Aggregation")
-
+# Generate all plots
+setwd("~/Documents/CSU/FitnessLandscapes/figures/aggregation")
 source("Isoeliteness.R")
 source("ExcessVariance.R")
 source("LODPeaks.R")
 source("AllogenicRank.R")
 source("GWP.R")
 source("DataTables.R")
+source("AlleleFixationOrder.R")
+source("TraitArchitectureRIL.R")
 

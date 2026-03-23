@@ -1,3 +1,9 @@
+# Title: DATA TABLES
+# Author: Ted Monyak
+# Description: This script, which shold be called only from AggregateFigures.R,
+# constructs a correlation matrix and summary tables of the metrics produced in
+# QtlMonteCarlo.R
+
 library(corrplot)
 library(Hmisc)
 
@@ -10,21 +16,26 @@ theme <- theme_minimal(base_size = 12,
     plot.margin= unit(c(1,1,1,1), unit="pt"),
     aspect.ratio = 1)
 
+# Since all attained trait metrics have the suffix _T1 or _T2, we want to consider
+# these together. Therefore, double the amount of rows in the dataframe by
+# creating a column per "paired" (i.e. attained trait) column to store
+# each of T1 and T2 together.
+# Determine the non_paired_cols (not ending in _T1 or _T2 to ignore)
 non_paired_cols <- names(res.df)[!grepl("_T[12]$", names(res.df))]
 
+# Create a dataframe of all the metrics we want to compute correlations between
 cor.df <- res.df %>%
   dplyr::filter(type=="Admixed") %>%
   dplyr::select(isoElite_T1, isoElite_T2, isoElite_Att, hamm_T1, hamm_T2, hamm_Att, fst,
                 ev_T1, ev_T2, ev_Suit, ev_W, ev_T3,
                 nLod_T1, nLod_T2, nLod_Suit, nLod_W, nLod_Int, nLod_T3) %>%
-                #emergentLod_W, gwpR_T1, gwpR_T2, gwpR_W) %>%
   dplyr::mutate(.row_id = row_number()) %>%
-  pivot_longer(
+  pivot_longer( # This is where we are creating new rows to store _T2
     cols = matches("_T[12]$"),
     names_to = c(".value", "pair_num"),
     names_pattern = "^(.+)_T([12])$"
   ) %>%
-  mutate(across(
+  dplyr::mutate(across(
     .cols = any_of(non_paired_cols),
     .fns = ~ if_else(pair_num == "2", NA, .x)
   )) %>%
@@ -43,58 +54,44 @@ cor.df <- res.df %>%
          "LOD Peaks: Desired Trait"=nLod_T3,
          "LOD Peaks: Breeding Fitness"=nLod_W,
          "LOD Peaks: Fitness Interactions"=nLod_Int)
-         #"Interaction LOD Peaks: Breeding Fitness"=emergentLod_W)
-         #"GWP Accuracy: Attained Traits"=gwpR,
-         #"GWP Accuracy: Breeding Fitness"=gwpR_W)
 
-cor.df %>% 
-  filter(!complete.cases(.)) %>%
-  summarise(across(everything(), ~sum(is.na(.))))
-# --- Compute correlations ---
+cor.df %>%
+  dplyr::filter(!complete.cases(.)) %>%
+  dplyr::summarize(across(everything(), ~sum(is.na(.))))
+  
+# Compute correlations, and extract 'r' and p-values
 cor_res <- rcorr(as.matrix(cor.df))
 r_mat   <- cor_res$r
 p_mat   <- cor_res$P
 
-# --- Plot ---
+# Plot the correlation
+plot_cor <- function () {
+  corrplot(r_mat,
+           method = "square",
+           type = "lower",
+           order = "AOE",
+           hclust.method = "complete",
+           p.mat = p_mat,
+           sig.level = 0.05,
+           insig = "blank",
+           tl.cex = 0.6,
+           tl.col = "black",
+           tl.srt = 45,
+           col = COL2("RdBu"),
+           diag = FALSE, 
+           addCoef.col = "black",
+           number.cex = 0.4,
+           cl.pos="n")
+}
 jpeg(file.path(output_dir, "cor.jpg"), width = 7, height = 5, units = "in", res = 600)
-corrplot(r_mat,
-         method       = "square",
-         type         = "lower",
-         order        = "AOE",
-         hclust.method = "complete",
-         p.mat        = p_mat,
-         sig.level    = 0.05,
-         insig        = "blank",
-         tl.cex       = 0.6,
-         tl.col       = "black",
-         tl.srt       = 45,
-         col          = COL2("RdBu"),
-         diag         = FALSE, 
-         addCoef.col  = "black",
-         number.cex   = 0.4,
-         cl.pos="n"
-)
+plot_cor()
 dev.off()
 pdf(file.path(output_dir, "cor.pdf"), width = 7, height = 5)
-corrplot(r_mat,
-         method       = "square",
-         type         = "lower",
-         order        = "AOE",
-         hclust.method = "complete",
-         p.mat        = p_mat,
-         sig.level    = 0.05,
-         insig        = "blank",
-         tl.cex       = 0.6,
-         tl.col       = "black",
-         tl.srt       = 45,
-         col          = COL2("RdBu"),
-         diag         = FALSE, 
-         addCoef.col  = "black",
-         number.cex   = 0.4,
-         cl.pos="n"
-)
+plot_cor()
 dev.off()
 
+# Determine the mean trait architecture values for the admixed RIL family
+# Write a summary table
 res.df %>%
   dplyr::filter(type=="Admixed") %>%
   dplyr::group_by(qtl) %>%
@@ -105,6 +102,8 @@ res.df %>%
                    meanRank=mean(relRankMean, na.rm=TRUE)) %>%
   write.csv(file.path(output_dir, "aggregatedTraitArchData.csv"),quote=FALSE)
 
+# Determine the mean linkage mapping and genetic divergence metrics
+# Write a summary table
 summary_table <- res.df %>%
   dplyr::group_by(qtl,type) %>%
   dplyr::mutate(gwpR_W=mean(c(gwpR_W, gwpR_W_Pop2), na.rm=TRUE)) %>%
@@ -119,10 +118,10 @@ summary_table <- res.df %>%
                    meanLodPeaksT3=mean(nLod_T3, na.rm=TRUE),
                    meanLodPeaksW=mean(nLod_W, na.rm=TRUE),
                    meanLodPeaksInt=mean(nLod_Int, na.rm=TRUE))
-                   #meanGWPR=mean(gwpR_W, na.rm=TRUE))
 summary_table %>%
   write.csv(file.path(output_dir, "aggregatedQtlData.csv"),quote=FALSE)
 
+# Calculate the percentage increase from unadmixed to admixed for each 'mean' metric
 pct_diff_table <- summary_table %>%
   tidyr::pivot_longer(cols = starts_with("mean"), 
                       names_to = "metric", 

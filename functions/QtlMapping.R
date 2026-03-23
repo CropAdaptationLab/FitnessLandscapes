@@ -7,11 +7,11 @@
 # RIL: a recombinant inbred line family
 # parent1: one of the parents crossed to create the RIL
 # parent2: the other parent crossed to create the RIL
-# save_dir: a directory in which to save the plots
+# ril_dir: a directory in which to save the plots
 # is homozygous for parent A (AA), the third element is heterozygous (AB), and the
 # fourth element is homozygous for parent B (BB)
 # Returns: a list of 3, with the number of significant LOD peaks per trait (Trait1, Trait2, Fitness)
-getLodPeaks <- function(RIL, parent1, parent2, save_dir) {
+getLodPeaks <- function(RIL, parent1, parent2, ril_dir) {
   # Create a cross object used in rqtl
   cross <- getCross(RIL, parent1, parent2, "riself", snpChip = 1)
   cross <- drop.nullmarkers(cross)
@@ -41,7 +41,7 @@ getLodPeaks <- function(RIL, parent1, parent2, save_dir) {
   # Use a LOD support interval of 5
   sigQtl <- qtl2::find_peaks(scan1_output=s1.output, map=map, threshold=thresholds, peakdrop = 5)
   if (saveQtlPlots) {
-    plotLinkageMap(RIL, s1.output=qtl2toqtl1(s1.output, map), s1.perm=s1.perm, save_dir)
+    plotLinkageMap(RIL, s1.output=qtl2toqtl1(s1.output, map), s1.perm=s1.perm, ril_dir)
   }
   
   # Create a list storing the number of peaks per trait
@@ -66,9 +66,9 @@ getLodPeaks <- function(RIL, parent1, parent2, save_dir) {
 # parent2: the other parent crossed to create the RIL
 # trait: an integer (1: Attained Trait 1, 2: Attained Trait 2: 3: Desired Trait,
 # 4: Suitability, 5: Breeding Fitness)
-# save_dir: a directory in which to save the plots
+# ril_dir: a directory in which to save the plots
 # Returns: the number of significant LOD peaks
-epistaticLodPeaks <- function(RIL, parent1, parent2, trait, save_dir) {
+epistaticLodPeaks <- function(RIL, parent1, parent2, trait, ril_dir) {
   cross <- getCross(RIL, parent1, parent2, "riself", snpChip=1)
   cross <- drop.nullmarkers(cross)
   # Check to see if there are no markers once null markers have been dropped
@@ -129,7 +129,7 @@ epistaticLodPeaks <- function(RIL, parent1, parent2, trait, save_dir) {
   }
 
   if (saveQtlPlots) {
-    plot2DLinkageMap(RIL=RIL, s2.output=s2.output, save_dir=save_dir)
+    plot2DLinkageMap(RIL=RIL, s2.output=s2.output, ril_dir=ril_dir)
   }
   return(peaks)
 }

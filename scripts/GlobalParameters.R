@@ -41,7 +41,7 @@ n.selR <- 1 # the r value to use in the geometric series for a decaying selectio
 
 # SIMULATIONS
 n.popResets <- 1 # number of times to reset the founder population in a simulation
-n.sims <- 1 # number of monte carlo simulations to run per set of parameters
+n.reps <- 1 # number of replications to run per pop reset
 
 # MAPPING POPULATIONS
 n.RILs <- 250 # number of RILs to create
@@ -100,10 +100,10 @@ getParams <- function() {
     r=n.selR,
     gens=n.gens,
     burnInGens=n.burnInGens,
-    sims=n.sims,
+    reps=n.reps,
     popResets=n.popResets,
-    RILFams=n.RILFams,
-    indPerRILFam=n.indPerRILFam,
+    RILs=n.RILs,
+    indPerRIL=n.indPerRIL,
     nPops=n.nPops,
     mappingMethod=n.mappingMethod,
     errorProb=n.errorProb,

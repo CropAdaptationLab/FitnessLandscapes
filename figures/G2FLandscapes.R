@@ -20,8 +20,8 @@ library(terra)
 # pop2: The landrace subpopulation from which parent2 was derived
 # qtl1: One of the QTL from a significant pairwise interaction
 # qtl2: The other QTL from a signficant pairwise interaction
-# save_dir: The directory in which to save the resulting plot
-plot1DLandscape <- function(RIL, pop1, pop2, parent1, parent2, qtl1, qtl2, save_dir) {
+# ril_dir: The directory in which to save the resulting plot
+plot1DLandscape <- function(RIL, pop1, pop2, parent1, parent2, qtl1, qtl2, ril_dir) {
   # Make a larger RIL to reduce noise
   RIL <- self(RIL, nProgeny=5)
   
@@ -107,13 +107,13 @@ plot1DLandscape <- function(RIL, pop1, pop2, parent1, parent2, qtl1, qtl2, save_
       panel.background = element_rect(fill = "white"),
       plot.background = element_rect(fill = "white")
     )
-  ggplot2::ggsave(filename = file.path(save_dir, "PCA_Bridge.jpg"),
+  ggplot2::ggsave(filename = file.path(ril_dir, "PCA_Bridge.jpg"),
                   device = "jpg",
                   width=5.5,
                   height=3.5,
                   dpi=600)
   
-  ggplot2::ggsave(filename = file.path(save_dir, "PCA_Bridge.pdf"),
+  ggplot2::ggsave(filename = file.path(ril_dir, "PCA_Bridge.pdf"),
                   device = "pdf",
                   width=5.5,
                   height=3.5)

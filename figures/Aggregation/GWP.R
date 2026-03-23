@@ -1,5 +1,9 @@
+# Title: GENOMEWIDE PREDICTION
+# Author: Ted Monyak
+# Description: This script should be run from AggregateFigures.R, and produces
+# summary plots for the GWP metrics generated in SimulationPipeline.R
 
-
+# Ungroup the attained trait results and merge them
 gwp_1.df <- res.df %>%
   dplyr::select(isoElite_T1, gwpR_T1, gwpR_T1_Pop2, type, qtl) %>%
   dplyr::rename(
@@ -15,13 +19,15 @@ gwp_2.df <- res.df %>%
     "gwpR" = gwpR_T2,
     "gwpR_Pop2" = gwpR_T2_Pop2
   )
-
 gwp_att.df <- dplyr::bind_rows(gwp_1.df, gwp_2.df)
 
+# Select the admixed data only
 gwp_att_admixed <- gwp_att.df %>%
   dplyr::filter(type=="Admixed") %>%
   dplyr::select(-gwpR_Pop2)
 
+# Ungroup the data from both unadmixed families and merge them, designating
+# which subpopulation they were derived from
 gwp_att_pop1 <- gwp_att.df %>%
   dplyr::filter(type=="Unadmixed") %>%
   dplyr::select(isoElite, gwpR, qtl) %>%
@@ -35,20 +41,24 @@ gwp_att_pop2 <- gwp_att.df %>%
   ) %>%
   dplyr::mutate(type="Subpopulation 2")
 
+# Merge all attained trait data, categorized by RIL family
 gwp_att.df <- dplyr::bind_rows(gwp_att_admixed, gwp_att_pop1, gwp_att_pop2) %>%
   drop_na()
 gwp_att.df$type <- as.factor(gwp_att.df$type)
 gwp_att.df$qtl <- as.factor(gwp_att.df$qtl)
 
-
+# Select the GWP results for breeding fitness
 gwp_w.df <- res.df %>%
   dplyr::select(isoElite_Att, gwpR_W, gwpR_W_Pop2, type, qtl) %>%
   dplyr::rename("isoElite" = isoElite_Att)
 
+# Pull out the admixed RIL family results
 gwp_w_admixed <- gwp_w.df %>%
   dplyr::filter(type=="Admixed") %>%
   dplyr::select(-gwpR_W_Pop2)
 
+# Ungroup the data from both unadmixed families and designate them by the
+# subpopulation from which they were derived
 gwp_w_pop1 <- gwp_w.df %>%
   dplyr::filter(type=="Unadmixed") %>%
   dplyr::select(isoElite, gwpR_W, qtl) %>%
@@ -62,12 +72,15 @@ gwp_w_pop2 <- gwp_w.df %>%
   ) %>%
   dplyr::mutate(type="Subpopulation 2")
 
+# Merge data from all RIL families
 gwp_w.df <- dplyr::bind_rows(gwp_w_admixed, gwp_w_pop1, gwp_w_pop2) %>%
   drop_na()
 
 gwp_w.df$type <- factor(gwp_w.df$type,
                         levels=c("Subpopulation 1", "Subpopulation 2", "Admixed"))
 gwp_w.df$qtl <- as.factor(gwp_w.df$qtl)
+
+# Test population should only have 2 categories
 gwp_w.df <- gwp_w.df %>%
   dplyr::mutate(test_pop = ifelse(type=="Admixed", "Admixed", "Unadmixed"))
 
@@ -88,6 +101,8 @@ scale_fill_gwp <- scale_fill_manual(name = "Training Population",
                                            "Subpopulation 1" = "#CC0000",
                                            "Subpopulation 2" = "#3C78D8"),
                                 breaks = c("Subpopulation 1", "Subpopulation 2", "Admixed"))
+
+# Ignore the attained trait data for now
 #gwp_att.df %>%
 #  ggplot(aes(x=qtl, y=gwpR, fill=type)) +
 #  geom_boxplot(
@@ -112,6 +127,7 @@ scale_fill_gwp <- scale_fill_manual(name = "Training Population",
 #                height=3,
 #                dpi=600)
 
+# Plot the GWP results by RIL family
 g <- gwp_w.df %>%
   ggplot(aes(x=qtl, y=gwpR_W, fill=type)) +
   geom_boxplot(
@@ -128,7 +144,8 @@ g <- gwp_w.df %>%
   scale_y_continuous(expand=c(0,0.1)) +
   labs(x="QTL per Attained Trait", y="GWP accuracy for breeding fitness (r)", title="Breeding Fitness") +
   theme
-g
+
+# Plot isoeliteness against GWP accuracy
 gIE <- gwp_w.df %>%
   dplyr::filter(type=="Admixed") %>%
   ggplot(aes(x=isoElite, y=gwpR_W)) +
@@ -147,9 +164,14 @@ gIE <- gwp_w.df %>%
 gIE
 (g|gIE) + plot_annotation(tag_levels=list(c('a', 'b')))
   
-ggplot2::ggsave(filename = paste0("gwp_ie.jpg"),
+ggplot2::ggsave(filename = "gwp_ie.jpg",
                 path=output_dir,
                 device = "jpg",
                 width=6,
                 height=4,
                 dpi=600)
+ggplot2::ggsave(filename = "gwp_ie.pdf",
+                path=output_dir,
+                device = "pdf",
+                width=6,
+                height=4)

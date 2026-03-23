@@ -32,9 +32,9 @@ qtl2toqtl1 <- function(s1.output, map) {
 # RIL: a recombinant inbred line family
 # s1.output: the output of a scanone function
 # s1.perm: the output of permutation test of scanone
-# save_dir: where to write the resulting plot
+# ril_dir: where to write the resulting plot
 # Returns: nothing
-plotLinkageMap <- function(RIL, s1.output, s1.perm, save_dir) {
+plotLinkageMap <- function(RIL, s1.output, s1.perm, ril_dir) {
   
   # Get a dataframe of effect sizes per trait (including fitness)
   eff_sizes <- getQtlEffectSizes(RIL)
@@ -201,13 +201,13 @@ plotLinkageMap <- function(RIL, s1.output, s1.perm, save_dir) {
           plot.margin = margin(t = 0, r = 5, b = 0, l = 5) ) & 
     plot_annotation(tag_levels='a')
   p
-  ggplot2::ggsave(filename = file.path(save_dir, "linkagemap.jpg"),
+  ggplot2::ggsave(filename = file.path(ril_dir, "linkagemap.jpg"),
                   device = "jpg",
                   width=6,
                   height=8,
                   dpi=600)
   
-  ggplot2::ggsave(filename = file.path(save_dir, "linkagemap.pdf"),
+  ggplot2::ggsave(filename = file.path(ril_dir, "linkagemap.pdf"),
                   device = "pdf",
                   width=6,
                   height=8)
@@ -217,9 +217,9 @@ plotLinkageMap <- function(RIL, s1.output, s1.perm, save_dir) {
 # Generates a linkage map from a scantwo output, with effect sizes of actual QTL overlaid
 # RIL: the population from which to get effect sizes
 # s2.output: the result of a scantwo() call (r/qtl)
-# save_dir: the directory to write the result
+# ril_dir: the directory to write the result
 # Returns: nothing
-plot2DLinkageMap <- function(RIL, s2.output, save_dir) {
+plot2DLinkageMap <- function(RIL, s2.output, ril_dir) {
   # Extract the interaction LOD scores matrix
   lod_int <- s2.output$lod
   
@@ -410,13 +410,13 @@ plot2DLinkageMap <- function(RIL, s2.output, save_dir) {
     ) +
     coord_fixed()  # Equal scaling on both axes
 
-  ggplot2::ggsave(filename = file.path(save_dir, "2D_linkagemap.jpg"),
+  ggplot2::ggsave(filename = file.path(ril_dir, "2D_linkagemap.jpg"),
                   device = "jpg",
                   width=9,
                   height=8.5,
                   dpi=600)
   
-  ggplot2::ggsave(filename = file.path(save_dir, "2D_linkagemap.pdf"),
+  ggplot2::ggsave(filename = file.path(ril_dir, "2D_linkagemap.pdf"),
                   device = "pdf",
                   width=9,
                   height=8.5)

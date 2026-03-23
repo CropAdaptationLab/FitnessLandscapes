@@ -120,20 +120,20 @@ if (saveTraitPlots) {
     plot_layout(guides='collect', axes='collect') +
     plot_annotation(tag_levels='a')
   ggplot2::ggsave(filename = "trans_seg.jpg",
-                  path=save_dir,
+                  path=ril_dir,
                   device = "jpg",
                   width=6.5,
                   height=2,
                   dpi=600)
   ggplot2::ggsave(filename = "trans_seg.pdf",
-                  path=save_dir,
+                  path=ril_dir,
                   device = "pdf",
                   width=6.5,
                   height=2)
   
   plotTraitArchitecture(pop=RIL, trait=1, popName="RIL Trait 1")
   ggplot2::ggsave(filename = "RIL_traitarchitecture_1.jpg",
-                  path=save_dir,
+                  path=ril_dir,
                   device = "jpg",
                   width=10,
                   height=7)
@@ -141,7 +141,7 @@ if (saveTraitPlots) {
   
   plotTraitArchitecture(pop=RIL, trait=2, popName="RIL Trait 2")
   ggplot2::ggsave(filename = "RIL_traitarchitecture_2.jpg",
-                  path=save_dir,
+                  path=ril_dir,
                   device = "jpg",
                   width=10,
                   height=7)

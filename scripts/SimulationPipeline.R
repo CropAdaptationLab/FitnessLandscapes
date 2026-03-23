@@ -1,11 +1,11 @@
-# Title: QTL Monte Carlo
+# Title: SIMULATION PIPELINE
 # Author: Ted Monyak
 # Description:
-# This will run n.popResets * n.sims simulations, and for each simulation,
+# This will run n.popResets * n.reps simulations, and for each replication,
 # create two subpopulations, then two biparental RIL populations:
 # 1 "admixed" (parents come from different subpopulations),
 # 1 "unadmixed" (parents come from the same subpopulation)
-# For each RIL, calculate and store the number of significant LOD peaks in the linkage map
+
 library(AlphaSimR)
 library(devtools)
 library(dplyr)
@@ -34,15 +34,13 @@ runLocal = TRUE
 
 if (runLocal) {
   setwd("~/Documents/CSU/FitnessLandscapes")
-  base_dir <- file.path(getwd(), "output/QtlMonteCarlo")
   n.cores <- 8
 } else {
   setwd("/pl/active/Morris_CSU/Ted_Monyak/FitnessLandscapes")
-  base_dir <- ("/scratch/alpine/c837220672@colostate.edu/output")
   n.cores <- 4
 }
-
-if (!dir.exists(output_dir)) dir.create(output_dir)
+base_dir <- file.path(getwd(), "output/AggregatedResults")
+if (!dir.exists(base_dir)) dir.create(base_dir)
 
 source("functions/Fitness.R")
 source("functions/GenoConversions.R")
@@ -59,8 +57,8 @@ source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
 n.popResets <- 1
-# Number of adaptive walk simulations per pair of subpopulations
-n.sims <- 5
+# Number of adaptive walk replications per pair of subpopulations
+n.reps <- 1
 
 SAMPLING <- 'geometric'
 n.minMAF <- 0.3
@@ -69,7 +67,7 @@ n.minMAF <- 0.3
 qtlMapping <- TRUE
 twoQtlMapping <- TRUE
 genomicPrediction <- TRUE
-compareUnadmixed <- FALSE
+compareUnadmixed <- TRUE
 
 # SAVE ALLELE FREQUENCIES
 saveFixationOrder <- TRUE
@@ -81,56 +79,55 @@ saveTraitPlots <- TRUE
 saveAllelePlots <- TRUE
 saveFitnessPlots <- TRUE
 
-# For aggregate/AggregateFigures.R
-aggregateData <- FALSE
-
 # Set to true for doing G > F landscape creation (not currently working)
 sampleInds <- FALSE
 
 # All the parameter combinations to iterate through
 qtl_vec <- c(1,2,5)
 
+output_dir <- file.path(base_dir, paste0("Sim_", format(Sys.time(), "%F_%H_%M")))
+if (!dir.exists(output_dir)) dir.create(output_dir)
+
+# Result dataframe
+res.df <- data.frame(var=c(), a=c(), popSize=c(), qtl=c(), pop=c(), rep=c(), type=c(), fst=c(),
+                     nLod_T1=c(), nLod_T2=c(), nLod_T3=c(), nLod_Suit=c(), nLod_W=c(),
+                     nLod_Int=c(),
+                     ev_T1=c(), ev_T2=c(), ev_T3=c(), ev_Suit=c(), ev_W=c(),
+                     isoElite_T1=c(), isoElite_T2=c(), isoElite_T3=c(),
+                     hamm_T1=c(), hamm_T2=c(),
+                     gwpR_T1=c(), gwpR_T2=c(), gwpR_W=c(),
+                     gwpR_T1_Pop2=c(), gwpR_T2_Pop2=c(), gwpR_W_Pop2=c(),
+                     initA_T1=c(), initA_T2=c(), initVar_T1=c(), initVar_T2=c(),
+                     rilA_T1=c(), rilA_T2=c(), rilVar_T1=c(), rilVar_T2=c())
+
+# Effect size dataframe
+effectSizes.df <- data.frame(
+  rank=c(),
+  id=c(),
+  eff_size=c(),
+  qtl=c())
+
+# Fixation order dataframe
+fixedAlleles.df <- data.frame(
+  id=c(),
+  eff_size=c(),
+  rank=c(),
+  subpop=c(),
+  qtl=c())
+
 for (qx in 1:length(qtl_vec)) {
   n.qtlPerChr <- qtl_vec[qx]
   print(paste0("QTL: ", n.qtlPerChr))
   
-  # Result dataframe
-  res.df <- data.frame(var=c(), a=c(), popSize=c(), qtl=c(), pop=c(), sim=c(), type=c(), fst=c(),
-                       nLod_T1=c(), nLod_T2=c(), nLod_T3=c(), nLod_Suit=c(), nLod_W=c(),
-                       nLod_Int=c(),
-                       ev_T1=c(), ev_T2=c(), ev_T3=c(), ev_Suit=c(), ev_W=c(),
-                       isoElite_T1=c(), isoElite_T2=c(), isoElite_T3=c(),
-                       hamm_T1=c(), hamm_T2=c(),
-                       gwpR_T1=c(), gwpR_T2=c(), gwpR_W=c(),
-                       gwpR_T1_Pop2=c(), gwpR_T2_Pop2=c(), gwpR_W_Pop2=c(),
-                       initA_T1=c(), initA_T2=c(), initVar_T1=c(), initVar_T2=c(),
-                       rilA_T1=c(), rilA_T2=c(), rilVar_T1=c(), rilVar_T2=c())
-
-  # Effect size dataframe
-  effectSizes.df <- data.frame(
-    rank=c(),
-    id=c(),
-    eff_size=c(),
-    qtl=c())
-  
-  # Fixation order dataframe
-  fixedAlleles.df <- data.frame(
-    id=c(),
-    eff_size=c(),
-    order_fixed=c(),
-    subpop=c(),
-    qtl=c())
-  
-  output_dir <- file.path(base_dir, paste0(paste0("qtl_", n.qtlPerChr, "_"),
-                                         format(Sys.time(), "%F_%H_%M")))
-  if (!dir.exists(output_dir)) dir.create(output_dir)
+  # The directory for this number of QTL
+  sim_dir <- file.path(output_dir, paste0("QTL_", n.qtlPerChr))
+  if (!dir.exists(sim_dir)) dir.create(sim_dir)
   
   # Reset the founder population n.popResets times
-  for (r in 1:n.popResets) {
-    # Update selProp to be a random value if using random parameters
-    pop_dir <- file.path(output_dir, paste0("FounderPopulation", r))
+  for (f in 1:n.popResets) {
+    pop_dir <- file.path(sim_dir, paste0("FounderPopulation", f))
     if (!dir.exists(pop_dir)) dir.create(pop_dir)
-    print(paste0("Pop Reset ", r))
+    print(paste0("Founder Reset ", f))
     source("scripts/CreateFounderPop.R")
     # Get the largest effect size and variance of the two attained traits
     t1_arch <- singleTraitArchitecture(founderPop,1)$eff_size
@@ -141,10 +138,10 @@ for (qx in 1:length(qtl_vec)) {
     initVar_T2 <- var(t2_arch)
     
     # For each founder population, create independent populations n.sims times
-    for (s in 1:n.sims) {
-      print(paste0("Sim ", s))
-      sim_dir <- file.path(pop_dir, paste0("Sim", s))
-      if (!dir.exists(sim_dir)) dir.create(sim_dir)
+    for (r in 1:n.reps) {
+      print(paste0("Rep ", r))
+      rep_dir <- file.path(pop_dir, paste0("Rep", r))
+      if (!dir.exists(rep_dir)) dir.create(rep_dir)
       
       suitFunc <- suitabilityGaussian
       selectionPheno <- breedingFitness
@@ -159,8 +156,8 @@ for (qx in 1:length(qtl_vec)) {
       selectionPheno <- suitability
       SP$setVarE(h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
       
-      save_dir <- file.path(sim_dir, "Admixed")
-      if (!dir.exists(save_dir)) dir.create(save_dir)
+      ril_dir <- file.path(rep_dir, "Admixed")
+      if (!dir.exists(ril_dir)) dir.create(ril_dir)
 
       # Develop purelines from each population
       purelines1 <- makePurelinesBulk(pops[[1]])
@@ -169,7 +166,7 @@ for (qx in 1:length(qtl_vec)) {
       pop2 <- purelines2[[1]]
       
       # Create a biparental RIL population by sampling one individual from each subpopulation
-      res <- createRIL(pop1, pop2, save_dir)
+      res <- createRIL(pop1, pop2)
       # Select the parents from the result, and the RIL population
       RIL <- res[-(1:2)]
       parent1 <- res[1]
@@ -234,21 +231,21 @@ for (qx in 1:length(qtl_vec)) {
 
       # Determine the number of significant LOD peaks from single linkage mapping
       if (qtlMapping) {
-        nLOD <- getLodPeaks(RIL, parent1, parent2, save_dir)
+        nLOD <- getLodPeaks(RIL, parent1, parent2, ril_dir)
       } else {
         nLOD <- c(0,0,0,0,0)
       }
       # Get number of significant interaction effects
       if (twoQtlMapping) {
         # Get the peak locations
-        peaks <- epistaticLodPeaks(RIL, parent1, parent2, trait=5, save_dir)
+        peaks <- epistaticLodPeaks(RIL, parent1, parent2, trait=5, ril_dir)
         if (nrow(peaks) > 0) {
           maxLodIdx <- which.max(peaks$lod.int)
           qtl1 <- peaks$qtl1[maxLodIdx]
           qtl2 <- peaks$qtl2[maxLodIdx]
           if ((qtl1 != qtl2) & (saveQtlPlots)) {
-            plotReactionNorm(RIL, qtl1, qtl2, parent1, parent2, suitFunc, save_dir)
-            plot1DLandscape(RIL, pops[[1]], pops[[2]], parent1, parent2, qtl1, qtl2, save_dir)
+            plotReactionNorm(RIL, qtl1, qtl2, parent1, parent2, suitFunc, ril_dir)
+            plot1DLandscape(RIL, pops[[1]], pops[[2]], parent1, parent2, qtl1, qtl2, ril_dir)
           }
         }
         nIntPeaks <- nrow(peaks)
@@ -268,7 +265,7 @@ for (qx in 1:length(qtl_vec)) {
       }
 
       # Update the results table
-      res.df <- rbind(res.df, data.frame(var=n.var, a=n.a, popSize=n.subPopSize, qtl=n.L, pop=r, sim=s, type="Admixed", fst=fst,
+      res.df <- rbind(res.df, data.frame(var=n.var, a=n.a, popSize=n.subPopSize, qtl=n.L, pop=f, rep=r, type="Admixed", fst=fst,
                                          nLod_T1=nLOD[1], nLod_T2=nLOD[2], nLod_T3=nLOD[3], nLod_Suit=nLOD[4],
                                          nLod_W=nLOD[5], nLod_Int=nIntPeaks,
                                          ev_T1=ev_T1, ev_T2=ev_T2, ev_T3=ev_T3, ev_Suit=ev_Suit, ev_W=ev_W,
@@ -287,9 +284,12 @@ for (qx in 1:length(qtl_vec)) {
       
       # Create a biparental RIL population with purelines derived from the same subpopulation
       if (compareUnadmixed) {
+        ril_dir <- file.path(rep_dir, "Unadmixed")
+        if (!dir.exists(ril_dir)) dir.create(ril_dir)
+        
         pop1 <- purelines1[[1]]
         pop2 <- purelines1[[2]]
-        res <- createRIL(pop1, pop2, save_dir)
+        res <- createRIL(pop1, pop2)
         RIL <- res[-(1:2)]
         parent1 <- res[1]
         parent2 <- res[2]
@@ -299,13 +299,13 @@ for (qx in 1:length(qtl_vec)) {
         hamm_T1 <- hammingDistance(parent1, parent2, 1)
         hamm_T2 <- hammingDistance(parent1, parent2, 2)
         if (qtlMapping) {
-          nLOD <- getLodPeaks(RIL, parent1, parent2, save_dir)
+          nLOD <- getLodPeaks(RIL, parent1, parent2, ril_dir)
         } else {
           nLOD <- c(0,0,0,0,0)
         }
         
         if (twoQtlMapping) {
-          peaks <- epistaticLodPeaks(RIL, parent1, parent2, trait=4, save_dir)
+          peaks <- epistaticLodPeaks(RIL, parent1, parent2, trait=4, ril_dir)
           nIntPeaks <- nrow(peaks)
         } else {
           nIntPeaks <- 0
@@ -327,10 +327,10 @@ for (qx in 1:length(qtl_vec)) {
           gwpR_T2 <- evaluateGWP(trainPop=pops[[1]], testPop=RIL, trait=2)
           gwpR_W <- evaluateGWP_W(trainPop=pops[[1]], testPop=RIL)
           
-          # Do an intra RIL for population 2
+          # Do an unadmixed RIL for population 2
           pop1 <- purelines2[[1]]
           pop2 <- purelines2[[2]]
-          res <- createRIL(pop1, pop2, save_dir)
+          res <- createRIL(pop1, pop2)
           RIL <- res[-(1:2)]
           gwpR_T1_Pop2 <- evaluateGWP(trainPop=pops[[2]], testPop=RIL, trait=1)
           gwpR_T2_Pop2 <- evaluateGWP(trainPop=pops[[2]], testPop=RIL, trait=2)
@@ -344,7 +344,7 @@ for (qx in 1:length(qtl_vec)) {
           gwpR_W_Pop2 <- 0
         }
         # Update the result dataframe
-        res.df <- rbind(res.df, data.frame(var=n.var, a=n.a, popSize=n.subPopSize, qtl=n.L, pop=r, sim=s, type="Unadmixed", fst=NA,
+        res.df <- rbind(res.df, data.frame(var=n.var, a=n.a, popSize=n.subPopSize, qtl=n.L, pop=f, rep=r, type="Unadmixed", fst=NA,
                                            nLod_T1=nLOD[1], nLod_T2=nLOD[2], nLod_T3=nLOD[3], nLod_Suit=nLOD[4],
                                            nLod_W=nLOD[5], nLod_Int=nIntPeaks,
                                            ev_T1=ev_T1, ev_T2=ev_T2, ev_T3=ev_T3, ev_Suit=ev_Suit, ev_W=ev_W,
@@ -355,12 +355,15 @@ for (qx in 1:length(qtl_vec)) {
                                            initA_T1=NA, initA_T2=NA, initVar_T1=NA, initVar_T2=NA,
                                            rilA_T1=NA, rilA_T2=NA, rilVar_T1=NA, rilVar_T2=NA))
       } # end compareIntra
-    } # end n.sims
+    } # end n.reps
   } # end n.popResets
-  source("figures/aggregation/AggregateFigures.R")
-  source("figures/SeriesPlots.R")
-  write.table(effectSizes.df, file.path(output_dir, "effect_size.csv"), col.names=TRUE, quote=FALSE, sep=",")
-  write.table(fixedAlleles.df, file.path(output_dir, "fixed_alleles.csv"), col.names=TRUE, quote=FALSE, sep=",")
-  write.table(res.df, file.path(output_dir, "sim_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
-  write.table(getParams(), file.path(output_dir, "params.txt"), col.names=FALSE, quote=FALSE, sep=":\t")
+  
+  write.table((effectSizes.df %>% dplyr::filter(qtl==n.L)),
+              file.path(sim_dir, "effect_size.csv"), col.names=TRUE, quote=FALSE, sep=",")
+  write.table((fixedAlleles.df %>% dplyr::filter(qtl==n.L)),
+              file.path(sim_dir, "fixed_alleles.csv"), col.names=TRUE, quote=FALSE, sep=",")
+  write.table((res.df %>% dplyr::filter(qtl==n.L)),
+              file.path(sim_dir, "sim_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
+  write.table(getParams(), file.path(sim_dir, "params.txt"), col.names=FALSE, quote=FALSE, sep=":\t")
 } # end qtl_vec
+source("figures/aggregation/AggregateFigures.R")

@@ -25,8 +25,9 @@ overlayWalkOnLandscape <- function(pop1_df,
   fitness_y = seq(traitMin,traitMax, by=(traitMax-traitMin)/40)
   fitness_z = outer(fitness_x,fitness_y,suitFunc)
   
+  f <- list(family="Helvetica", size=20)
+  fig <- plot_ly()
   if (type == "CONTOUR") {
-    f <- list(family="Helvetica", size=20)
     fig <- plot_ly() %>%
       layout(font=list(
         family="Helvetica",
@@ -68,7 +69,6 @@ overlayWalkOnLandscape <- function(pop1_df,
         opacity = 1)
     return (fig)
   } else if (type == "SURFACE"){
-    f <- list(family="Helvetica", size=20)
     fig <- plot_ly() %>%
       layout(
         font=list(
