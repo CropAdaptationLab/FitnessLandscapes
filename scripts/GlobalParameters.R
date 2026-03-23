@@ -47,6 +47,14 @@ n.sims <- 1 # number of monte carlo simulations to run per set of parameters
 n.RILs <- 250 # number of RILs to create
 n.indPerRIL <- 4 # number of replicates in each RIL
 
+# PLOTTING
+saveQtlPlots <- FALSE # Save linkage map plots
+saveTraitPlots <- FALSE # Save trait distribution plots
+saveAllelePlots <- FALSE # Save allele frequency plots
+saveFitnessPlots <- FALSE # Save adaptive walk and fitness landscape plots
+saveFixationOrder <- TRUE # Save the fixation order of alleles
+saveEffectSizes <- TRUE # Save the effect sizes in RIL families
+
 # BREEDING
 n.F1 <- 1000 # Initial number of individuals to select from each landraces to purify
 n.F2 <- 2000

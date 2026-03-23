@@ -64,7 +64,8 @@ getLodPeaks <- function(RIL, parent1, parent2, save_dir) {
 # RIL: a recombinant inbred line family
 # parent1: one of the parents crossed to create the RIL
 # parent2: the other parent crossed to create the RIL
-# trait: an integer (1: Trait 1, 2: Trait 2: 3: Yield, 4: Suitability, 5: Breeding Fitness)
+# trait: an integer (1: Attained Trait 1, 2: Attained Trait 2: 3: Desired Trait,
+# 4: Suitability, 5: Breeding Fitness)
 # save_dir: a directory in which to save the plots
 # Returns: the number of significant LOD peaks
 epistaticLodPeaks <- function(RIL, parent1, parent2, trait, save_dir) {
@@ -95,28 +96,26 @@ epistaticLodPeaks <- function(RIL, parent1, parent2, trait, save_dir) {
   # It does not account for multiple QTL per chromosome
   peaks <- summary(object=s2.output, thresholds=thresholds, what="int")
   
+  # Finds the QTL closest to the 'pos' on the specified chromosome
+  # chrID: an integer index
+  # pos: The genetic location in centimorgans
+  # Returns: the marker name of the QTL
   findQtl <- function(chrId, pos) {
+    # Get the QTLs and genetic locations
     qtls <- getQtlEffectSizes(RIL) %>%
       dplyr::filter(chr==chrId)
     
     if (nrow(qtls) == 0) {
       return(NA)
     }
-    
-    chrMap <- as.data.frame(SP$genMap[[chrId]])
-    colnames(chrMap) <- c("pos")
-    
-    chrMap <- chrMap %>%
-      dplyr::mutate(pos=pos*n.genMapLen)
-    
-    snp <- rownames(chrMap)[which.min(abs(chrMap$pos - pos))]
-    snp_pos <- as.numeric(sub(".*_", "", snp))
 
-    qtl_id <- qtls$id[which.min(abs(qtls$pos - snp_pos))]
+    # Find the closest QTL to the closest SNP
+    qtl_id <- qtls$id[which.min(abs(qtls$pos - pos))]
     
     return(qtl_id)
   }
   
+  # Add qtl1 and qtl2 columns - the QTL pait corresponding to each interaction
   if (nrow(peaks) > 0) {
     peaks <- peaks %>%
       dplyr::mutate(chr1=as.numeric(chr1),

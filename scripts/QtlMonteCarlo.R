@@ -34,11 +34,11 @@ runLocal = TRUE
 
 if (runLocal) {
   setwd("~/Documents/CSU/FitnessLandscapes")
-  output_dir <- file.path(getwd(), "output")
+  base_dir <- file.path(getwd(), "output/QtlMonteCarlo")
   n.cores <- 8
 } else {
   setwd("/pl/active/Morris_CSU/Ted_Monyak/FitnessLandscapes")
-  output_dir <- ("/scratch/alpine/c837220672@colostate.edu/output")
+  base_dir <- ("/scratch/alpine/c837220672@colostate.edu/output")
   n.cores <- 4
 }
 
@@ -51,8 +51,8 @@ source("functions/PopGen.R")
 source("functions/QtlMapping.R")
 source("functions/QuantGen.R")
 source("functions/TraitArchitecture.R")
+source("figures/G2FLandscapes.R")
 source("figures/LinkageMaps.R")
-source("figures/PCA.R")
 source("figures/ReactionNorm.R")
 source("figures/T2FLandscapes.R")
 source("scripts/GlobalParameters.R")
@@ -60,7 +60,7 @@ source("scripts/GlobalParameters.R")
 # Number of founder populations to simulate
 n.popResets <- 1
 # Number of adaptive walk simulations per pair of subpopulations
-n.sims <- 3
+n.sims <- 5
 
 SAMPLING <- 'geometric'
 n.minMAF <- 0.3
@@ -81,7 +81,10 @@ saveTraitPlots <- TRUE
 saveAllelePlots <- TRUE
 saveFitnessPlots <- TRUE
 
-# Set to true for doing G > F landscape creation
+# For aggregate/AggregateFigures.R
+aggregateData <- FALSE
+
+# Set to true for doing G > F landscape creation (not currently working)
 sampleInds <- FALSE
 
 # All the parameter combinations to iterate through
@@ -118,19 +121,17 @@ for (qx in 1:length(qtl_vec)) {
     subpop=c(),
     qtl=c())
   
-  base_dir <- file.path(output_dir, "QtlMonteCarlo")
-  if (!dir.exists(base_dir)) dir.create(base_dir)
-  base_fname <- paste0("qtl_", n.qtlPerChr, "_")
-  base_dir <- file.path(base_dir, paste0(base_fname, format(Sys.time(), "%F_%H_%M")))
-  if (!dir.exists(base_dir)) dir.create(base_dir)
+  output_dir <- file.path(base_dir, paste0(paste0("qtl_", n.qtlPerChr, "_"),
+                                         format(Sys.time(), "%F_%H_%M")))
+  if (!dir.exists(output_dir)) dir.create(output_dir)
   
   # Reset the founder population n.popResets times
   for (r in 1:n.popResets) {
     # Update selProp to be a random value if using random parameters
-    pop_dir <- file.path(base_dir, paste0("FounderPopulation", r))
+    pop_dir <- file.path(output_dir, paste0("FounderPopulation", r))
     if (!dir.exists(pop_dir)) dir.create(pop_dir)
     print(paste0("Pop Reset ", r))
-    source("Scripts/CreateFounderPop.R")
+    source("scripts/CreateFounderPop.R")
     # Get the largest effect size and variance of the two attained traits
     t1_arch <- singleTraitArchitecture(founderPop,1)$eff_size
     t2_arch <- singleTraitArchitecture(founderPop,2)$eff_size
@@ -246,8 +247,8 @@ for (qx in 1:length(qtl_vec)) {
           qtl1 <- peaks$qtl1[maxLodIdx]
           qtl2 <- peaks$qtl2[maxLodIdx]
           if ((qtl1 != qtl2) & (saveQtlPlots)) {
-            plot_reaction_norm(RIL, qtl1, qtl2, parent1, parent2, suitFunc, save_dir)
-            plot_1D_PCA(RIL, pops[[1]], pops[[2]], parent1, parent2, qtl1, qtl2, save_dir)
+            plotReactionNorm(RIL, qtl1, qtl2, parent1, parent2, suitFunc, save_dir)
+            plot1DLandscape(RIL, pops[[1]], pops[[2]], parent1, parent2, qtl1, qtl2, save_dir)
           }
         }
         nIntPeaks <- nrow(peaks)
@@ -356,12 +357,10 @@ for (qx in 1:length(qtl_vec)) {
       } # end compareIntra
     } # end n.sims
   } # end n.popResets
-  #source("Plotting/Aggregation/Isoeliteness.R")
-  #source("Plotting/Aggregation/ExcessVariance.R")
-  #source("Plotting/Aggregation/AllogenicRank.R")
-  #source("Plotting/Aggregation/GWP.R")
-  #source("Plotting/Aggregation/LODPeaks.R")
-  source("Plotting/GenerateSeriesPlots.R")
-  write.table(res.df, file.path(base_dir, "sim_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
-  write.table(getParams(), file.path(base_dir, "params.txt"), col.names=FALSE, quote=FALSE, sep=":\t")
+  source("figures/aggregation/AggregateFigures.R")
+  source("figures/SeriesPlots.R")
+  write.table(effectSizes.df, file.path(output_dir, "effect_size.csv"), col.names=TRUE, quote=FALSE, sep=",")
+  write.table(fixedAlleles.df, file.path(output_dir, "fixed_alleles.csv"), col.names=TRUE, quote=FALSE, sep=",")
+  write.table(res.df, file.path(output_dir, "sim_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
+  write.table(getParams(), file.path(output_dir, "params.txt"), col.names=FALSE, quote=FALSE, sep=":\t")
 } # end qtl_vec

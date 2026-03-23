@@ -2,7 +2,6 @@
 # Author: Ted Monyak
 # Description: This file generates a reaction norm plot
 
-
 # Create a reaction norm plot based on the genotypes at 2 specified QTL
 # Assumes that parents 1 and 2 are fixed for the opposite alleles at both QTLs
 # pop: The admixed RIL family
@@ -12,7 +11,7 @@
 # parent2: The other parent from the biparental cross
 # suitFunc: See Fitness.R
 # save_dir: Where to save the resulting plot
-plot_reaction_norm <- function(pop, qtl1, qtl2, parent1, parent2, suitFunc, save_dir) {
+plotReactionNorm <- function(pop, qtl1, qtl2, parent1, parent2, suitFunc, save_dir) {
   # Determine the mean fitness of each haplotype w.r.t. two QTL
   
   # Returns: a 2x2 matrix storing the mean fitness for each haplotype,
@@ -126,7 +125,6 @@ plot_reaction_norm <- function(pop, qtl1, qtl2, parent1, parent2, suitFunc, save
       legend.key.spacing.y = unit(5, "pt"),
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
-      #axis.line = element_line(color = "black"),
       panel.background = element_rect(fill = "white", color = "black")
     )  +
     ylim(min(df$fitness)*0.97, max(df$fitness)*1.03)

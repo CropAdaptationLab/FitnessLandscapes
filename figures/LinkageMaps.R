@@ -81,11 +81,12 @@ plotLinkageMap <- function(RIL, s1.output, s1.perm, save_dir) {
     ) %>%
     dplyr::select(chr, pos, cumul_start, cumul_pos, phenotype, eff_size)
   
-  # Calculate scaling factor using global LOD and effect size ranges
+  # Calculate LOD range
   lod_min <- min(plot_data$lod, na.rm = TRUE)
   lod_max <- max(plot_data$lod, na.rm = TRUE)
   lod_range <- lod_max - lod_min
   
+  # Calculate the effect size range
   if (nrow(eff_data) == 0) {
     eff_min <- 0
     eff_range <- 1
@@ -95,6 +96,7 @@ plotLinkageMap <- function(RIL, s1.output, s1.perm, save_dir) {
     eff_range <- eff_max - eff_min
   }
 
+  # Calculate a scaling multiple for the effect sizes
   scale_factor <- lod_max / eff_max
   
   # Apply global scaling to all effect sizes
@@ -120,21 +122,28 @@ plotLinkageMap <- function(RIL, s1.output, s1.perm, save_dir) {
     "W" = "Breeding Fitness"
   )
   
-  y_max <- max(plot_data$lod, na.rm = TRUE)
-  y_min <- min(plot_data$lod, na.rm = TRUE)
-  
-  # Create a function to build each plot for a given phenotype
+  # Builds a linkage map plot for a given phenotype
+  # pheno: Name of the phenotype
+  # eff_phenos: QTL for each of these phenotypes will be shown
+  # show_eff: Whether to show the effect size label
+  # show_qtl_guide: Whether to show the QTL legend
+  # show_x: Whether to show the x-axis
   make_lod_plot <- function(pheno, eff_phenos=c(), show_eff=TRUE, show_qtl_guide=TRUE, show_x=FALSE) {
-    ggplot(plot_data[plot_data$phenotype == pheno, ], 
+    # filter by phenotype
+    ggplot(plot_data[plot_data$phenotype == pheno, ],
            aes(x = cumul_pos, y = lod, color = factor(chr), group=chr)) +
       geom_line(linewidth = 0.7) +
       scale_color_manual(values = rep(c("black", "grey"),
                                       length.out = nrow(chr_lengths)),
                                       guide="none") +
       new_scale_color() +
-      geom_segment(data = eff_data[eff_data$phenotype %in% eff_phenos, ],
+      
+      # only print the QTL from eff_phenos
+      geom_segment(data = eff_data[eff_data$phenotype %in% eff_phenos, ], 
                    aes(x = cumul_pos, xend = cumul_pos, y = 0, yend = scaled_effect), 
                    color = "gray50", alpha=0.8, linewidth = 0.5, inherit.aes = FALSE) +
+      
+      # only print the QTL from eff_phenos
       geom_point(data = eff_data[eff_data$phenotype %in% eff_phenos, ],
                  aes(x = cumul_pos, y = scaled_effect, color=phenotype),
                  shape=18, size = 2.5, alpha=0.8, inherit.aes = FALSE) +
@@ -143,6 +152,8 @@ plotLinkageMap <- function(RIL, s1.output, s1.perm, save_dir) {
                          labels=c("QTL", "QTL"),
                          limits=c("Trait 1", "Trait 2"),
                          guide = if (show_qtl_guide) guide_legend() else "none") +
+      
+      # The significance threshold
       geom_hline(data = thresholds[thresholds$phenotype == pheno, ],
                  aes(yintercept = threshold),
                  linetype = "dashed", color = "gray30", linewidth = 0.5) +
@@ -153,14 +164,13 @@ plotLinkageMap <- function(RIL, s1.output, s1.perm, save_dir) {
       ) +
       scale_y_continuous(
         name = "LOD",
-        #limits = c(y_min, y_max),
         expand=expansion(mult=c(0,0.2)),
         sec.axis = sec_axis(
           transform = ~ . / scale_factor,
           name = "Effect Size"
         )
       ) +
-      coord_cartesian(ylim = c(y_min, y_max), clip = "off") +
+      coord_cartesian(ylim = c(lod_min, lod_max), clip = "off") +
       labs(x = "Genome Position", title = facet_labels[pheno]) +
       theme_minimal(base_family="Helvetica", base_size=10) +
       theme(
@@ -170,23 +180,21 @@ plotLinkageMap <- function(RIL, s1.output, s1.perm, save_dir) {
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         panel.background = element_rect(fill = "white", color = "black"),
-        #axis.ticks.x = element_blank(),
         axis.title.y.left = element_text(margin = margin(r = 10)),
         axis.title.y.right = if (show_eff) element_text(margin = margin(l = 10), size=10) else element_blank(),
         axis.text.y.right = if (show_eff) element_text() else element_blank(),
         axis.ticks.y.right = if (!show_eff) element_blank(),
-        #legend.text = element_text(),
         strip.background = element_rect(fill = "gray95", color = "gray60"),
         legend.position = "none"
       )
   }
   
-  # Build each plot
+  # Build each linkage map plot
   p1 <- make_lod_plot("Trait 1", eff_phenos = "Trait 1", show_eff=TRUE, show_qtl_guide=FALSE, show_x=FALSE)
   p2 <- make_lod_plot("Trait 2", eff_phenos = "Trait 2", show_eff=TRUE, show_qtl_guide=FALSE, show_x=FALSE)
-  pS <- make_lod_plot("Suitability", eff_phenos = c("Trait 1", "Trait 2"), show_eff=TRUE, show_qtl_guide=TRUE, show_x=FALSE)
+  pS <- make_lod_plot("Suitability", eff_phenos = c("Trait 1", "Trait 2"), show_eff=TRUE, show_qtl_guide=FALSE, show_x=FALSE)
   p3 <- make_lod_plot("Trait 3", show_eff=FALSE, show_qtl_guide=FALSE, show_x=FALSE)
-  pW <- make_lod_plot("W", eff_phenos = c("Trait 1", "Trait 2"), show_eff=TRUE, show_qtl_guide=FALSE, show_x=TRUE)
+  pW <- make_lod_plot("W", eff_phenos = c("Trait 1", "Trait 2"), show_eff=TRUE, show_qtl_guide=TRUE, show_x=TRUE)
   p <- (p1 / p2 / pS / p3 / pW) +
     plot_layout(guides="collect") &
     theme(legend.position="bottom",
@@ -227,23 +235,27 @@ plot2DLinkageMap <- function(RIL, s2.output, save_dir) {
     dplyr::mutate(idx = row_number()) %>%
     dplyr::ungroup()
   
+  # Find the marker closest to a QTL snp location
   find_closest_idx <- function(qtl_chr, qtl_pos) {
     chr_mars <- map[map$chr == qtl_chr, ]
     chr_mars$idx[which.min(abs(chr_mars$pos - qtl_pos))]
   }
   
-  # Get a dataframe of effect sizes per trait (including fitness)
+  # Get a dataframe of effect sizes per trait
   eff_sizes <- getQtlEffectSizes(RIL) %>%
     dplyr::filter(trait %in% c("Trait 1", "Trait 2")) %>%
     dplyr::rowwise() %>%
     dplyr::mutate(idx = find_closest_idx(chr, pos)) %>%
     dplyr::ungroup()
   
+  # Get the number of markers per chromosome
   mar_per_chr <- map %>%
     dplyr::group_by(chr) %>%
     dplyr::summarize(n_markers = n())
   
+  # Total number of markers
   nmar <- nrow(map)
+  # The length of the long dataframe representing each pairwise interaction
   len <- tail(cumsum(seq(nmar)-1),1)
   lod_scores <- data.frame(chr1=numeric(len),
                            pos1=numeric(len),
@@ -252,11 +264,12 @@ plot2DLinkageMap <- function(RIL, s2.output, save_dir) {
                            pos2=numeric(len),
                            idx2=numeric(len),
                            lod=numeric(len))
-  # Create a data frame with all positions
+  # Create a data frame with all pairwise positions in the lower triangle
+  # Lower triangle stores the interaction LOD scores
   idx <- 1
   for (i in 1:nmar) {
     for (j in 1:nmar) {
-      if (i > j) {  # Lower triangle only (interactions)
+      if (i > j) {  # Lower triangle only
         lod_scores$chr1[idx] <- map$chr[i]
         lod_scores$pos1[idx] <- map$pos[i]
         lod_scores$idx1[idx] <- map$idx[i]
@@ -293,11 +306,11 @@ plot2DLinkageMap <- function(RIL, s2.output, save_dir) {
     dplyr::left_join(chr_info %>% dplyr::select(chr, cumul_start), by = "chr") %>%
     dplyr::mutate(cumul_pos = idx + cumul_start)
   
-  # Get the extent of the plot
+  # Get the range of the plot
   plot_min <- 0
   plot_max <- nmar
   # Create the plot
-  interaction_plot <- ggplot() +
+  ggplot() +
     # Add heatmap of interaction LOD scores
     geom_tile(data = lod_scores, 
               aes(x = cumul_pos1, y=cumul_pos2, fill = lod),
@@ -321,7 +334,7 @@ plot2DLinkageMap <- function(RIL, s2.output, save_dir) {
                      y = cumul_start, yend = cumul_start),
                  color = "white", linewidth = 0.3, alpha = 0.5) +
     
-    # Add vertical lines for QTL (color by trait, size by effect size)
+    # Add vertical lines for QTL (color by trait, width by effect size)
     geom_segment(data = eff_sizes,
                  aes(x = cumul_pos, xend = cumul_pos, 
                      y = plot_min, yend = cumul_pos,
@@ -329,7 +342,7 @@ plot2DLinkageMap <- function(RIL, s2.output, save_dir) {
                      linewidth = abs(eff_size)),
                  alpha = 0.3) +
     
-    # Add horizontal lines for QTL (color by trait, size by effect size)
+    # Add horizontal lines for QTL (color by trait, width by effect size)
     geom_segment(data = eff_sizes,
                  aes(x = cumul_pos, xend = plot_max,
                      y = cumul_pos, yend = cumul_pos,
@@ -359,7 +372,6 @@ plot2DLinkageMap <- function(RIL, s2.output, save_dir) {
                size = 3, shape = 18,
                inherit.aes = FALSE) +
     
-    
     # Size scale for line thickness
     scale_linewidth_continuous(range = c(0.1, 1), name = "Effect Size") +
     
@@ -376,8 +388,6 @@ plot2DLinkageMap <- function(RIL, s2.output, save_dir) {
       expand = c(0.01, 0),
       position = "right",
     ) +
-    
-    # Styling
     labs(
       x = "Genome Position",
       y = "Genome Position"
@@ -400,7 +410,6 @@ plot2DLinkageMap <- function(RIL, s2.output, save_dir) {
     ) +
     coord_fixed()  # Equal scaling on both axes
 
-  interaction_plot
   ggplot2::ggsave(filename = file.path(save_dir, "2D_linkagemap.jpg"),
                   device = "jpg",
                   width=9,

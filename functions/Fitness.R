@@ -6,37 +6,6 @@
 library(ggplot2)
 library(plotly)
 
-
-# SELECTION INDEX FITNESS FUNCTIONS
-
-# Calculates fitness as a realized yield, as measured by the yield potential
-# adjusted for the distance from optimal values for the 2 acquired traits
-# w = -(x^2) + -(y^2)
-# Return: (1-abs(w) * z)
-landraceFitFunc <- function(x) {
-  w <- twoTraitFitFunc(x)
-
-  # Determine realized yield so that it is penalized by a lower fitness (as determined by traits A and B)
-  realizedYield <- (1-abs(w)) * x[,3]
-  #print(paste0("W: ", w, " P: ", x[,3], " Y: ", realizedYield))
-  return (realizedYield)
-}
-
-# Calculates fitness as a weighted average between fitness of the two acquired traits
-# and yield
-# w = -(x^2) + -(y^2)
-# yieldPotential = (1-abs(w) * z)
-# Return: w*(1-yieldProp) + yield*yieldProp
-breedingFitFunc <- function(x, yieldProp=n.yieldProp) {
-  w <- twoTraitFitFunc(x)
-  
-  # Determine yieldPotential so that it is negatively penalized by a lower fitness (as determined by traits A and B)
-  realizedYield <- (1-abs(w)) * x[,3]
-  
-  # Return a weighted average of fitness and yield
-  return (w*(1-yieldProp) + realizedYield*yieldProp)
-}
-
 # Calculates the fitness with a constant slope
 # Renders in 3d space as a cone
 # w = -sqrt(t1^2 + t2^2) + 1

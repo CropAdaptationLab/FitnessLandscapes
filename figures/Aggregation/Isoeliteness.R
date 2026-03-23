@@ -1,3 +1,8 @@
+# Title: ISOELITENESS
+# Author: Ted Monyak
+# Description: Calculates average isoeliteness across different parameter combinations
+# Assumes that QtlMonteCarlo.R has been run.
+
 theme <- theme_minimal(base_size = 8,
                          base_family="Helvetica") +
   theme(
@@ -7,7 +12,7 @@ theme <- theme_minimal(base_size = 8,
     panel.background = element_rect(fill = "white", color = "black"),
     plot.margin= unit(c(10,10,10,10), unit="pt"))
 
-# Create iso-eliteness plot
+# Create isoeliteness plot for the attained traits
 res.df %>%
   dplyr::filter(!is.na(isoElite_Att) & !is.infinite(isoElite_Att)) %>%
   ggplot(aes(x=qtl, y=isoElite_Att, fill=type)) +

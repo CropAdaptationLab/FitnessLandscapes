@@ -1,10 +1,15 @@
+# Title: TRANSGRESSIVE SEGREGATION
+# Author: Ted Monyak
+# Description: Plots the excessive transgressive segregation for each of the traits,
+# comparing the purelines to the admixed RIL families
+# Assumes that CreateIndependentPops has been run, and purelines have been created
+# from each subpopulation
+
 if (saveTraitPlots) {
   theme <- theme_minimal(base_size = 8,
                 base_family="Helvetica") +
     theme(
-    #axis.title.x = element_text(margin=margin(t=10,r=0,b=10,l=0,unit="pt")),
     plot.margin = margin(0,0,0,5, "pt"),
-    #axis.title.y = element_text(size=11),
     axis.text.x = element_text(angle = 0, hjust=1),
     axis.text.y = element_blank(),
     axis.ticks.y = element_blank(),
@@ -16,8 +21,10 @@ if (saveTraitPlots) {
     panel.background = element_rect(fill = "white", color = "black"),
     aspect.ratio = 1)
   
+  # Join all the phenotypes together
   all_pheno <- rbind(RIL_pheno, pureline_pheno)
   
+  # Create density plots for each of the attained traits
   ev1 <- all_pheno %>%
     ggplot(aes(Trait1, fill=Population, color=Population)) +
     scale_color_manual(values=c("#CC0000", "#3C78D8", "gold"),
@@ -54,6 +61,7 @@ if (saveTraitPlots) {
              size=2) +
     theme
   
+  # Suitability density plot
   evSuit <- all_pheno %>%
     ggplot(aes(Suitability, fill=Population, color=Population)) +
     scale_color_manual(values=c("#CC0000", "#3C78D8", "gold"),
@@ -71,6 +79,7 @@ if (saveTraitPlots) {
              size=2) +
     theme
   
+  # Yield potential density plot
   ev3 <- all_pheno %>%
     ggplot(aes(Trait3, fill=Population, color=Population)) +
     scale_color_manual(values=c("#CC0000", "#3C78D8", "gold"),
@@ -88,6 +97,7 @@ if (saveTraitPlots) {
              size=2) +
     theme
   
+  # Breeding fitness density plot
   evW <- all_pheno %>%
     ggplot(aes(W, fill=Population, color=Population)) +
     scale_color_manual(values=c("#CC0000", "#3C78D8", "gold"),
@@ -105,6 +115,7 @@ if (saveTraitPlots) {
              size=2) +
     theme
 
+  # Join all the plots together in a multipanel
   (ev1|ev2|evSuit|ev3|evW) +
     plot_layout(guides='collect', axes='collect') +
     plot_annotation(tag_levels='a')
@@ -137,9 +148,4 @@ if (saveTraitPlots) {
   
   
   
-} # saveTraitPlots
-if (saveFitnessPlots) {
-  fname <- file.path(save_dir, "3DFitness.html")
-  fig <- plot3dPopulationFitnessTwoPops(pop1, pop2, suitFunc)
-  htmlwidgets::saveWidget(as_widget(fig), fname)
 }

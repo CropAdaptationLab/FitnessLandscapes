@@ -1,8 +1,9 @@
 # Title: GENERATE SUBPOP PLOTS
 # Author: Ted Monyak
 # Description: After CreateIndependentPops.R, this script creates figures 
-# reflecting the independent adaptive walks
+# reflecting the independent adaptive walks and allele frequencies
 
+# Create allele frequenciy plots
 if (saveAllelePlots) {
   for (p in 1:n.nPops) {
     pop <- pops[[p]]
@@ -46,7 +47,6 @@ if (saveAllelePlots) {
     } else {
       colors_palette <- "Blues"
     }
-    
     ggplot(freq.df, aes(x=gen, y=freq, group=id)) +
       geom_line(aes(color=eff_size), linewidth=0.4, show.legend=TRUE) +
       scale_color_distiller(palette=colors_palette, direction=1, "Effect Size") +
@@ -63,7 +63,8 @@ if (saveAllelePlots) {
                     device = "pdf",
                     height=2,
                     width=4)
-    
+
+    # Show the allele frequencies in heatmap form, in a constant order
     ggplot(freq.df, aes(x=gen, y=id, fill=freq)) +
       geom_tile() +
       scale_fill_distiller(palette=colors_palette, direction=1) +
@@ -71,13 +72,14 @@ if (saveAllelePlots) {
       labs(x = "Generation", y = "QTL", fill="Frequency of\n'1' Allele") +
       theme_minimal()
     
-    ggplot2::ggsave(filename = "allelefrequencies_ordered.jpg",
+    ggplot2::ggsave(filename = "allelefrequencies_heatmap.jpg",
                     path=subpop_dir,
                     device = "jpg",
                     width=10,
                     height=7,
                     dpi=600)
-    
+
+    # Join the allele frequencies of both subpopulations
     freq_1.df <- fit_dfs[[1]][-c(2:6)]
     freq_1.df <- freq_1.df[freq_1.df$gen==n.gens,-1]
     freq_1.df <- pivot_longer(freq_1.df, cols=everything(), names_to="id", values_to="freq")
@@ -86,7 +88,6 @@ if (saveAllelePlots) {
     freq_2.df <- freq_2.df[freq_2.df$gen==n.gens,-1]
     freq_2.df <- pivot_longer(freq_2.df, cols=everything(), names_to="id", values_to="freq")
     freq_2.df$pop <- 2
-    
     freq.df <- rbind(freq_1.df, freq_2.df)
     
     # Add a border color column
@@ -94,6 +95,7 @@ if (saveAllelePlots) {
     freq.df$border_col[freq.df$pop == 1]  <- "#CC000080"
     freq.df$border_col[freq.df$pop == 2] <- "#3C78D880"
     
+    # Create a heatmap of the final allele frequencies of each subpopulation, comparing each QTL
     ggplot(freq.df, aes(x=id, y=pop, fill=freq)) +
       geom_tile(aes(color=border_col), linewidth=0.5) +
       scale_color_identity() +
@@ -114,9 +116,9 @@ if (saveAllelePlots) {
             legend.text=element_text(),
             legend.title=element_text(),
             legend.key.height = unit(0.15, "cm"),
-            legend.key.width  = unit(0.4,  "cm"),
-            legend.margin     = margin(0, 0, 0, 0),
-            plot.margin       = margin(2, 2, 2, 2, "pt"),
+            legend.key.width = unit(0.4,  "cm"),
+            legend.margin = margin(0, 0, 0, 0),
+            plot.margin = margin(2, 2, 2, 2, "pt"),
             plot.subtitle=element_text(size=8, hjust=1))
             
     
@@ -134,36 +136,18 @@ if (saveAllelePlots) {
   }
 }
 
+# Create trait-to-fitness landscape plots
 if (saveFitnessPlots) {
   for (p in 1:n.nPops) {
     pop <- pops[[p]]
     fit.df <- fit_dfs[[p]]
     subpop_dir <- subpop_dirs[[p]]
-    # All the following graphing is for each subpopulation
-    # Plot the adaptive walks
-    
-    fig <- plot_ly()
-    fig <- add_trace(
-      fig,
-      fit.df,
-      name = p,
-      x = fit.df$traitVal1,
-      y = fit.df$traitVal2,
-      z = fit.df$suit,
-      type = 'scatter3d',
-      mode = 'lines',
-      opacity = 1,
-      color = p,
-      line = list(width = 5))
-    fig <- fig %>% layout(legend=list(title=list(text='Population Size')),
-                          scene = list(xaxis = list(title = "Trait 1"),
-                                       yaxis = list(title = "Trait 2"),
-                                       zaxis = list(title = "Suitability"),
-                                       aspectmode='cube')) %>% hide_colorbar()
-    
+  
+    adaptiveWalk <- plotAdaptiveWalk(fit.df)
     fname <- file.path(subpop_dir, "adaptivewalk.html")
     htmlwidgets::saveWidget(as_widget(fig), fname)
     
+    # Plot the yield potential gain over generations
     g <- ggplot(fit.df, aes(x=gen, y=yieldPotential)) +
       geom_line()
     ggplot2::ggsave(filename = "yieldPotential.jpg",
@@ -172,6 +156,7 @@ if (saveFitnessPlots) {
                     width=10,
                     height=7)
     
+    # Plot the suitability gain over generations
     g <- ggplot(fit.df, aes(x=gen, y=meanSuit)) +
       geom_line()
     ggplot2::ggsave(filename = "meanSuit.jpg",
@@ -190,7 +175,7 @@ if (saveFitnessPlots) {
                                     traitMax=n.initTraitVal*1.1,
                                     popId_1="1",
                                     popId_2="2")
-  fname <- file.path(sim_dir, paste0("adaptivewalk_contour.html"))
+  fname <- file.path(sim_dir, "adaptivewalk_contour.html")
   htmlwidgets::saveWidget(as_widget(contour), fname)
   
   surface <- overlayWalkOnLandscape(fit_dfs[[1]],
@@ -201,6 +186,11 @@ if (saveFitnessPlots) {
                                     traitMax=n.initTraitVal+1,
                                     popId_1="1",
                                     popId_2="2")
-  fname <- file.path(sim_dir, paste0("adaptivewalk_surface.html"))
+  fname <- file.path(sim_dir, "adaptivewalk_surface.html")
   htmlwidgets::saveWidget(as_widget(surface), fname)
+ 
+  # Plot the suitability of both subpopulations
+  fig <- plot3dPopulationFitnessTwoPops(pops[[1]], pops[[2]], suitFunc)
+  fname <- file.path(sim_dir, "3DFitness.html")
+  htmlwidgets::saveWidget(as_widget(fig), fname)
 }

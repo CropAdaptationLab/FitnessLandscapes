@@ -1,86 +1,141 @@
+# Title: Genotype-to-Fitness Landscapes
+# Author: Ted Monyak
+# Description: This file contains plotting functions for creating genotype to
+# fitness landscapes
+
 library(fields)
+library(ggdensity)
+library(stats)
 library(terra)
 
-plot_NAM_suit_distribution <- function(pca_plot_df) {
-  theme <- theme_minimal(base_family = "Helvetica", base_size = 8) +
-    theme(
-      axis.ticks.x     = element_blank(),
-      axis.text.y = element_blank(),
-      panel.grid = element_blank(),
-      panel.background = element_rect(fill = "white", color = "black"),
-    )
+# Plots a one-dimensional fitness landscape where PC1 is plotted on the x-axis
+# and breeding fitness is on the y-axis
+# PCA is run on the oligogenic component of the landrace populations and the
+# admixed RIL family is projected onto PC1
+# Samples are color-coded by their haplotype w.r.t. the most significant
+# epistatic effect for breeding fitness in the RIL family
+# A trendline is drawn as the average fitness across PC1
+# RIL: an admixed RIL family developed from a cross between parent1 and parent2
+# pop1: The landrace subpopulation from which parent1 was derived
+# pop2: The landrace subpopulation from which parent2 was derived
+# qtl1: One of the QTL from a significant pairwise interaction
+# qtl2: The other QTL from a signficant pairwise interaction
+# save_dir: The directory in which to save the resulting plot
+plot1DLandscape <- function(RIL, pop1, pop2, parent1, parent2, qtl1, qtl2, save_dir) {
+  # Make a larger RIL to reduce noise
+  RIL <- self(RIL, nProgeny=5)
   
-  family_colors <- setNames(
-    pca_plot_df$family_color,
-    pca_plot_df$Family
-  )
-  pca_plot_df %>%
-    dplyr::filter(grepl("_RIL", Family)) %>%
-    ggplot(aes(x=Suit, color=Family)) +
-    geom_density(size=0.4) +
-    scale_color_manual(values=c(family_colors),
-                       aesthetics=c("color")) +
-    labs(x = "Suitability",
-         y = "Density") +
-    theme
+  # Get the genotypes for the attained traits only
+  RIL_geno <- getUniqueQtl(RIL, traits=c(1,2))
+  subpops_geno <- rbind(getUniqueQtl(pop1, traits=c(1,2)),
+                        getUniqueQtl(pop2, traits=c(1,2)))
+  
+  
+  # Determine the haplotypes of parent1 and parent 2 w.r.t. the two QTL markers
+  haplo1 <- getUniqueQtl(parent1) %>%
+    dplyr::select(all_of(c(qtl1, qtl2)))
+  haplo2 <- getUniqueQtl(parent2) %>%
+    dplyr::select(all_of(c(qtl1, qtl2)))
+  
+  # Determine whether a haplotype corresponds to parent 1, parent 2, or neither (recombinant)
+  # allele1: The allele at the first locus
+  # allele2: The allele at the second locus
+  categorize <- function(allele1, allele2) {
+    if (all(c(allele1, allele2) == haplo1)) {
+      return("P1")
+    } else if (all(c(allele1, allele2) == haplo2)) {
+      return("P2")
+    }
+    return("R")
+  }
+
+  # Determine the parental haplotypes of each individual in the RIL family  
+  haplo <- RIL_geno %>%
+    dplyr::select(all_of(c(qtl1,qtl2))) %>%
+    setNames(c("qtl1", "qtl2")) %>%
+    dplyr::rowwise() %>%
+    dplyr::mutate(cat=categorize(qtl1, qtl2)) %>%
+    dplyr::ungroup()
+  
+  # Calculate the breeding fitness of each RIL sample
+  RIL_pheno.df <- data.frame(fitness=breedingFitness(pheno(RIL)),
+                             haplo=haplo$cat)
+  
+  # Run PCA on the landrace subpopulations
+  pca <- prcomp(subpops_geno)
+  VAF <- summary(pca)$importance[2,1] * 100
+  
+  # Project the admixed RIL family onto the principal components
+  pc_RIL <- predict(pca, RIL_geno)
+  
+  # Creat a dataframe for plotting
+  df.PCA = data.frame(
+    "Fitness" = RIL_pheno.df$fitness,
+    "PC1" = pc_RIL[, 1],
+    "PC2" = pc_RIL[, 2],
+    "Haplotype" = RIL_pheno.df$haplo)
+  
+  # Plot the [haplotype] color-coded samples on PC1
+  ggplot(df.PCA, aes(x = PC1, y = Fitness)) +
+    geom_hdr(aes(fill = Haplotype), alpha = 0.3, color = NA, probs = seq(0.1, 0.9, by = 0.1)) +
+    geom_point(aes(color = Haplotype), alpha = 0.1, size = 0.8) +
+    geom_smooth(
+      #aes(group = Haplotype, color = Haplotype),
+      color="black", # comment this and uncomment above to get haplo-specific lines
+      method = "loess",
+      se = FALSE,
+      linewidth = 0.8
+    ) +
+    scale_color_manual(values = c("#CC0000", "#3C78D8", "gold"),,
+                       labels = c("Parental Type 1", "Parental Type 2", "Recombinant"),
+                       name="Haplotype at\nEpistatic Loci") +
+    scale_fill_manual(values = c("#CC0000", "#3C78D8", "gold"),
+                      labels = c("Parental Type 1", "Parental Type 2", "Recombinant"),
+                      name="Haplotype at\nEpistatic Loci") +
+    guides(alpha="none") +
+    xlab("PC1 of Oligogenic Component") +
+    ylab("Breeding Fitness") +
+    theme_minimal(base_size = 14,
+                  base_family="Helvetica") +
+    theme(
+      plot.title = element_blank(),
+      axis.title.y = element_text(margin=margin(t=0, r=10, b=0, l=10, unit="pt")),
+      axis.text.x = element_blank(),
+      legend.position = "right",
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.background = element_rect(fill = "white"),
+      plot.background = element_rect(fill = "white")
+    )
+  ggplot2::ggsave(filename = file.path(save_dir, "PCA_Bridge.jpg"),
+                  device = "jpg",
+                  width=5.5,
+                  height=3.5,
+                  dpi=600)
+  
+  ggplot2::ggsave(filename = file.path(save_dir, "PCA_Bridge.pdf"),
+                  device = "pdf",
+                  width=5.5,
+                  height=3.5)
 }
 
-plot_NAM_trait_distribution <- function(pca_plot_df) {
-  df_long <- pca_plot_df %>%
-    dplyr::filter(grepl("_RIL", Family)) %>%
-    dplyr::select(Family, family_color, FT, PH) %>%
-    dplyr::mutate(Family = sub("_.*", "", Family))
-  
-  family_colors <- setNames(
-    df_long$family_color,
-    df_long$Family
-  )
-  
-  theme <- theme_minimal(base_family = "Helvetica", base_size = 8) +
-    theme(
-      axis.text.x      = element_blank(),
-      axis.ticks.x     = element_blank(),
-      axis.title.x     = element_blank(),panel.grid = element_blank(),
-      panel.background = element_rect(fill = "white", color = "black"),
-      legend.position  = "none"
-    )
-
-  p_ft <- df_long %>%
-    ggplot(aes(x = Family, y = FT, fill = Family)) +
-    geom_violin(trim = FALSE, alpha = 0.7) +
-    geom_hline(aes(yintercept = 72.5, linetype = 'RTx430'),
-               color = 'black', linewidth = 0.4) +
-    scale_fill_manual(values = family_colors) +
-    scale_linetype_manual(name = NULL, values = c("RTx430" = "dashed")) +
-    labs(y = "Flowering Time (days)", fill = "Family") +
-    theme
-
-  p_ph <- df_long %>%
-    ggplot(aes(x = Family, y = PH, fill = Family)) +
-    geom_violin(trim = FALSE, alpha = 0.7) +
-    geom_hline(aes(yintercept = 106.5, linetype = 'RTx430'),
-               color = 'black', linewidth = 0.4) +
-    scale_fill_manual(values = family_colors) +
-    scale_linetype_manual(name = NULL, values = c("RTx430" = "dashed")) +
-    labs(y = "Plant Height (cm)", fill = "Family") +
-    theme +
-    theme(legend.position = "right") +
-    guides(
-      fill     = guide_legend(order = 1),   # Family on top
-      linetype = guide_legend(order = 2)    # Optimal below
-    )
-  
-  p_ft + p_ph
-}
-
-generate_landscape <- function(suit_df, pcx=1, pcy=2, thetas=c(1:10)) {
+# Create a smoothed landscape by iteratively running a gaussian filter
+# suit_df: A datafame containing the principal component coordinates
+# and 'Suit', suitability values for each sample
+# pcx: The principal component for the x-axis
+# pcy: The principal component for the y-axis
+# thetas: A list of kernel sizes for each iteration of gaussian smoothing
+generate_landscape <- function(suit_df, pcx=1, pcy=2, thetas=c(1:14)) {
+  # Obtain the initial smoothed image
   z <- suit_df$Suit
   xy <- cbind(suit_df[,pcx], suit_df[,pcy])
-  
   smoothed <- smooth.2d(Y = z, x = xy, theta = thetas[1])
   
-  for (i in 2:(length(thetas)-1)) {
+  # Iterate through each iteration of the gaussian smoothing
+  for (i in 2:(length(thetas))) {
     
+    # Convert the smooth.2d result into a datafame to filter out Suit values
+    # that are infinite, or fall outside the 0 to 1 range
     smoothed_df <- as.data.frame(smoothed$z) %>%
       setNames(smoothed$y) %>%
       mutate(x = smoothed$x) %>%
@@ -99,7 +154,13 @@ generate_landscape <- function(suit_df, pcx=1, pcy=2, thetas=c(1:10)) {
   return(smoothed)
 }
 
+# Render a 2d image of the smoothed G > F landscape
+# smoothed: The result of a smooth.2d() call
+# VAF: the variance explained by each PC
+# pcx: The principal component for the x-axis
+# pcy: The principal component for the y-axis
 render_2d_landscape <- function(smoothed, VAF, pcx=1, pcy=1) {
+  # Clip the smoothed result between 0 and 1
   smoothed_df <- as.data.frame(smoothed$z) %>%
     setNames(smoothed$y) %>%
     mutate(x = smoothed$x) %>%
@@ -108,6 +169,7 @@ render_2d_landscape <- function(smoothed, VAF, pcx=1, pcy=1) {
     rename(PCX = x, PCY = y) %>%
     filter(Suit >= 0, Suit <= 1)
   
+  # Plot a 2-dimensional version of the genotype-to-fitness landscape
   ggplot(smoothed_df, aes(x = PCX, y = PCY)) +
     geom_point(aes(colour = Suit)) +
     scale_color_viridis(alpha=0.9, name="Suitability") +
@@ -125,7 +187,13 @@ render_2d_landscape <- function(smoothed, VAF, pcx=1, pcy=1) {
           aspect.ratio=1)
 }
 
+# Recreate Wright's canonical fitness landscape (Wright 1932)
+# smoothed: The result of a smooth.2d() call
+# pcx: The principal component for the x-axis
+# pcy: The principal component for the y-axis
+# window: the size of the focal window to use to locate peaks and valleys
 wright_landscape <- function(smoothed, pcx, pcy, window=5) {
+  # Transpose the z matrix
   z_mat <- t(smoothed[["z"]])
   
   # Find peaks and valleys
@@ -160,7 +228,7 @@ wright_landscape <- function(smoothed, pcx, pcy, window=5) {
     )
   }
   
-  
+  # Find local peaks and valleys
   peaks   <- find_local_extrema(z_mat, smoothed[["x"]], smoothed[["y"]], type = "peak", window)
   valleys <- find_local_extrema(z_mat, smoothed[["x"]], smoothed[["y"]], type = "valley", window)
   
@@ -179,6 +247,7 @@ wright_landscape <- function(smoothed, pcx, pcy, window=5) {
     line = list(color = 'black', width = 1, dash='dot'),
     showscale = FALSE 
   ) 
+  # Add the peaks as 'plusses'
   if (nrow(peaks) > 0) {
     for (k in 1:nrow(peaks)) {
       p <- add_trace(p,
@@ -197,6 +266,7 @@ wright_landscape <- function(smoothed, pcx, pcy, window=5) {
     }
   }
 
+  # Add the valleys as 'minuses'
   if (nrow(valleys) > 0) {
     for (k in 1:nrow(valleys)) {
       p <- add_trace(p,
@@ -240,11 +310,24 @@ wright_landscape <- function(smoothed, pcx, pcy, window=5) {
   return (p)
 }
 
-render_3d_landscape <- function(smoothed, pca_plot_df, families, founders, pcx=1, pcy=2) {
+# Create a 3D rendering of the fitness landscape, with samples projected onto the surface
+# This is only tested with the sorghum NAM
+# smoothed: The output of smooth.2d()
+# pca_plot_df: Contains the PC coordinates of each sample
+# families: a list of family names in the plot
+# founders: a list of each of the founder line names
+# pcx: The principal component for the x-axis
+# pcy: The principal component for the y-axis
+render_3d_landscape <- function(smoothed,
+                                pca_plot_df,
+                                families,
+                                founders,
+                                pcx=1,
+                                pcy=2) {
   p <- plot_ly(
     x=smoothed[["x"]],
     y=smoothed[["y"]],
-    z=t(smoothed[["z"]]),
+    z=t(smoothed[["z"]]), # Transpose because smooth.2d() produces a transposed matrix
     type='surface',
     colorscale = 'Greys',
     #colors = viridis(50, alpha = 1, begin = 0, end = 1, direction = 1),
@@ -259,9 +342,11 @@ render_3d_landscape <- function(smoothed, pca_plot_df, families, founders, pcx=1
                color = "black", width = 1, highlightcolor = "black")
     ))
   
+  # Project each of the samples onto the surface (hovering slightly above)
   for (fam in families) {
     df_sub <- pca_plot_df[pca_plot_df$Family == fam, ]
     
+    # Founders should be marked with a large diamond
     is_founder <- !grepl("_RIL$", fam)
     marker_symbol <- if (is_founder) "diamond" else "circle"
     marker_size   <- if (is_founder) 12 else 5
@@ -306,12 +391,21 @@ render_3d_landscape <- function(smoothed, pca_plot_df, families, founders, pcx=1
   return (p)
 }
 
-render_individuals <- function(smoothed, pca_plot_df, families, founders, pcx=1, pcy=2) {
+# Create a 3D rendering of the each sample, with its height determined by its suitability
+# This is only tested with the sorghum NAM
+# smoothed: The output of smooth.2d()
+# pca_plot_df: Contains the PC coordinates of each sample
+# families: a list of family names in the plot
+# founders: a list of each of the founder line names
+# pcx: The principal component for the x-axis
+# pcy: The principal component for the y-axis
+render_individuals <- function(pca_plot_df, families, founders, pcx=1, pcy=2) {
   p <- plot_ly()
   
   for (fam in families) {
     df_sub <- pca_plot_df[pca_plot_df$Family == fam, ]
     
+    # Founders should be marked with a large diamond
     is_founder <- !grepl("_RIL$", fam)
     marker_symbol <- if (is_founder) "diamond" else "circle"
     marker_size   <- if (is_founder) 12 else 5

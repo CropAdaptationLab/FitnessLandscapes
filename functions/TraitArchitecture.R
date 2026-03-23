@@ -62,12 +62,13 @@ singleTraitArchitecture <- function(pop, trait) {
   return (eff_sizes)
 }
 
-# This function will return the additive effect sizes for QTL and the genetic location in centimorgans
-# pop: The population in question
-# traits: a vector specifying the indices of traits to acquire (plus fitness)
+# This function will return the additive effect sizes for segregating QTL and
+# the genetic location in centimorgans
+# pop: The population to investigate
+# traits: a vector specifying the indices of traits to acquire
 # Returns: a dataframe with columns:
 #   "snp" (the qtl id)
-#   "trait" (the trait - Trait 1, Trait 2, Trait 3, Fitness)
+#   "trait" (the trait - Trait 1, Trait 2, Trait 3)
 #   "eff_size" (the effect size)
 #   "pos" (the genetic location in morgans)
 #   "chr", the chromosome

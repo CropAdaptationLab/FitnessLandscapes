@@ -1,21 +1,34 @@
+# Title: AGGREGATE FIGURES
+# Author: Ted Monyak
+# Description: Run this from QtlMonteCarlo.R as a diagnostic check of results from
+# each set of parameters, or on its own to aggregate across several runs, by
+# setting aggregateData to TRUE
+
 library(dplyr)
 library(ggplot2)
 library(ggpubr)
 library(grid)
 library(patchwork)
 
-setwd("~/Documents/CSU/Lab-Notebooks/members/Ted/breeding_sims/output/QtlMonteCarlo/figure_data")
-output_dir <- file.path(getwd(), "../../AggregateQtl/3_15")
-if (!dir.exists(output_dir)) dir.create(output_dir)
+# Set to TRUE for aggregating across multiple QtlMonteCarlo runs
+# Set to FALSE for aggregating across a single QtlMonteCarlo run
+aggregateData <- FALSE
 
-# 400 sims
-qtl1 <- read.csv("qtl_1_Ne_1000_var_0.4_2026-03-14_00_04/sim_results.csv")
-qtl2 <- read.csv("qtl_2_Ne_1000_var_0.4_2026-03-14_19_10/sim_results.csv")
-qtl5 <- read.csv("qtl_5_Ne_1000_var_0.4_2026-03-15_05_51/sim_results.csv")
+if (aggregateData) {
+  setwd("~/Documents/CSU/Lab-Notebooks/members/Ted/breeding_sims/output/QtlMonteCarlo/figure_data")
+  output_dir <- file.path(getwd(), "../../AggregateQtl/3_15")
+  if (!dir.exists(output_dir)) dir.create(output_dir)
+  
+  # 400 sims
+  qtl1 <- read.csv("qtl_1_Ne_1000_var_0.4_2026-03-14_00_04/sim_results.csv")
+  qtl2 <- read.csv("qtl_2_Ne_1000_var_0.4_2026-03-14_19_10/sim_results.csv")
+  qtl5 <- read.csv("qtl_5_Ne_1000_var_0.4_2026-03-15_05_51/sim_results.csv")
+  
+  res.df <- rbind(qtl1,
+                  qtl2,
+                  qtl5)
+}
 
-res.df <- rbind(qtl1,
-                qtl2,
-                qtl5)
 
 res.df$qtl <- as.factor(res.df$qtl)
 res.df$var <- as.factor(res.df$var)
@@ -71,7 +84,7 @@ setwd("~/Documents/CSU/Lab-Notebooks/members/Ted/breeding_sims/Plotting/Aggregat
 source("Isoeliteness.R")
 source("ExcessVariance.R")
 source("LODPeaks.R")
-#source("AllogenicRank.R")
-#source("GWP.R")
+source("AllogenicRank.R")
+source("GWP.R")
 source("DataTables.R")
 
