@@ -117,6 +117,7 @@ SP$setVarE(h2=c(n.h2, n.h2, n.yieldH2))
 
 # Add a SNP chip with n.markers*n.chr markers
 SP$addSnpChip(nSnpPerChr=n.markers)
+SP$addSnpChip(nSnpPerChr=n.GSmarkers)
 
 # Create base population
 founderPop <- newPop(founders, simParam = SP)

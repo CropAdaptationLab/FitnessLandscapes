@@ -41,29 +41,27 @@ cor.df <- res.df %>%
   )) %>%
   dplyr::select(-.row_id, -pair_num) %>%
   dplyr::rename("Isoeliteness: Attained Trait"=isoElite,
-         "Isoeliteness: Mean"=isoElite_Att,
-         "Hamming Distance: Attained Traits"=hamm,
-         "Hamming Distance: Mean"=hamm_Att,
-         "FST"=fst,
-         "Excess Variance: Attained Traits"=ev,
-         "Excess Variance: Suitability"=ev_Suit,
-         "Excess Variance: Desired Trait"=ev_T3,
-         "Excess Variance: Breeding Fitness"=ev_W,
-         "LOD Peaks: Attained Traits"=nLod,
-         "LOD Peaks: Suitability"=nLod_Suit,
-         "LOD Peaks: Desired Trait"=nLod_T3,
-         "LOD Peaks: Breeding Fitness"=nLod_W,
-         "LOD Peaks: Fitness Interactions"=nLod_Int)
-
+                "Isoeliteness: Mean"=isoElite_Att,
+                "Hamming Distance: Attained Traits"=hamm,
+                "Hamming Distance: Mean"=hamm_Att,
+                "FST"=fst,
+                "Excess Variance: Attained Traits"=ev,
+                "Excess Variance: Suitability"=ev_Suit,
+                "Excess Variance: Desired Trait"=ev_T3,
+                "Excess Variance: Breeding Fitness"=ev_W,
+                "LOD Peaks: Attained Traits"=nLod,
+                "LOD Peaks: Suitability"=nLod_Suit,
+                "LOD Peaks: Desired Trait"=nLod_T3,
+                "LOD Peaks: Breeding Fitness"=nLod_W,
+                "LOD Peaks: Fitness Interactions"=nLod_Int)
 cor.df %>%
   dplyr::filter(!complete.cases(.)) %>%
   dplyr::summarize(across(everything(), ~sum(is.na(.))))
-  
+
 # Compute correlations, and extract 'r' and p-values
 cor_res <- rcorr(as.matrix(cor.df))
 r_mat   <- cor_res$r
 p_mat   <- cor_res$P
-
 # Plot the correlation
 plot_cor <- function () {
   corrplot(r_mat,
@@ -86,6 +84,7 @@ plot_cor <- function () {
 jpeg(file.path(output_dir, "cor.jpg"), width = 7, height = 5, units = "in", res = 600)
 plot_cor()
 dev.off()
+
 pdf(file.path(output_dir, "cor.pdf"), width = 7, height = 5)
 plot_cor()
 dev.off()

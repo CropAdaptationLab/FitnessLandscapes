@@ -75,10 +75,18 @@ a <- 0.6
 setwd("~/Documents/CSU/FitnessLandscapes/figures/aggregation")
 source("Isoeliteness.R")
 source("ExcessVariance.R")
-source("LODPeaks.R")
+if (qtlMapping | twoQtlMapping) {
+  source("LODPeaks.R")
+}
 source("AllogenicRank.R")
-source("GWP.R")
+if (genomicPrediction) {
+  source("GWP.R")
+}
+if (saveFixationOrder) {
+  source("AlleleFixationOrder.R")
+}
+if (saveEffectSizes) {
+  source("TraitArchitectureRIL.R")
+}
 source("DataTables.R")
-source("AlleleFixationOrder.R")
-source("TraitArchitectureRIL.R")
 

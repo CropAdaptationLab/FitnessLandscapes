@@ -47,13 +47,25 @@ n.reps <- 1 # number of replications to run per pop reset
 n.RILs <- 250 # number of RILs to create
 n.indPerRIL <- 4 # number of replicates in each RIL
 
+# GENOMIC SELECTION
+n.C <- 10 # Cycles of recurrent selection
+n.GSmarkers <- 100 # Markers per chromosome to use for GWP
+n.selInt <- 0.1 # Selection intensity for recurrent selection
+
 # PLOTTING
 saveQtlPlots <- FALSE # Save linkage map plots
 saveTraitPlots <- FALSE # Save trait distribution plots
 saveAllelePlots <- FALSE # Save allele frequency plots
 saveFitnessPlots <- FALSE # Save adaptive walk and fitness landscape plots
-saveFixationOrder <- TRUE # Save the fixation order of alleles
-saveEffectSizes <- TRUE # Save the effect sizes in RIL families
+saveFixationOrder <- FALSE # Save the fixation order of alleles
+saveEffectSizes <- FALSE # Save the effect sizes in RIL families
+
+# FUNCTIONS
+qtlMapping <- TRUE # single linkae mapping
+twoQtlMapping <- TRUE # epistatic linkage mapping
+genomicPrediction <- TRUE # cross-population prediction
+compareUnadmixed <- TRUE # use unadmixed RIl families as a benchmark
+popImprovement <- TRUE # population improvement
 
 # BREEDING
 n.F1 <- 1000 # Initial number of individuals to select from each landraces to purify
@@ -121,7 +133,10 @@ getParams <- function() {
     yieldVar=n.yieldVar,
     yieldH2=n.yieldH2,
     yieldH2Breeding=n.yieldH2Breeding,
-    initYieldVal=n.initYieldVal
+    initYieldVal=n.initYieldVal,
+    C=n.C,
+    gsMarkers=n.GSmarkers,
+    selInt=n.selInt
   )
   return (t(n.df))
 }

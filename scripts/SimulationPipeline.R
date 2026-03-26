@@ -44,6 +44,7 @@ if (!dir.exists(base_dir)) dir.create(base_dir)
 
 source("functions/Fitness.R")
 source("functions/GenoConversions.R")
+source("functions/GenomicPrediction.R")
 source("functions/MappingPopulations.R")
 source("functions/PopGen.R")
 source("functions/QtlMapping.R")
@@ -56,28 +57,29 @@ source("figures/T2FLandscapes.R")
 source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
-n.popResets <- 1
+n.popResets <- 4
 # Number of adaptive walk replications per pair of subpopulations
-n.reps <- 1
+n.reps <- 25
 
 SAMPLING <- 'geometric'
 n.minMAF <- 0.3
 
 # FUNCTIONS
-qtlMapping <- TRUE
-twoQtlMapping <- TRUE
+qtlMapping <- FALSE
+twoQtlMapping <- FALSE
 genomicPrediction <- TRUE
 compareUnadmixed <- TRUE
+popImprovement <- TRUE # population improvement
 
 # SAVE ALLELE FREQUENCIES
-saveFixationOrder <- TRUE
-saveEffectSizes <- TRUE
+saveFixationOrder <- FALSE
+saveEffectSizes <- FALSE
 
 # PLOTTING
-saveQtlPlots <- TRUE
-saveTraitPlots <- TRUE
-saveAllelePlots <- TRUE
-saveFitnessPlots <- TRUE
+saveQtlPlots <- FALSE
+saveTraitPlots <- FALSE
+saveAllelePlots <- FALSE
+saveFitnessPlots <- FALSE
 
 # Set to true for doing G > F landscape creation (not currently working)
 sampleInds <- FALSE
@@ -114,6 +116,19 @@ fixedAlleles.df <- data.frame(
   rank=c(),
   subpop=c(),
   qtl=c())
+
+
+# Store the results of the GARS
+gs.df <- data.frame(
+  qtl=c(), # L
+  pop=c(), # f
+  rep=c(), # r
+  ril=c(), # Admixed / Unadmixed
+  c=c(), # cycle
+  sel=c(), # GARS or PRS
+  w=c(), # breeding fitness
+  ie=c() # mean isoeliteness of parents
+)
 
 for (qx in 1:length(qtl_vec)) {
   n.qtlPerChr <- qtl_vec[qx]
@@ -255,13 +270,22 @@ for (qx in 1:length(qtl_vec)) {
       
       # RRBLUP
       if (genomicPrediction) {
-        gwpR_T1 <- evaluateGWP(trainPop=c(pops[[1]],pops[[2]]), testPop=RIL, trait=1)
-        gwpR_T2 <- evaluateGWP(trainPop=c(pops[[1]],pops[[2]]), testPop=RIL, trait=2)
         gwpR_W <- evaluateGWP_W(trainPop=c(pops[[1]],pops[[2]]), testPop=RIL)
       } else {
-        gwpR_T1 <- 0
-        gwpR_T2 <- 0
         gwpR_W <- 0
+      }
+      
+      # Run recurrent selection to improve the RIL
+      if (popImprovement) {
+        rsResult <- recurrentSelection(RIL)
+        rsResult <- rsResult %>%
+          dplyr::mutate(qtl=n.L,
+                        pop=f,
+                        rep=r,
+                        ril="Admixed",
+                        .before=1) %>%
+          dplyr::mutate(ie=mean(c(isoElite_T1, isoElite_T2)))
+        gs.df <- rbind(gs.df, rsResult)
       }
 
       # Update the results table
@@ -271,7 +295,7 @@ for (qx in 1:length(qtl_vec)) {
                                          ev_T1=ev_T1, ev_T2=ev_T2, ev_T3=ev_T3, ev_Suit=ev_Suit, ev_W=ev_W,
                                          isoElite_T1=isoElite_T1, isoElite_T2=isoElite_T2, isoElite_T3=isoElite_T3,
                                          hamm_T1=hamm_T1, hamm_T2=hamm_T2,
-                                         gwpR_T1=gwpR_T1, gwpR_T2=gwpR_T2, gwpR_W=gwpR_W,
+                                         gwpR_T1=NA, gwpR_T2=NA, gwpR_W=gwpR_W,
                                          gwpR_T1_Pop2=NA, gwpR_T2_Pop2=NA, gwpR_W_Pop2=NA,
                                          initA_T1=initA_T1,
                                          initA_T2=initA_T2,
@@ -311,10 +335,10 @@ for (qx in 1:length(qtl_vec)) {
           nIntPeaks <- 0
         }
         RIL_pheno <- as.data.frame(pheno(RIL)) %>%
-          dplyr::mutate(Fitness=fitCalc(Trait1, Trait2),
+          dplyr::mutate(Suitability=suitFunc(Trait1, Trait2),
                         W=calculateBreedingFitness(Trait1, Trait2, Trait3))
         pureline_pheno <- as.data.frame(pheno(c(pop1, pop2))) %>%
-          dplyr::mutate(Fitness=fitCalc(Trait1, Trait2),
+          dplyr::mutate(Suitability=suitFunc(Trait1, Trait2),
                         W=calculateBreedingFitness(Trait1, Trait2, Trait3))
         
         ev_T1 <- excessVariance(RIL_pheno[,1], pureline_pheno[,1])
@@ -343,6 +367,20 @@ for (qx in 1:length(qtl_vec)) {
           gwpR_T2_Pop2 <- 0
           gwpR_W_Pop2 <- 0
         }
+        
+        # Run recurrent selection to improve the RIL
+        if (popImprovement) {
+          rsResult <- recurrentSelection(RIL)
+          rsResult <- rsResult %>%
+            dplyr::mutate(qtl=n.L,
+                          pop=f,
+                          rep=r,
+                          ril="Unadmixed",
+                          .before=1) %>%
+            dplyr::mutate(ie=mean(c(isoElite_T1, isoElite_T2)))
+          gs.df <- rbind(gs.df, rsResult)
+        }
+
         # Update the result dataframe
         res.df <- rbind(res.df, data.frame(var=n.var, a=n.a, popSize=n.subPopSize, qtl=n.L, pop=f, rep=r, type="Unadmixed", fst=NA,
                                            nLod_T1=nLOD[1], nLod_T2=nLOD[2], nLod_T3=nLOD[3], nLod_Suit=nLOD[4],
@@ -350,7 +388,7 @@ for (qx in 1:length(qtl_vec)) {
                                            ev_T1=ev_T1, ev_T2=ev_T2, ev_T3=ev_T3, ev_Suit=ev_Suit, ev_W=ev_W,
                                            isoElite_T1=isoElite_T1, isoElite_T2=isoElite_T2, isoElite_T3=isoElite_T3,
                                            hamm_T1=hamm_T1, hamm_T2=hamm_T2,
-                                           gwpR_T1=gwpR_T1, gwpR_T2=gwpR_T2, gwpR_W=gwpR_W,
+                                           gwpR_T1=NA, gwpR_T2=NA, gwpR_W=gwpR_W,
                                            gwpR_T1_Pop2=gwpR_T1_Pop2, gwpR_T2_Pop2=gwpR_T2_Pop2, gwpR_W_Pop2=gwpR_W_Pop2,
                                            initA_T1=NA, initA_T2=NA, initVar_T1=NA, initVar_T2=NA,
                                            rilA_T1=NA, rilA_T2=NA, rilVar_T1=NA, rilVar_T2=NA))
@@ -358,10 +396,18 @@ for (qx in 1:length(qtl_vec)) {
     } # end n.reps
   } # end n.popResets
   
-  write.table((effectSizes.df %>% dplyr::filter(qtl==n.L)),
-              file.path(sim_dir, "effect_size.csv"), col.names=TRUE, quote=FALSE, sep=",")
-  write.table((fixedAlleles.df %>% dplyr::filter(qtl==n.L)),
-              file.path(sim_dir, "fixed_alleles.csv"), col.names=TRUE, quote=FALSE, sep=",")
+  if (saveEffectSizes) {
+    write.table((effectSizes.df %>% dplyr::filter(qtl==n.L)),
+                file.path(sim_dir, "effect_size.csv"), col.names=TRUE, quote=FALSE, sep=",")
+    
+  }
+  if (saveFixationOrder) {
+    write.table((fixedAlleles.df %>% dplyr::filter(qtl==n.L)),
+                file.path(sim_dir, "fixed_alleles.csv"), col.names=TRUE, quote=FALSE, sep=",")
+    
+  }
+  write.table((gs.df %>% dplyr::filter(qtl==n.L)),
+              file.path(sim_dir, "gs_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
   write.table((res.df %>% dplyr::filter(qtl==n.L)),
               file.path(sim_dir, "sim_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
   write.table(getParams(), file.path(sim_dir, "params.txt"), col.names=FALSE, quote=FALSE, sep=":\t")

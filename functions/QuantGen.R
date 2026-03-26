@@ -64,37 +64,3 @@ hammingDistance <- function(ind1, ind2, trait) {
 excessVariance <- function(RIL_pheno, pureline_pheno) {
   return ((var(RIL_pheno)-var(pureline_pheno)) / var(pureline_pheno))
 }
-
-# Train an RRBLUP model to predict one of the traits
-# trainPop: the training population
-# testPop: the test population
-# trait: the AlphaSimR phenotype index
-# Return correlation (r) between the EBVs and the actual genetic values in the test pop
-evaluateGWP <- function(trainPop, testPop, trait) {
-  # Update phenotype to have heritability associated with breeding programs
-  trainPop <- setPheno(trainPop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
-  # Train the model
-  model <- fastRRBLUP(trainPop, traits=trait, use="pheno")
-  # Set the estimated breeding values
-  testPop <- setEBV(testPop, model)
-  # Determine the correlation between genetic values and estimated breeding values
-  # in the test population
-  r <- cor(gv(testPop), ebv(testPop))[trait]
-  return (r)
-}
-
-# Train an RRBLUP model to predict breeding fitness
-# trainPop: the training population
-# testPop: the test population
-# trait: the AlphaSimR phenotype index
-# Return correlation (r) between the EBVs and the actual genetic values in the test pop
-evaluateGWP_W <- function(trainPop, testPop) {
-  # Update phenotype to have heritabilities associated with breeding programs
-  trainPop <- setPheno(trainPop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
-  model <- fastRRBLUP(trainPop, traits=calculateW_GWP, use="gv")
-  testPop <- setEBV(testPop, model)
-  # Determine the correlation between genetic values and estimated breeding values
-  # in the test population
-  r <- cor(calculateW_GWP(gv(testPop)), ebv(testPop))[1]
-  return (r)
-}
