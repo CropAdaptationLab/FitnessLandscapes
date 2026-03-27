@@ -58,13 +58,22 @@ evaluateGWP_W <- function(trainPop, testPop) {
 # plus the top 20% of the population from the previous cycle, based on phenotype
 # Return a dataframe with n.C*2 rows (for both PRS and GARS)
 recurrentSelection <- function(basePop) {
+  # Set phenotypes for base population
+  basePop <- setPheno(basePop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
+  
   # snpChip 2 is for genomic prediction
   model <- fastRRBLUP(basePop, traits=calculateW_GWP, use="gv", snpChip=2)
   
   # For storing results
-  result <- data.frame(c=rep(seq(1:n.C), each=2),
-                       sel=rep(c("GARS", "PRS"), times=n.C),
-                       w=numeric(n.C*2))
+  result <- data.frame(c=c(),
+                       sel=c(),
+                       w=c())
+  
+  # If the model does not fit any values, there is no genetic variance
+  # in the population
+  if (any(is.na(model@gv[[1]]@addEff))) {
+    return(result)
+  }
   
   # Select the first cycle based on phenotype
   garsPop <- selectCross(basePop,
@@ -77,17 +86,29 @@ recurrentSelection <- function(basePop) {
   # Iterate through each cycle
   for (c in 1:n.C) {
     # Calculate mean breeding fitness of GARS population
-    result$w[(c-1)*2 + 1] <- as.data.frame(pheno(garsPop)) %>%
+    meanWGARS <- as.data.frame(pheno(garsPop)) %>%
+      dplyr::mutate(w=calculateBreedingFitness(Trait1, Trait2, Trait3)) %>%
+      dplyr::summarize(meanW=mean(w)) %>%
+      pull(meanW)
+    result <- rbind(result,
+                    data.frame(
+                      c=c,
+                      sel="GARS",
+                      w=meanWGARS))
+                    
+    
+    # Mean breeding fitness of PRS population
+    meanWPRS <- as.data.frame(pheno(prsPop)) %>%
       dplyr::mutate(w=calculateBreedingFitness(Trait1, Trait2, Trait3)) %>%
       dplyr::summarize(meanW=mean(w)) %>%
       pull(meanW)
     
-    # Mean breeding fitness of PRS population
-    result$w[c*2] <- as.data.frame(pheno(prsPop)) %>%
-      dplyr::mutate(w=calculateBreedingFitness(Trait1, Trait2, Trait3)) %>%
-      dplyr::summarize(meanW=mean(w)) %>%
-      pull(meanW)
-  
+    result <- rbind(result,
+                    data.frame(
+                      c=c,
+                      sel="PRS",
+                      w=meanWPRS))
+
     # Estimate BVs
     garsPop <- setEBV(garsPop, model)
     
@@ -102,10 +123,15 @@ recurrentSelection <- function(basePop) {
     
       # Retrain model
       model <- fastRRBLUP(trainPop, traits=calculateW_GWP, use="gv", snpChip=2)
+
+      # If the model does not fit any values, there is no genetic variance
+      # in the population
+      if (any(is.na(model@gv[[1]]@addEff))) {
+        return(result)
+      }
     }
-    
-    
-    garsPop <- selectCross(garsPop, use="ebv", nInd=nInd(pop)*n.selInt, nCrosses=nInd(garsPop))
+
+    garsPop <- selectCross(garsPop, use="ebv", nInd=nInd(garsPop)*n.selInt, nCrosses=nInd(garsPop))
     prsPop <- selectCross(prsPop, trait=breedingFitness, nInd=nInd(prsPop)*n.selInt, nCrosses=nInd(prsPop))
   }
   return (result)

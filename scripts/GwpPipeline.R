@@ -15,17 +15,11 @@ library(ggpubr)
 library(ggplot2)
 library(ggpmisc)
 library(patchwork)
-#library(plotly)
-#library(purrr)
-#library(qtl)
-#library(qtl2)
 library(qtl2convert)
 library(RColorBrewer)
 library(reshape2)
-#library(rrBLUP)
 library(tibble)
 library(tidyr)
-#library(viridis)
 
 rm(list = ls())
 
@@ -52,16 +46,16 @@ source("functions/TraitArchitecture.R")
 source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
-n.popResets <- 1
+n.popResets <- 2
 # Number of adaptive walk replications per pair of subpopulations
-n.reps <- 1
+n.reps <- 25
 
 compareUnadmixed = TRUE
 
 # Store the results of the GARS
 res.df <- data.frame(
   qtl=c(), # L
-  pop=c(), # f
+  founder=c(), # f
   rep=c(), # r
   type=c(), # Admixed / Unadmixed
   isoElite=c(), # mean isoeliteness of parents
@@ -135,7 +129,7 @@ for (qx in 1:length(qtl_vec)) {
       # Run recurrent selection to improve the RIL
       newRow <- recurrentSelection(RIL) %>%
         dplyr::mutate(qtl=n.L,
-                      pop=f,
+                      founder=f,
                       rep=r,
                       type="Admixed",
                       isoElite=isoElite,
@@ -171,7 +165,7 @@ for (qx in 1:length(qtl_vec)) {
         # Run recurrent selection to improve the RIL
         newRow <- recurrentSelection(RIL) %>%
           dplyr::mutate(qtl=n.L,
-                        pop=f,
+                        founder=f,
                         rep=r,
                         type="Unadmixed",
                         isoElite=isoElite,
@@ -188,3 +182,4 @@ for (qx in 1:length(qtl_vec)) {
 } # end qtl_vec
 
 source("figures/aggregation/CrossPopulation.R")
+source("figures/aggregation/RecurrentSelection.R")
