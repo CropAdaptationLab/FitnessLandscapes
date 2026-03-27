@@ -48,7 +48,7 @@ n.RILs <- 250 # number of RILs to create
 n.indPerRIL <- 4 # number of replicates in each RIL
 
 # GENOMIC SELECTION
-n.C <- 10 # Cycles of recurrent selection
+n.C <- 30 # Cycles of recurrent selection
 n.GSmarkers <- 100 # Markers per chromosome to use for GWP
 n.selInt <- 0.1 # Selection intensity for recurrent selection
 
@@ -63,9 +63,8 @@ saveEffectSizes <- FALSE # Save the effect sizes in RIL families
 # FUNCTIONS
 qtlMapping <- TRUE # single linkae mapping
 twoQtlMapping <- TRUE # epistatic linkage mapping
-genomicPrediction <- TRUE # cross-population prediction
 compareUnadmixed <- TRUE # use unadmixed RIl families as a benchmark
-popImprovement <- TRUE # population improvement
+sampleInds <- FALSE # Not currently working. Sample individuals for PCA
 
 # BREEDING
 n.F1 <- 1000 # Initial number of individuals to select from each landraces to purify

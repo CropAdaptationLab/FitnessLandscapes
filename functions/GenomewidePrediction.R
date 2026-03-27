@@ -3,6 +3,15 @@
 # Description: Contains functions for genomewide prediction
 
 
+# Calculates breeding fitness and removes a dimension to allow for easy 
+# computation of correlation with EBVs
+calculateW_GWP <- function(x, suitFunc=suitabilityGaussian) {
+  realizedYield <- breedingFitness(x, suitFunc)
+  # Remove the first dimension to enable correlation of values
+  dim(realizedYield) <- c(length(realizedYield), 1)
+  return (realizedYield)
+}
+
 # Train an RRBLUP model to predict one of the traits
 # trainPop: the training population
 # testPop: the test population
@@ -13,7 +22,7 @@ evaluateGWP <- function(trainPop, testPop, trait) {
   trainPop <- setPheno(trainPop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
   # Train the model
   # snpChip 2 is for genomic prediction
-  model <- fastRRBLUP(trainPop, traits=trait, use="pheno", snpChip=2)
+  model <- fastRRBLUP(trainPop, traits=trait, use="gv", snpChip=2)
   # Set the estimated breeding values
   testPop <- setEBV(testPop, model)
   # Determine the correlation between genetic values and estimated breeding values
@@ -38,8 +47,6 @@ evaluateGWP_W <- function(trainPop, testPop) {
   r <- cor(calculateW_GWP(gv(testPop)), ebv(testPop))[1]
   return (r)
 }
-
-
 
 # Run recurrent population improvement on the basePop
 # The population will be improved according to phenotypic recurrent selection (PRS)
@@ -84,28 +91,22 @@ recurrentSelection <- function(basePop) {
     # Estimate BVs
     garsPop <- setEBV(garsPop, model)
     
-    # Training population:
-    # Top 20% of wGARS (based on EBV)
-    # Top 20% of wGARS (based on pheno)
-    topEBV <- selectInd(garsPop, nInd=0.2*nInd(garsPop), use="ebv")
-    topPheno <- selectInd(garsPop, nInd=0.2*nInd(garsPop), trait=breedingFitness)
-    trainPop <- c(topEBV, topPheno)
+    # Update the model in even cycles
+    if (c %% 2 == 0) {
+      # Training population:
+      # Top 20% of wGARS (based on EBV)
+      topEBV <- selectInd(garsPop, nInd=0.2*nInd(garsPop), use="ebv")
+      # Top 20% of wGARS (based on pheno)
+      topPheno <- selectInd(garsPop, nInd=0.2*nInd(garsPop), trait=breedingFitness)
+      trainPop <- c(topEBV, topPheno)
     
-    # Winter nursery selection
+      # Retrain model
+      model <- fastRRBLUP(trainPop, traits=calculateW_GWP, use="gv", snpChip=2)
+    }
+    
+    
     garsPop <- selectCross(garsPop, use="ebv", nInd=nInd(pop)*n.selInt, nCrosses=nInd(garsPop))
-    
-    # Update the model
-    model <- fastRRBLUP(trainPop, traits=calculateW_GWP, use="gv", snpChip=2)
-    
-    # Estimate BVs
-    garsPop <- setEBV(garsPop, model)
-    
-    # GS
-    garsPop <- selectCross(garsPop, use="ebv", nInd=nInd(garsPop)*n.selInt, nCrosses=nInd(garsPop))
-    
-    # PS
     prsPop <- selectCross(prsPop, trait=breedingFitness, nInd=nInd(prsPop)*n.selInt, nCrosses=nInd(prsPop))
   }
-  
   return (result)
 }

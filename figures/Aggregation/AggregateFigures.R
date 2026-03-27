@@ -40,8 +40,6 @@ res.df <- res.df %>%
   ) %>%
   dplyr::mutate(
     isoElite_Att = mean(c(isoElite_T1, isoElite_T2), na.rm=TRUE),
-    attR = mean(c(gwpR_T1,gwpR_T2), na.rm=TRUE),
-    attR_Pop2 = mean(c(gwpR_T1_Pop2, gwpR_T2_Pop2), na.rm=TRUE),
     ev_Att = mean(c(ev_T1,ev_T2), na.rm=TRUE),
     nLod_Att = mean(c(nLod_T1,nLod_T2), na.rm=TRUE),
     relRankMean = mean(c(relRank_T1, relRank_T2), na.rm=TRUE),
@@ -68,7 +66,7 @@ scale_fill_qtl <- scale_fill_manual(name = "QTL per\nAttained Trait",
                                              "50" = "#D7B8F3"),
                                   guide="none")
 
-# The maximum allelic effect size, to have a consistent y-axis
+# Alpha value for the pts
 a <- 0.6
 
 # Generate all plots
@@ -78,15 +76,11 @@ source("ExcessVariance.R")
 if (qtlMapping | twoQtlMapping) {
   source("LODPeaks.R")
 }
-source("AllogenicRank.R")
-if (genomicPrediction) {
-  source("GWP.R")
-}
 if (saveFixationOrder) {
   source("AlleleFixationOrder.R")
 }
 if (saveEffectSizes) {
   source("TraitArchitectureRIL.R")
 }
+source("AllogenicRank.R")
 source("DataTables.R")
-

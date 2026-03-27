@@ -53,15 +53,6 @@ suitability <- function(x, suitFunc=suitabilityGaussian) {
   return (suitFunc(x[,1], x[,2]))
 }
 
-# Calculates breeding fitness and removes a dimension to allow for easy 
-# computation of correlation with EBVs
-calculateW_GWP <- function(x, suitFunc=suitabilityGaussian) {
-  realizedYield <- breedingFitness(x, suitFunc)
-  # Remove the first dimension to enable correlation of values
-  dim(realizedYield) <- c(length(realizedYield), 1)
-  return (realizedYield)
-}
-
 # CURRENTLY NOT BEING USED
 # Calculate a decaying selection ratio based on the distance from the fitness optimum
 # Uses a geometric series to determine the result, where a=(1-n.selProp),

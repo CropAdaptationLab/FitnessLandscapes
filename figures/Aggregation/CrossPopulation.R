@@ -1,12 +1,12 @@
-# Title: CROSS POPULATION PREDICTION
+# Title: CROSS POPULATION
 # Author: Ted Monyak
-# Description: This script should be run from AggregateFigures.R, and produces
-# summary plots for the GWP metrics generated in SimulationPipeline.R
+# Description: This script produces summary plots for cross population prediction
+# with data generated in GwpPipeline.R
 
 # Pull out the admixed RIL family results
 gwp_admixed <- res.df %>%
   dplyr::filter(type=="Admixed") %>%
-  dplyr::select(-gwpR_P2)
+  dplyr::select(isoElite, gwpR, qtl, type)
 
 # Ungroup the data from both unadmixed families and designate them by the
 # subpopulation from which they were derived
@@ -53,7 +53,12 @@ scale_fill_gwp <- scale_fill_manual(name = "Training Population",
                                            "Subpopulation 2" = "#3C78D8"),
                                 breaks = c("Subpopulation 1", "Subpopulation 2", "Admixed"))
 
-# Plot the GWP results by RIL family
+scale_color <- scale_color_manual(name = "QTL per\nAttained Trait",
+                                  values = c("10" = "#4A1A6B",
+                                             "20" = "#9B59B6",
+                                             "50" = "#D7B8F3"))
+
+# Plot the GWP results by RIL family type
 g <- gwp.df %>%
   ggplot(aes(x=qtl, y=gwpR, fill=type)) +
   geom_boxplot(
@@ -75,7 +80,7 @@ g <- gwp.df %>%
 gIE <- gwp.df %>%
   dplyr::filter(type=="Admixed") %>%
   ggplot(aes(x=isoElite, y=gwpR)) +
-  geom_point(aes(color=qtl), alpha=a, size=s) +
+  geom_point(aes(color=qtl), alpha=0.6) +
   geom_smooth(method="lm", se=FALSE, color="black", linewidth=0.4) +
   stat_cor(method="pearson", 
            aes(label=paste(
