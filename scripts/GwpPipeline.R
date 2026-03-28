@@ -46,9 +46,11 @@ source("functions/TraitArchitecture.R")
 source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
-n.popResets <- 2
+n.popResets <- 100
 # Number of adaptive walk replications per pair of subpopulations
-n.reps <- 25
+n.reps <- 2
+
+n.C <- 20
 
 compareUnadmixed = TRUE
 
@@ -181,5 +183,4 @@ for (qx in 1:length(qtl_vec)) {
   write.table(getParams(), file.path(sim_dir, "params.txt"), col.names=FALSE, quote=FALSE, sep=":\t")
 } # end qtl_vec
 
-source("figures/aggregation/CrossPopulation.R")
-source("figures/aggregation/RecurrentSelection.R")
+source("figures/aggregation/GwpFigures.R")
