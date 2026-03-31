@@ -2,7 +2,6 @@
 # Author: Ted Monyak
 # Description: Contains functions for genomewide prediction
 
-
 # Calculates breeding fitness and removes a dimension to allow for easy 
 # computation of correlation with EBVs
 calculateW_GWP <- function(x, suitFunc=suitabilityGaussian) {
@@ -67,7 +66,12 @@ recurrentSelection <- function(basePop) {
   # For storing results
   result <- data.frame(c=c(),
                        sel=c(),
-                       w=c())
+                       w=c(),
+                       r=c(),
+                       genome_het=c(),
+                       attained_het=c(),
+                       desired_het=c(),
+                       pop_ie=c())
   
   # If the model does not fit any values, there is no genetic variance
   # in the population
@@ -85,16 +89,40 @@ recurrentSelection <- function(basePop) {
   
   # Iterate through each cycle
   for (c in 1:n.C) {
+    
+    # Estimate BVs
+    garsPop <- setEBV(garsPop, model)
+    
+    # Calulate accuracy of predictions
+    r <- cor(calculateW_GWP(gv(garsPop)), ebv(garsPop))[1]
+    
+    # Genome-wide heterozygosity
+    genome_het <- meanHetLocus(pullSnpGeno(garsPop, snpChip=2))
+    # Attained trait heterozygosity
+    attained_het <- meanHetLocus(getUniqueQtl(garsPop))
+    # Desired trait heterozygosity
+    desired_het <- meanHetLocus(pullQtlGeno(garsPop, trait=3))
+    # Get the population-level isoeliteness
+    pop_ie <- popIsoeliteness(garsPop)
+    
     # Calculate mean breeding fitness of GARS population
     meanWGARS <- as.data.frame(pheno(garsPop)) %>%
       dplyr::mutate(w=calculateBreedingFitness(Trait1, Trait2, Trait3)) %>%
       dplyr::summarize(meanW=mean(w)) %>%
       pull(meanW)
+    
+    # calculate r
+    # calculate D-prime
     result <- rbind(result,
                     data.frame(
                       c=c,
                       sel="GARS",
-                      w=meanWGARS))
+                      w=meanWGARS,
+                      r=r,
+                      genome_het=genome_het,
+                      attained_het=attained_het,
+                      desired_het=desired_het,
+                      pop_ie=pop_ie))
                     
     
     # Mean breeding fitness of PRS population
@@ -103,14 +131,25 @@ recurrentSelection <- function(basePop) {
       dplyr::summarize(meanW=mean(w)) %>%
       pull(meanW)
     
+    # Genome-wide heterozygosity
+    genome_het <- meanHetLocus(pullSnpGeno(prsPop, snpChip=2))
+    # Attained trait heterozygosity
+    attained_het <- meanHetLocus(getUniqueQtl(prsPop))
+    # Desired trait heterozygosity
+    desired_het <- meanHetLocus(pullQtlGeno(prsPop, trait=3))
+    # Get the population-level isoeliteness
+    pop_ie <- popIsoeliteness(prsPop)
+    
     result <- rbind(result,
                     data.frame(
                       c=c,
                       sel="PRS",
-                      w=meanWPRS))
-
-    # Estimate BVs
-    garsPop <- setEBV(garsPop, model)
+                      w=meanWPRS,
+                      r=NA,
+                      genome_het=genome_het,
+                      attained_het=attained_het,
+                      desired_het=desired_het,
+                      pop_ie=pop_ie))
     
     # Update the model in even cycles
     if (c %% 2 == 0) {

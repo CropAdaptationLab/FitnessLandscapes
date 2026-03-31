@@ -2,6 +2,7 @@
 # Author: Ted Monyak
 # Description: contains functions for calculating various quant gen metrics
 
+
 # Calculates 'isoeliteness' of the specified trait as the weighted sum of
 # the allelic differences between individuals multiplied by QTL effect sizes
 # ind1: one of the individuals
@@ -63,4 +64,43 @@ hammingDistance <- function(ind1, ind2, trait) {
 # in the RIL family compared to the purelines
 excessVariance <- function(RIL_pheno, pureline_pheno) {
   return ((var(RIL_pheno)-var(pureline_pheno)) / var(pureline_pheno))
+}
+
+
+# Calculate mean heterozygosity across all loci
+# Returns: a float between 0 and 1
+meanHetLocus <- function(geno) {
+  nInd <- nrow(geno)
+  # Count the number of heterozygotes per locus
+  het <- apply(geno, MARGIN=2, FUN= function(x) sum(x==1)/nInd)
+  return (mean(het))
+}
+
+# Calculate the mean isoeliteness across the entire population
+# TODO ADD DESCRIPTION
+popIsoeliteness <- function(pop) {
+  nInd <- nInd(pop)
+  # Get the effect sizes of all original QTL from the population
+  eff_sizes <- getQtlEffectSizes(founderPop)
+
+  # Get the sum of all the QTL effect sizes, to normalize effect sizes
+  tot_eff_size <- sum(eff_sizes$eff_size)
+  
+  # Get allele frequencies
+  p <- as.data.frame(apply(getUniqueQtl(pop),
+                           MARGIN=2,
+                           FUN=function(x)
+                             (sum(x==n.allele)/nInd) + ((sum(x==1)/nInd)/2))) %>%
+    tibble::rownames_to_column(var="id")
+  
+  colnames(p) <- c("id", "freq")
+  
+  # Determine the degree of segregation
+  # Multiply the effect size by degree of segregation
+  iso_elite.df <- merge(eff_sizes, p, by="id", all=FALSE) %>%
+    dplyr::mutate(seg=abs(0.5-freq)/0.5) %>%
+    dplyr::mutate(val=seg*eff_size/tot_eff_size)
+  
+  # Return the weighted sum
+  return (sum(iso_elite.df$val))
 }
