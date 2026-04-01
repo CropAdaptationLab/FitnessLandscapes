@@ -24,7 +24,7 @@ scale_fill_gwp <- scale_fill_manual(name = "Test Family",
                                 values = c("Admixed" = "gold2",
                                            "Within-population" = "#CC0000",
                                            "Cross-population" = "#9000de"),
-                                breaks = c("Within-population", "Admixed", "Cross-population"))
+                                breaks = c("Within-population", "Cross-population", "Admixed"))
 
 scale_color <- scale_color_manual(name = "QTL per\nAttained Trait",
                                   values = c("10" = "#4A1A6B",
@@ -111,8 +111,12 @@ ggplot2::ggsave(filename = "cross_pop.pdf",
                 height=3)
 
 minIe <- min(gwp.df$isoElite)
-minR <- min(gwp.df$r)
-maxR <- max(gwp.df$r)
+minMaxR <- gwp.df %>%
+  dplyr::filter(type=="Admixed") %>%
+  dplyr::summarize(min=min(r),
+                   max=max(r))
+minR <- minMaxR$min
+maxR <- minMaxR$max
 
 # Plot isoeliteness against GWP accuracy
 plot_RIL_IE <- function(df, nQtl, ylabel=TRUE) {
@@ -334,7 +338,6 @@ cycleMean.df %>%
   geom_line() +
   geom_point() +
   labs(
-    title  = paste("QTL: ", nQtl),
     x = "Cycle",
     y = "GWP accuracy for breeding fitness (r)"
   ) +
@@ -488,12 +491,17 @@ ggplot2::ggsave(filename = "geneticGain.pdf",
                 width=6.5,
                 height=2.5)
 
-minGain <- min(geneticGain.df$gain)
-maxGain <- max(geneticGain.df$gain)
+minMaxGain <- geneticGain.df %>%
+  dplyr::filter(type=="Admixed", sel=="GARS") %>%
+  summarize(min=min(gain),
+            max=max(gain))
+minGain <- minMaxGain$min
+maxGain <- minMaxGain$max
 
 # Plot isoeliteness against genetic gain
 plotIeGain <- function(df, nQtl, ylabel=TRUE) {
   df %>%
+    dplyr::filter(type=="Admixed", sel=="GARS") %>%
     dplyr::filter(qtl==nQtl) %>%
     ggplot(aes(x = isoElite, y = gain)) +
     geom_point(size=0.5) +
