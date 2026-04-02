@@ -31,26 +31,6 @@ scale_color <- scale_color_manual(name = "QTL per\nAttained Trait",
                                              "20" = "#9B59B6",
                                              "50" = "#D7B8F3"))
 
-type_colors <- c(
-  "Admixed" = "gold2",
-  "Unadmixed" = "#CC0000"
-)
-
-colors <- c(
-  "Admixed GS" = unname(type_colors[1]),
-  "Admixed PS" = unname(type_colors[1]),
-  "Unadmixed GS" = unname(type_colors[2]),
-  "Unadmixed PS" = unname(type_colors[2])
-)
-
-shapes <- c(
-  "Admixed GS" = 16,
-  "Admixed PS" = 17,
-  "Unadmixed GS" = 16,
-  "Unadmixed PS" = 17
-)
-
-
 # Determine a string representation of the correlation and significance
 sig_cor <- stat_cor(method="pearson",
                     aes(label=paste(
@@ -119,6 +99,7 @@ minR <- minMaxR$min
 maxR <- minMaxR$max
 
 # Plot isoeliteness against GWP accuracy
+# TODO COLOR THIS BY ISOELITENESS
 plot_RIL_IE <- function(df, nQtl, ylabel=TRUE) {
   df %>%
     dplyr::filter(type=="Admixed",
@@ -170,13 +151,22 @@ gs.df$qtl <- as.factor(as.character(gs.df$qtl))
 
 # Calculate average breeding fitness per pop per cycle
 cycleMean.df <-  gs.df %>%
-  dplyr::group_by(qtl, pop, c) %>%
+  dplyr::group_by(qtl, pop, type, sel, c) %>%
   dplyr::summarize(w = mean(w),
                    genHt = mean(genome_het),
                    attHt = mean(attained_het),
                    desHt = mean(desired_het),
                    r = mean(r),
-                   ie = mean(pop_ie))
+                   ie = mean(pop_ie),
+                   gv = mean(gvar)) %>%
+  dplyr::mutate(
+    pt_fill = case_when(
+      pop == "Admixed GS"   ~ "gold2",
+      pop == "Admixed PS"    ~ "white",
+      pop == "Unadmixed GS" ~ "#CC0000",
+      pop == "Unadmixed PS"  ~ "white"
+    )
+  )
 
 minW <- min(cycleMean.df$w)
 maxW <- max(cycleMean.df$w)
@@ -185,24 +175,31 @@ maxW <- max(cycleMean.df$w)
 meanWPerCycle <- function(df, nQtl, ylabel=TRUE) {
   df %>%
     dplyr::filter(qtl==nQtl) %>%
-    ggplot(aes(x = c, y = w, color = pop, shape = pop, group = pop)) +
-    geom_line() +
-    geom_point() +
+    ggplot(aes(x = c, y = w, group = pop)) +
+    geom_line(aes(color = pop)) +
+    geom_point(aes(fill = pt_fill, color = pop),
+               shape = 21, stroke = 0.5, size = 1) +
     scale_color_manual(
       name = "Population",
-      values = colors,
+      values = c(
+        "Admixed GS"   = "gold2",
+        "Admixed PS"    = "gold2",
+        "Unadmixed GS" = "#CC0000",
+        "Unadmixed PS"  = "#CC0000"
+      ),
+      guide = guide_legend(override.aes = list(
+        fill  = c("gold2", "white", "#CC0000", "white"),
+        shape = 21,
+        size  = 3
+      ))
     ) +
-    scale_shape_manual(
-      name = "Population",
-      values = shapes,
-    ) +
+    scale_fill_identity() +
     labs(
-      title  = paste("QTL: ", nQtl),
+      title = paste("QTL: ", nQtl),
       x = "Cycle",
-      y = if (ylabel) "Breeding Fitness" else NULL,
-      color = "Family"
-    ) + 
-    scale_y_continuous(limits=c(minW, maxW)) +
+      y = if (ylabel) "Breeding Fitness" else NULL
+    ) +
+    scale_y_continuous(limits = c(minW, maxW)) +
     theme +
     theme(
       axis.text.y = if (!ylabel) element_blank() else element_text()
@@ -287,22 +284,28 @@ maxPopIe <- max(cycleMean.df$ie)
 meanIePerCycle <- function(df, nQtl, ylabel=TRUE) {
   df %>%
     dplyr::filter(qtl==nQtl) %>%
-    ggplot(aes(x = c, y = ie, color = pop, shape = pop, group = pop)) +
-    geom_line() +
-    geom_point() +
+    ggplot(aes(x = c, y = ie, group = pop)) +
+    geom_line(aes(color = pop)) +
+    geom_point(aes(fill = pt_fill, color = pop), shape = 21, stroke = 0.5, size = 1) +
     scale_color_manual(
       name = "Population",
-      values = colors,
+      values = c(
+        "Admixed GS"   = "gold2",
+        "Admixed PS"    = "gold2",
+        "Unadmixed GS" = "#CC0000",
+        "Unadmixed PS"  = "#CC0000"
+      ),
+      guide = guide_legend(override.aes = list(
+        fill  = c("gold2", "white", "#CC0000", "white"),
+        shape = 21,
+        size  = 3
+      ))
     ) +
-    scale_shape_manual(
-      name = "Population",
-      values = shapes,
-    ) +
+    scale_fill_identity() +
     labs(
       title  = paste("QTL: ", nQtl),
       x = "Cycle",
       y = if (ylabel) "Population Isoeliteness" else NULL,
-      color = "Family"
     ) + 
     scale_y_continuous(limits=c(minPopIe, maxPopIe)) +
     theme +
@@ -334,6 +337,7 @@ maxRsR <- max(gs.df$r, na.rm=TRUE)
 # Plot R over cycles
 cycleMean.df %>%
   dplyr::filter(pop=="Admixed GS") %>%
+  dplyr::filter(c%%2 == 1) %>%
   ggplot(aes(x = c, y = r, color = qtl)) +
   geom_line() +
   geom_point() +
@@ -360,6 +364,7 @@ popIeR <- function(df, nQtl, ylabel=TRUE) {
   df %>%
     dplyr::filter(pop=="Admixed GS",
                   qtl==nQtl) %>%
+    dplyr::filter(c%%2 == 1) %>%
     ggplot(aes(x=pop_ie, y=r)) +
     geom_point(size=0.5) +
     geom_smooth(method="lm", se=FALSE, color="black", linewidth=0.4) +
@@ -401,6 +406,7 @@ attHetR <- function(df, nQtl, ylabel=TRUE) {
   df %>%
     dplyr::filter(pop=="Admixed GS",
                   qtl==nQtl) %>%
+    dplyr::filter(c%%2 == 1) %>%
     ggplot(aes(x=attained_het, y=r)) +
     geom_point(size=0.5) +
     geom_smooth(method="lm", se=FALSE, color="black", linewidth=0.4) +
@@ -462,7 +468,10 @@ plotGeneticGain <- function(df, nQtl, ylabel=TRUE) {
     ) + 
     scale_fill_manual(
       name = "RIL Family",
-      values = type_colors
+      values = c(
+          "Admixed" = "gold2",
+          "Unadmixed" = "#CC0000"
+      )
     ) +
     scale_y_continuous(limits=c(0, maxGain)) +
     theme +
@@ -521,11 +530,11 @@ plotIeGain <- function(df, nQtl, ylabel=TRUE) {
     )
 }
 
-GSIe10 <- plotIeGain(geneticGain.df, 10)
-GSIe20 <- plotIeGain(geneticGain.df, 20, FALSE)
-GSIe50 <- plotIeGain(geneticGain.df, 50, FALSE)
+garsIe10 <- plotIeGain(geneticGain.df, 10)
+garsIe20 <- plotIeGain(geneticGain.df, 20, FALSE)
+garsIe50 <- plotIeGain(geneticGain.df, 50, FALSE)
 
-(GSIe10 | GSIe20 | GSIe50) + plot_layout(guides = "collect", axes = "collect")
+(garsIe10 | garsIe20 | garsIe50) + plot_layout(guides = "collect", axes = "collect")
 
 ggplot2::ggsave(filename = "ieGain.jpg",
                 path=output_dir,

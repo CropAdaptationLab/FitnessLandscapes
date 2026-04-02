@@ -48,14 +48,14 @@ evaluateGWP_W <- function(trainPop, testPop) {
 }
 
 # Run recurrent population improvement on the basePop
-# The population will be improved according to phenotypic recurrent selection (PRS)
-# and genomics-assisted recurrent selection (GARS)
+# The population will be improved according to phenotypic recurrent selection (PS)
+# and genomics-assisted recurrent selection (GS)
 # Store breeding fitness at each generation
-# The GARS population has an extra selection each cycle, representative of a winter nursery
+# The GS population has an extra selection each cycle, representative of a winter nursery
 # Initial training population for RRBLUP is basePop. After that, the training population
 # for cycle C is the top 20% of the population from the previous cycle based on EBV,
 # plus the top 20% of the population from the previous cycle, based on phenotype
-# Return a dataframe with n.C*2 rows (for both PRS and GARS)
+# Return a dataframe with n.C*2 rows (for both PS and GS)
 recurrentSelection <- function(basePop) {
   # Set phenotypes for base population
   basePop <- setPheno(basePop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
@@ -80,84 +80,84 @@ recurrentSelection <- function(basePop) {
   }
   
   # Select the first cycle based on phenotype
-  garsPop <- selectCross(basePop,
+  gsPop <- selectCross(basePop,
                          trait=breedingFitness,
                          nInd=nInd(basePop)*n.selInt,
                          nCrosses=nInd(basePop))
-  # Replicate the population to conduct PRS
-  prsPop <- garsPop
+  # Replicate the population to conduct PS
+  psPop <- gsPop
   
   # Iterate through each cycle
   for (c in 1:n.C) {
     
     # Estimate BVs
-    garsPop <- setEBV(garsPop, model)
+    gsPop <- setEBV(gsPop, model)
     
     # Calulate accuracy of predictions
-    r <- cor(calculateW_GWP(gv(garsPop)), ebv(garsPop))[1]
+    r <- cor(calculateW_GWP(gv(gsPop)), ebv(gsPop))[1]
     
     # Genome-wide heterozygosity
-    genome_het <- meanHetLocus(pullSnpGeno(garsPop, snpChip=2))
+    genome_het <- meanHetLocus(pullSnpGeno(gsPop, snpChip=2))
     # Attained trait heterozygosity
-    attained_het <- meanHetLocus(getUniqueQtl(garsPop))
+    attained_het <- meanHetLocus(getUniqueQtl(gsPop))
     # Desired trait heterozygosity
-    desired_het <- meanHetLocus(pullQtlGeno(garsPop, trait=3))
+    desired_het <- meanHetLocus(pullQtlGeno(gsPop, trait=3))
     # Get the population-level isoeliteness
-    pop_ie <- popIsoeliteness(garsPop)
+    pop_ie <- popIsoeliteness(gsPop)
     
-    # Calculate mean breeding fitness of GARS population
-    meanWGARS <- as.data.frame(pheno(garsPop)) %>%
+    # Calculate mean breeding fitness of GS population
+    wGS <- as.data.frame(pheno(gsPop)) %>%
       dplyr::mutate(w=calculateBreedingFitness(Trait1, Trait2, Trait3)) %>%
       dplyr::summarize(meanW=mean(w)) %>%
       pull(meanW)
-    
-    # calculate r
-    # calculate D-prime
+
     result <- rbind(result,
                     data.frame(
                       c=c,
-                      sel="GARS",
-                      w=meanWGARS,
+                      sel="GS",
+                      w=wGS,
                       r=r,
                       genome_het=genome_het,
                       attained_het=attained_het,
                       desired_het=desired_het,
-                      pop_ie=pop_ie))
+                      pop_ie=pop_ie,
+                      gvar=varG(gsPop)[3,3]))
                     
     
-    # Mean breeding fitness of PRS population
-    meanWPRS <- as.data.frame(pheno(prsPop)) %>%
+    # Mean breeding fitness of PS population
+    wPS <- as.data.frame(pheno(psPop)) %>%
       dplyr::mutate(w=calculateBreedingFitness(Trait1, Trait2, Trait3)) %>%
       dplyr::summarize(meanW=mean(w)) %>%
       pull(meanW)
     
     # Genome-wide heterozygosity
-    genome_het <- meanHetLocus(pullSnpGeno(prsPop, snpChip=2))
+    genome_het <- meanHetLocus(pullSnpGeno(psPop, snpChip=2))
     # Attained trait heterozygosity
-    attained_het <- meanHetLocus(getUniqueQtl(prsPop))
+    attained_het <- meanHetLocus(getUniqueQtl(psPop))
     # Desired trait heterozygosity
-    desired_het <- meanHetLocus(pullQtlGeno(prsPop, trait=3))
+    desired_het <- meanHetLocus(pullQtlGeno(psPop, trait=3))
     # Get the population-level isoeliteness
-    pop_ie <- popIsoeliteness(prsPop)
+    pop_ie <- popIsoeliteness(psPop)
     
     result <- rbind(result,
                     data.frame(
                       c=c,
-                      sel="PRS",
-                      w=meanWPRS,
+                      sel="PS",
+                      w=wPS,
                       r=NA,
                       genome_het=genome_het,
                       attained_het=attained_het,
                       desired_het=desired_het,
-                      pop_ie=pop_ie))
+                      pop_ie=pop_ie,
+                      gvar=varG(psPop)[3,3]))
     
     # Update the model in even cycles
     if (c %% 2 == 0) {
       # Training population:
-      # Top 20% of wGARS (based on EBV)
-      topEBV <- selectInd(garsPop, nInd=0.2*nInd(garsPop), use="ebv")
-      # Top 20% of wGARS (based on pheno)
-      topPheno <- selectInd(garsPop, nInd=0.2*nInd(garsPop), trait=breedingFitness)
+      # Top 20% of wGS (based on EBV)
+      topEBV <- selectInd(gsPop, nInd=0.2*nInd(gsPop), use="ebv")
+      # Top 20% of wGS (based on pheno)
+      topPheno <- selectInd(gsPop, nInd=0.2*nInd(gsPop), trait=breedingFitness)
       trainPop <- c(topEBV, topPheno)
     
       # Retrain model
@@ -170,8 +170,8 @@ recurrentSelection <- function(basePop) {
       }
     }
 
-    garsPop <- selectCross(garsPop, use="ebv", nInd=nInd(garsPop)*n.selInt, nCrosses=nInd(garsPop))
-    prsPop <- selectCross(prsPop, trait=breedingFitness, nInd=nInd(prsPop)*n.selInt, nCrosses=nInd(prsPop))
+    gsPop <- selectCross(gsPop, use="ebv", nInd=nInd(gsPop)*n.selInt, nCrosses=nInd(gsPop))
+    psPop <- selectCross(psPop, trait=breedingFitness, nInd=nInd(psPop)*n.selInt, nCrosses=nInd(psPop))
   }
   return (result)
 }
