@@ -81,7 +81,7 @@ saveFitnessPlots <- FALSE
 sampleInds <- FALSE
 
 # All the parameter combinations to iterate through
-qtl_vec <- c(1,2,5)
+qtl_vec <- c(10,20,50)
 
 output_dir <- file.path(base_dir, paste0("Sim_", format(Sys.time(), "%F_%H_%M")))
 if (!dir.exists(output_dir)) dir.create(output_dir)
@@ -111,12 +111,12 @@ fixedAlleles.df <- data.frame(
   subpop=c(),
   qtl=c())
 
-for (qx in 1:length(qtl_vec)) {
-  n.qtlPerChr <- qtl_vec[qx]
-  print(paste0("QTL: ", n.qtlPerChr))
+for (lx in 1:length(qtl_vec)) {
+  n.L <- qtl_vec[lx]
+  print(paste0("QTL: ", n.L))
   
   # The directory for this number of QTL
-  sim_dir <- file.path(output_dir, paste0("QTL_", n.qtlPerChr))
+  sim_dir <- file.path(output_dir, paste0("QTL_", n.L))
   if (!dir.exists(sim_dir)) dir.create(sim_dir)
   
   # Reset the founder population n.popResets times

@@ -27,7 +27,7 @@ source("scripts/GlobalParameters.R")
 n.reps <- 10
 
 # QTL per chromosome
-q_vec <- c(1,2,5)
+q_vec <- c(10,20,50)
 
 # To store the output data
 init_df <- data.frame(rank=numeric(),
@@ -37,9 +37,9 @@ init_df <- data.frame(rank=numeric(),
                    scaled=numeric())
 
 # Iterate through each QTL per chromosome
-for (qx in 1:length(q_vec)) {
-  n.qtlPerChr <- q_vec[qx]
-  print(paste0("QTL: ", n.qtlPerChr))
+for (lx in 1:length(q_vec)) {
+  n.L <- q_vec[lx]
+  print(paste0("QTL: ", n.L))
   for (r in 1:n.reps) {
     print(paste0("Rep: ", r))
     source("Scripts/CreateFounderPop.R")
@@ -60,7 +60,7 @@ for (qx in 1:length(q_vec)) {
 
     eff_sizes <- rbind(eff_sizes_1,
                        eff_sizes_2)
-    eff_sizes$qtl <- n.qtlPerChr
+    eff_sizes$qtl <- n.L
     
     init_df <- rbind(init_df,
                     eff_sizes)

@@ -24,7 +24,7 @@ scale_fill_gwp <- scale_fill_manual(name = "Test Family",
                                 values = c("Admixed" = "gold2",
                                            "Within-population" = "#CC0000",
                                            "Cross-population" = "#9000de"),
-                                breaks = c("Within-population", "Cross-population", "Admixed"))
+                                breaks = c("Within-population", "Admixed", "Cross-population"))
 
 scale_color <- scale_color_manual(name = "QTL per\nAttained Trait",
                                   values = c("10" = "#4A1A6B",
@@ -37,17 +37,17 @@ type_colors <- c(
 )
 
 colors <- c(
-  "Admixed GARS" = unname(type_colors[1]),
-  "Admixed PRS" = unname(type_colors[1]),
-  "Unadmixed GARS" = unname(type_colors[2]),
-  "Unadmixed PRS" = unname(type_colors[2])
+  "Admixed GS" = unname(type_colors[1]),
+  "Admixed PS" = unname(type_colors[1]),
+  "Unadmixed GS" = unname(type_colors[2]),
+  "Unadmixed PS" = unname(type_colors[2])
 )
 
 shapes <- c(
-  "Admixed GARS" = 16,
-  "Admixed PRS" = 17,
-  "Unadmixed GARS" = 16,
-  "Unadmixed PRS" = 17
+  "Admixed GS" = 16,
+  "Admixed PS" = 17,
+  "Unadmixed GS" = 16,
+  "Unadmixed PS" = 17
 )
 
 
@@ -77,7 +77,7 @@ gwp.df <- RIL.df %>%
 
 
 gwp.df$type <- factor(gwp.df$type,
-                      levels=c("Within-population", "Cross-population", "Admixed"))
+                      levels=c("Within-population", "Admixed", "Cross-population"))
 gwp.df$qtl <- as.factor(gwp.df$qtl)
 
 # Plot the GWP results by RIL family type
@@ -162,10 +162,10 @@ ggplot2::ggsave(filename = "gwp_ie.pdf",
 gs.df <- RS.df %>%
   dplyr::mutate(pop=paste0(type, " ", sel))
 gs.df$pop <- factor(gs.df$pop,
-                     levels=c("Admixed GARS",
-                              "Admixed PRS",
-                              "Unadmixed GARS",
-                              "Unadmixed PRS"))
+                     levels=c("Admixed GS",
+                              "Admixed PS",
+                              "Unadmixed GS",
+                              "Unadmixed PS"))
 gs.df$qtl <- as.factor(as.character(gs.df$qtl))
 
 # Calculate average breeding fitness per pop per cycle
@@ -239,7 +239,7 @@ ht.df$qtlType <- factor(ht.df$qtlType,
 # Plot the average heterozygosity per cycle as line plots
 meanHetPerCycle <- function(df, nQtl, ylabel=TRUE) {
   df %>%
-    dplyr::filter(pop=="Admixed GARS") %>%
+    dplyr::filter(pop=="Admixed GS") %>%
     dplyr::filter(qtl==nQtl) %>%
     ggplot(aes(x = c, y = het, color = qtlType)) +
     geom_line() +
@@ -333,7 +333,7 @@ maxRsR <- max(gs.df$r, na.rm=TRUE)
 
 # Plot R over cycles
 cycleMean.df %>%
-  dplyr::filter(pop=="Admixed GARS") %>%
+  dplyr::filter(pop=="Admixed GS") %>%
   ggplot(aes(x = c, y = r, color = qtl)) +
   geom_line() +
   geom_point() +
@@ -358,7 +358,7 @@ ggplot2::ggsave(filename = "gwpAccuracy.pdf",
 # Plot population isoeliteness against GWP R
 popIeR <- function(df, nQtl, ylabel=TRUE) {
   df %>%
-    dplyr::filter(pop=="Admixed GARS",
+    dplyr::filter(pop=="Admixed GS",
                   qtl==nQtl) %>%
     ggplot(aes(x=pop_ie, y=r)) +
     geom_point(size=0.5) +
@@ -399,7 +399,7 @@ maxAttHet <- max(gs.df$attained_het, na.rm=TRUE)
 # Plot attained trait heterozygosity against GWP R
 attHetR <- function(df, nQtl, ylabel=TRUE) {
   df %>%
-    dplyr::filter(pop=="Admixed GARS",
+    dplyr::filter(pop=="Admixed GS",
                   qtl==nQtl) %>%
     ggplot(aes(x=attained_het, y=r)) +
     geom_point(size=0.5) +
@@ -492,7 +492,7 @@ ggplot2::ggsave(filename = "geneticGain.pdf",
                 height=2.5)
 
 minMaxGain <- geneticGain.df %>%
-  dplyr::filter(type=="Admixed", sel=="GARS") %>%
+  dplyr::filter(type=="Admixed", sel=="GS") %>%
   summarize(min=min(gain),
             max=max(gain))
 minGain <- minMaxGain$min
@@ -501,7 +501,7 @@ maxGain <- minMaxGain$max
 # Plot isoeliteness against genetic gain
 plotIeGain <- function(df, nQtl, ylabel=TRUE) {
   df %>%
-    dplyr::filter(type=="Admixed", sel=="GARS") %>%
+    dplyr::filter(type=="Admixed", sel=="GS") %>%
     dplyr::filter(qtl==nQtl) %>%
     ggplot(aes(x = isoElite, y = gain)) +
     geom_point(size=0.5) +
@@ -521,11 +521,11 @@ plotIeGain <- function(df, nQtl, ylabel=TRUE) {
     )
 }
 
-garsIe10 <- plotIeGain(geneticGain.df, 10)
-garsIe20 <- plotIeGain(geneticGain.df, 20, FALSE)
-garsIe50 <- plotIeGain(geneticGain.df, 50, FALSE)
+GSIe10 <- plotIeGain(geneticGain.df, 10)
+GSIe20 <- plotIeGain(geneticGain.df, 20, FALSE)
+GSIe50 <- plotIeGain(geneticGain.df, 50, FALSE)
 
-(garsIe10 | garsIe20 | garsIe50) + plot_layout(guides = "collect", axes = "collect")
+(GSIe10 | GSIe20 | GSIe50) + plot_layout(guides = "collect", axes = "collect")
 
 ggplot2::ggsave(filename = "ieGain.jpg",
                 path=output_dir,

@@ -59,6 +59,7 @@ RIL.df <- data.frame(
   founder=c(), # f
   rep=c(), # r
   isoElite=c(), # mean isoeliteness of parents
+  isoEliteDes=c(), # isoeliteness of desired trait
   rAdmixed=c(), # GWP accuracy in admixed family
   rP1=c(), # GWP accuracy within pop 1
   rP2=c(), # GWP accuracy within pop 2
@@ -73,6 +74,7 @@ RS.df <- data.frame(
   rep=c(), # r
   type=c(), # Admixed / Unadmixed
   isoElite=c(), # mean isoeliteness of parents
+  isoEliteDes=c(), # isoeliteness of desired trait
   c=c(), # cycle
   sel=c(), # GARS or PRS
   w=c(), # breeding fitness
@@ -84,17 +86,17 @@ RS.df <- data.frame(
 )
 
 # All the parameter combinations to iterate through
-qtl_vec <- c(1,2,5)
+qtl_vec <- c(2,10,20,50)
 
 output_dir <- file.path(base_dir, paste0("Sim_", format(Sys.time(), "%F_%H_%M")))
 if (!dir.exists(output_dir)) dir.create(output_dir)
 
-for (qx in 1:length(qtl_vec)) {
-  n.qtlPerChr <- qtl_vec[qx]
-  print(paste0("QTL: ", n.qtlPerChr))
+for (lx in 1:length(qtl_vec)) {
+  n.L <- qtl_vec[lx]
+  print(paste0("QTL: ", n.L))
   
   # The directory for this number of QTL
-  sim_dir <- file.path(output_dir, paste0("QTL_", n.qtlPerChr))
+  sim_dir <- file.path(output_dir, paste0("QTL_", n.L))
   if (!dir.exists(sim_dir)) dir.create(sim_dir)
   
   # Reset the founder population n.popResets times
@@ -144,7 +146,8 @@ for (qx in 1:length(qtl_vec)) {
       # Calculate isoeliteness for each trait
       isoElite_T1 <- isoEliteness(res_admixed[1], res_admixed[2], founderPop, 1)
       isoElite_T2 <- isoEliteness(res_admixed[1], res_admixed[2], founderPop, 2)
-      isoEliteAdmixed <- mean(c(isoElite_T1, isoElite_T2))
+      isoEliteAtt <- mean(c(isoElite_T1, isoElite_T2))
+      isoElite_T3 <- isoEliteness(res_admixed[1], res_admixed[2], founderPop, 3)
 
       # Store admixed, within, and cross-population prediction accuracies
       RIL.df <- rbind(RIL.df,
@@ -152,7 +155,8 @@ for (qx in 1:length(qtl_vec)) {
                         qtl=n.L,
                         founder=f,
                         rep=rep,
-                        isoElite=isoEliteAdmixed,
+                        isoElite=isoEliteAtt,
+                        isoEliteDes=isoElite_T3,
                         rAdmixed=evaluateGWP_W(trainPop=c(pops[[1]],pops[[2]]), testPop=RIL_admixed),
                         rP1=evaluateGWP_W(trainPop=c(pops[[1]]), testPop=RIL_pop1),
                         rP2=evaluateGWP_W(trainPop=c(pops[[2]]), testPop=RIL_pop2),
@@ -166,14 +170,16 @@ for (qx in 1:length(qtl_vec)) {
                       founder=f,
                       rep=rep,
                       type="Admixed",
-                      isoElite=isoEliteAdmixed,
+                      isoElite=isoEliteAtt,
+                      isoEliteDes=isoElite_T3,
                       .before=1)
       RS.df <- rbind(RS.df, newRow)
       
       
       isoElite_T1 <- isoEliteness(res_pop1[1], res_pop1[2], founderPop, 1)
       isoElite_T2 <- isoEliteness(res_pop1[1], res_pop1[2], founderPop, 2)
-      isoEliteUnadmixed <- mean(c(isoElite_T1, isoElite_T2))
+      isoEliteAtt <- mean(c(isoElite_T1, isoElite_T2))
+      isoElite_T3 <- isoEliteness(res_pop1[1], res_pop1[2], founderPop, 3)
 
       # Run recurrent selection to improve the unadmixed RIL
       newRow <- recurrentSelection(RIL_pop1) %>%
@@ -181,7 +187,8 @@ for (qx in 1:length(qtl_vec)) {
                       founder=f,
                       rep=rep,
                       type="Unadmixed",
-                      isoElite=isoEliteUnadmixed,
+                      isoElite=isoEliteAtt,
+                      isoEliteDes=isoElite_T3,
                       .before=1)
       RS.df <- rbind(RS.df, newRow)
     } # end n.reps

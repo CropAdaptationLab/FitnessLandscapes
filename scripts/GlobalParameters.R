@@ -14,7 +14,7 @@ n.minMAF <- 0.3 # Minimum minor allele frequency to use when assigning random QT
 n.genMapLen <- 100 # Centimorgans per chromosome
 
 # TRAITS
-n.qtlPerChr <- 2 # Number of qtl per chromosome, per trait
+n.L <- 10 # Number of QTL per attained trait across the genome
 n.h2 <- 0.1 # Narrow-sense heritability for each acquired trait for landrace adaptation
 n.h2Breeding <- 0.8 # Narrow-sense heritability for each acquired trait for breeding adaptation
 n.initTraitVal <- 2 # Starting value for each of the two traits
@@ -96,7 +96,6 @@ getParams <- function() {
     markers=n.markers,
     chr=n.chr,
     minMAF=n.minMAF,
-    qtlPerChr=n.qtlPerChr,
     h2=n.h2,
     initTraitVal=n.initTraitVal,
     var=n.var,

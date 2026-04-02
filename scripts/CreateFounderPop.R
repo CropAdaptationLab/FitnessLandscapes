@@ -17,6 +17,20 @@ SP <- SimParam$new(founders)
 # Allow markers and segmentation sites to overlap
 SP$restrSegSites(overlap = T)
 
+# Assign the number of QTL per chromosome
+
+# If n.L is divisible by n.chr, assign an equal number of QTL per chromosome
+if (n.L %% n.chr == 0) {
+  qtlPerChr <- rep(n.L/n.chr, times=n.chr)
+} else if (n.L >= n.chr) {
+  # Use 'stars and bars' to assign a random number of QTL to each chr
+  cuts <- sort(sample(1:(n.L-1), n.chr-1, replace = FALSE))
+  qtlPerChr <- diff(c(0, cuts, n.L))
+} else {
+  # There are fewer QTL than chromosomes
+  qtlPerChr <- sample(c(rep(1,n.L), rep(0, n.chr-n.L)))
+}
+
 # Adds an additive trait with an explicitly-defined genetic architecture
 # Effect sizes will follow a geometric distribution
 # Effect sizes are scaled to achieve a desired genetic variance
@@ -28,8 +42,12 @@ addGeometricAdditiveTrait <- function() {
   # Returns: a list of selected markers
   selectQtl <- function() {
     qtls <- c()
-    # Select n.qtlPerChr markers per chromosome
+    # Select qtlPerChr markers per chromosome
     for (chr in 1:n.chr) {
+      # The number of QTL on this chromosome
+      nQtl <- qtlPerChr[chr]
+      if (nQtl == 0) next
+  
       # The initial genotypes for all markers
       geno <- pullSegSiteGeno(founders, chr)
       
@@ -47,7 +65,7 @@ addGeometricAdditiveTrait <- function() {
       # Retain only markers with a MAF above the threshold
       eligible_qtls <- names(mafs[mafs >= n.minMAF])
       # Select the random QTLs from these eligible markers
-      rand_qtls <- sample(eligible_qtls, n.qtlPerChr)
+      rand_qtls <- sample(eligible_qtls, nQtl)
       
       # Sort by location
       locs <- sort(sapply(rand_qtls, function(x) as.numeric(sub(".*_", "", x))))
@@ -83,19 +101,17 @@ addGeometricAdditiveTrait <- function() {
   
 }
 
-# Total number of QTL in the genome
-n.L <- n.qtlPerChr * n.chr
 # Calculate the decay parameter based on a formula from Lande and Thompson 1990
 n.a <- (n.L-1) / (n.L+1)
 
 # Additive G > T
 if (n.relAA == 0) { 
   if (SAMPLING=="normal") {
-    SP$addTraitA(mean=n.initTraitVal, var=n.var, nQtlPerChr=n.qtlPerChr)
-    SP$addTraitA(mean=n.initTraitVal, var=n.var, nQtlPerChr=n.qtlPerChr)
+    SP$addTraitA(mean=n.initTraitVal, var=n.var, nQtlPerChr=qtlPerChr)
+    SP$addTraitA(mean=n.initTraitVal, var=n.var, nQtlPerChr=qtlPerChr)
   } else if (SAMPLING=="gamma") {
-    SP$addTraitA(mean=n.initTraitVal, var=n.var, nQtlPerChr=n.qtlPerChr, gamma=TRUE, shape=n.shape)
-    SP$addTraitA(mean=n.initTraitVal, var=n.var, nQtlPerChr=n.qtlPerChr, gamma=TRUE, shape=n.shape)
+    SP$addTraitA(mean=n.initTraitVal, var=n.var, nQtlPerChr=qtlPerChr, gamma=TRUE, shape=n.shape)
+    SP$addTraitA(mean=n.initTraitVal, var=n.var, nQtlPerChr=qtlPerChr, gamma=TRUE, shape=n.shape)
   } else if (SAMPLING=="geometric") {
     addGeometricAdditiveTrait()
     addGeometricAdditiveTrait()
@@ -105,8 +121,8 @@ if (n.relAA == 0) {
   # Add a yield potential polygenic trait
   SP$addTraitA(mean=n.initYieldVal, var=n.yieldVar, nQtlPerChr=n.yieldQtlPerChr)
 } else { # Epistatic G > T
-  SP$addTraitAE(mean=n.initTraitVal, var=n.var, nQtlPerChr=n.qtlPerChr, relAA=n.relAA, useVarA=FALSE)
-  SP$addTraitAE(mean=n.initTraitVal, var=n.var, nQtlPerChr=n.qtlPerChr, relAA=n.relAA, useVarA=FALSE)
+  SP$addTraitAE(mean=n.initTraitVal, var=n.var, nQtlPerChr=qtlPerChr, relAA=n.relAA, useVarA=FALSE)
+  SP$addTraitAE(mean=n.initTraitVal, var=n.var, nQtlPerChr=qtlPerChr, relAA=n.relAA, useVarA=FALSE)
   
   # Add a yield potential polygenic trait
   SP$addTraitAE(mean=n.initYieldVal, var=n.yieldVar, nQtlPerChr=n.yieldQtlPerChr, relAA=n.relAA, useVarA=FALSE)
