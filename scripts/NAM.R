@@ -24,12 +24,12 @@ source("figures/G2FLandscapes.R")
 # Load the phenotype data, if not already loaded
 phenotypeData <- function() {
   # Check if the file already exists
-  if (file.exists("NAM/pheno.rds")) {
-    return (readRDS("NAM/pheno.rds"))
+  if (file.exists("NAM/data/pheno.rds")) {
+    return (readRDS("NAM/data/pheno.rds"))
   }
   
   # Contains the LIB information for each NAM sample
-  codes.df <- read.csv("NAM/NAM_population_codes.csv") %>%
+  codes.df <- read.csv("NAM/data/NAM_population_codes.csv") %>%
     dplyr::rename(Taxa="Plot_ID")
   
   # Append the LIBs of the founder lines
@@ -46,7 +46,7 @@ phenotypeData <- function() {
                     ))
   
   # Read in the plant height data from Manhattan 2015
-  height.df <- read.csv("NAM/Plant_height_NAM.csv") %>%
+  height.df <- read.csv("NAM/data/Plant_height_NAM.csv") %>%
     dplyr::filter(Location=="Manhattan") %>%
     dplyr::rename("PH"=Plant_height) %>%
     dplyr::select(Taxa,PH) %>%
@@ -57,7 +57,7 @@ phenotypeData <- function() {
     dplyr::select(-c(Taxa, Pedigree))
   
   # Read in the flowering time data from Manhattan 2015
-  ft.df <- read.csv("NAM/Flowering_time_NAM_2015.csv") %>%
+  ft.df <- read.csv("NAM/data/Flowering_time_NAM_2015.csv") %>%
     dplyr::filter(Year=="2015") %>%
     dplyr::rename("FT"=Flowering_time) %>%
     dplyr::select(Taxa,FT) %>%
@@ -72,7 +72,7 @@ phenotypeData <- function() {
   # Join the height and flowering time dataframes
   pheno.df <- inner_join(height.df, ft.df)
   
-  saveRDS(pheno.df, "NAM/pheno.df")
+  saveRDS(pheno.df, "NAM/data/pheno.df")
   return (pheno.df)
 }
 
@@ -86,11 +86,11 @@ full_pca <- readRDS("NAM/pca_sap/full_pca_projection.rds")
 pca_df <- rownames_to_column(as.data.frame(full_pca), var="LIB")
 
 # Metadata
-metadata <- read.csv("NAM/metadata_NAM.txt", header = T,sep = "\t")
+metadata <- read.csv("NAM/data/metadata_NAM.txt", header = T,sep = "\t")
 metadata <- metadata %>% dplyr::select(LIB, Family)
 
 # Founder line metadata
-founders <- read.csv("NAM/founders.csv", header=T)
+founders <- read.csv("NAM/data/founders.csv", header=T)
 metadata <- rbind(metadata, founders)
 
 # Filter in case there are missing samples
