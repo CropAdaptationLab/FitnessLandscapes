@@ -46,12 +46,14 @@ source("functions/TraitArchitecture.R")
 source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
-n.popResets <- 150
+n.popResets <- 100
 # Number of adaptive walk replications per pair of subpopulations
 n.reps <- 2
 
 # Recurrent selection cycles
 n.C <- 20
+
+gsPheno <- "pheno"
 
 # Store the results of GWP from landrace into the RIL family
 RIL.df <- data.frame(
@@ -86,7 +88,7 @@ RS.df <- data.frame(
 )
 
 # All the parameter combinations to iterate through
-qtl_vec <- c(2,10,20,50)
+qtl_vec <- c(10,20,50)
 
 output_dir <- file.path(base_dir, paste0("Sim_", format(Sys.time(), "%F_%H_%M")))
 if (!dir.exists(output_dir)) dir.create(output_dir)

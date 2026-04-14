@@ -51,6 +51,7 @@ n.indPerRIL <- 4 # number of replicates in each RIL
 n.C <- 30 # Cycles of recurrent selection
 n.GSmarkers <- 100 # Markers per chromosome to use for GWP
 n.selInt <- 0.1 # Selection intensity for recurrent selection
+gsPheno <- "gv" # Set to 'gv' or 'pheno'. For training the RRBLUP
 
 # PLOTTING
 saveQtlPlots <- FALSE # Save linkage map plots

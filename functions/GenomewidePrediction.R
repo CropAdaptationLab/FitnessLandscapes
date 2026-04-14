@@ -21,7 +21,7 @@ evaluateGWP <- function(trainPop, testPop, trait) {
   trainPop <- setPheno(trainPop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
   # Train the model
   # snpChip 2 is for genomic prediction
-  model <- fastRRBLUP(trainPop, traits=trait, use="gv", snpChip=2)
+  model <- fastRRBLUP(trainPop, traits=trait, use=gsPheno, snpChip=2)
   # Set the estimated breeding values
   testPop <- setEBV(testPop, model)
   # Determine the correlation between genetic values and estimated breeding values
@@ -39,7 +39,7 @@ evaluateGWP_W <- function(trainPop, testPop) {
   # Update phenotype to have heritabilities associated with breeding programs
   trainPop <- setPheno(trainPop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
   # snpChip 2 is for genomic prediction
-  model <- fastRRBLUP(trainPop, traits=calculateW_GWP, use="gv", snpChip=2)
+  model <- fastRRBLUP(trainPop, traits=calculateW_GWP, use=gsPheno, snpChip=2)
   testPop <- setEBV(testPop, model)
   # Determine the correlation between genetic values and estimated breeding values
   # in the test population
@@ -61,7 +61,7 @@ recurrentSelection <- function(basePop) {
   basePop <- setPheno(basePop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
   
   # snpChip 2 is for genomic prediction
-  model <- fastRRBLUP(basePop, traits=calculateW_GWP, use="gv", snpChip=2)
+  model <- fastRRBLUP(basePop, traits=calculateW_GWP, use=gsPheno, snpChip=2)
   
   # For storing results
   result <- data.frame(c=c(),
@@ -71,7 +71,8 @@ recurrentSelection <- function(basePop) {
                        genome_het=c(),
                        attained_het=c(),
                        desired_het=c(),
-                       pop_ie=c())
+                       pop_ie=c(),
+                       gvar=c())
   
   # If the model does not fit any values, there is no genetic variance
   # in the population
@@ -161,7 +162,7 @@ recurrentSelection <- function(basePop) {
       trainPop <- c(topEBV, topPheno)
     
       # Retrain model
-      model <- fastRRBLUP(trainPop, traits=calculateW_GWP, use="gv", snpChip=2)
+      model <- fastRRBLUP(trainPop, traits=calculateW_GWP, use=gsPheno, snpChip=2)
 
       # If the model does not fit any values, there is no genetic variance
       # in the population
