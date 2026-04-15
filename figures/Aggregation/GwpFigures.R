@@ -11,6 +11,14 @@ library(patchwork)
 library(tibble)
 library(tidyr)
 
+#setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/current_best")
+#RIL.df <- rbind(read.csv("QTL_10/ril_results.csv"),
+#                read.csv("QTL_20/ril_results.csv"),
+#                read.csv("QTL_50/ril_results.csv"))
+#GS.df <- rbind(read.csv("QTL_10/rs_results.csv"),
+#               read.csv("QTL_20/rs_results.csv"),
+#               read.csv("QTL_50/rs_results.csv"))
+
 theme <- theme_minimal(base_size = 8,
                        base_family="Helvetica") +
   theme(
@@ -742,12 +750,12 @@ geneticGain.df %>%
   sig_cor +
   labs(
     #title  = paste("QTL: ", nQtl),
-    x = "Population Isoeliteness",
+    x = "Mean Isoeliteness",
     y = "Genetic Gain"
   ) + 
   scale_color_manual(
     name = "Number of Cycles",
-    values = c("yellow", "orange", "red")
+    values = c("#4A1A6B", "#9B59B6", "#D7B8F3")
   ) +
   #scale_x_continuous(limits=c(minIe, 1)) +
   scale_y_continuous(limits=c(minGain, maxGain)) +
