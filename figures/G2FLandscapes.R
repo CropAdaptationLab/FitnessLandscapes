@@ -18,10 +18,10 @@ library(terra)
 # RIL: an admixed RIL family developed from a cross between parent1 and parent2
 # pop1: The landrace subpopulation from which parent1 was derived
 # pop2: The landrace subpopulation from which parent2 was derived
-# m1: One of the markers from a significant pairwise interaction
-# m2: The other marker from a signficant pairwise interaction
+# qtl1: One of the QTL from a significant pairwise interaction
+# qtl2: The other QTL from a signficant pairwise interaction
 # ril_dir: The directory in which to save the resulting plot
-plot1DLandscape <- function(RIL, pop1, pop2, parent1, parent2, m1, m2, snpChip, ril_dir) {
+plot1DLandscape <- function(RIL, pop1, pop2, parent1, parent2, qtl1, qtl2, snpChip, ril_dir) {
   # Make a larger RIL to reduce noise
   RIL <- self(RIL, nProgeny=5)
   
@@ -30,7 +30,7 @@ plot1DLandscape <- function(RIL, pop1, pop2, parent1, parent2, m1, m2, snpChip, 
   subpops_geno <- rbind(getUniqueQtl(pop1, traits=c(1,2)),
                         getUniqueQtl(pop2, traits=c(1,2)))
   
-  haplos <- getHaplos(as.data.frame(pullSnpGeno(RIL, snpChip)), m1, m2, parent1, parent2, snpChip)
+  haplos <- getHaplos(RIL_geno, qtl1, qtl2, parent1, parent2, snpChip)
   
   # Calculate the breeding fitness of each RIL sample
   RIL_pheno.df <- data.frame(fitness=breedingFitness(pheno(RIL)),

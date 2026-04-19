@@ -237,11 +237,11 @@ for (lx in 1:length(qtl_vec)) {
         peaks <- epistaticLodPeaks(RIL, parent1, parent2, trait=5, snpChip=1, ril_dir)
         if (nrow(peaks) > 0) {
           maxLodIdx <- which.max(peaks$lod.int)
-          m1 <- peaks$m1[maxLodIdx]
-          m2 <- peaks$m2[maxLodIdx]
+          qtl1 <- peaks$qtl1[maxLodIdx]
+          qtl2 <- peaks$qtl2[maxLodIdx]
           if ((m1 != m2) & (saveQtlPlots)) {
-            plotReactionNorm(RIL, m1, m2, parent1, parent2, suitFunc, snpChip=1, ril_dir)
-            plot1DLandscape(RIL, pops[[1]], pops[[2]], parent1, parent2, m1, m2, snpChip=1, ril_dir)
+            plotReactionNorm(RIL, qtl1, qtl2, parent1, parent2, suitFunc, snpChip=1, ril_dir)
+            plot1DLandscape(RIL, pops[[1]], pops[[2]], parent1, parent2, qtl1, qtl2, snpChip=1, ril_dir)
           }
         }
         nIntPeaks <- nrow(peaks)

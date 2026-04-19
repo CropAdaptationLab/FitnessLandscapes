@@ -115,6 +115,7 @@ epistaticLodPeaks <- function(RIL, parent1, parent2, trait, snpChip, ril_dir) {
     return(qtl_id)
   }
   
+  # TODO: find a marker in LD with the QTL, instead of just a flanking marker
   # Find the marker nearest to pos on the specified snp chip and the specified chromosome
   findMarker <- function(chrId, pos, snpChip) {
     snpMap <- getSnpMap(snpChip) %>%
@@ -136,9 +137,9 @@ epistaticLodPeaks <- function(RIL, parent1, parent2, trait, snpChip, ril_dir) {
                     pos2=as.numeric(pos2)) %>%
       dplyr::rowwise() %>%
       dplyr::mutate(qtl1 = findQtl(chr1, pos1),
-                    qtl2 = findQtl(chr2, pos2),
-                    m1 = findMarker(chr1, pos1, snpChip=2),
-                    m2 = findMarker(chr2, pos2, snpChip=2)) %>%
+                    qtl2 = findQtl(chr2, pos2)) %>%
+                    # m1 = findMarker(chr1, pos1, snpChip=2),
+                    # m2 = findMarker(chr2, pos2, snpChip=2)) %>%
       dplyr::ungroup()
   }
 

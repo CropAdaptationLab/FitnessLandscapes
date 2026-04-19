@@ -68,11 +68,11 @@ recurrentSelection <- function(basePop, parent1, parent2) {
   masHaplo <- data.frame(id=basePop@id)
   peaks <- epistaticLodPeaks(basePop, parent1, parent2, snpChip=2, trait=5)
   if (nrow(peaks) > 0) {
-    masGeno <- as.data.frame(pullSnpGeno(basePop, snpChip=2))
+    masGeno <- getUniqueQtl(basePop)
     for (r in 1:nrow(peaks)) {
-      m1 <- peaks$m1[r]
-      m2 <- peaks$m2[r]
-      haplos <- getHaplos(masGeno, m1, m2, parent1, parent2, snpChip=2)
+      qtl1 <- peaks$qtl1[r]
+      qtl2 <- peaks$qtl2[r]
+      haplos <- getHaplos(masGeno, qtl1, qtl2, parent1, parent2, snpChip=2)
       masHaplo <- cbind(masHaplo, haplos)
     }
     colnames(masHaplo) <- c("id", paste0("INT_", 1:nrow(peaks)))

@@ -105,15 +105,15 @@ popIsoeliteness <- function(pop) {
   return (sum(iso_elite.df$val))
 }
 
-# Get the haplotypes of each individual in the population based on 2 markers (m1 and m2)
+# Get the haplotypes of each individual in the population based on 2 QTLs
 # and the parental haplotypes found in parent1 and parent2
 # Returns a list of size nInd(rilGeno) of 'P1', 'P2', and 'R'
-getHaplos <- function(rilGeno, m1, m2, parent1, parent2, snpChip=2) {
+getHaplos <- function(rilGeno, qtl1, qtl2, parent1, parent2, snpChip=2) {
   # Determine the haplotypes of parent1 and parent 2 w.r.t. the two QTL markers
-  haplo1 <- as.data.frame(pullSnpGeno(parent1, snpChip)) %>%
-    dplyr::select(all_of(c(m1, m2)))
-  haplo2 <- as.data.frame(pullSnpGeno(parent2, snpChip)) %>%
-    dplyr::select(all_of(c(m1, m2)))
+  haplo1 <- getUniqueQtl(parent1) %>%
+    dplyr::select(all_of(c(qtl1, qtl2)))
+  haplo2 <- getUniqueQtl(parent2) %>%
+    dplyr::select(all_of(c(qtl1, qtl2)))
   
   # Determine whether a haplotype corresponds to parent 1, parent 2, or neither (recombinant)
   # allele1: The allele at the first locus
@@ -129,10 +129,10 @@ getHaplos <- function(rilGeno, m1, m2, parent1, parent2, snpChip=2) {
   
   # Determine the parental haplotypes of each individual in the RIL family  
   haplo <- rilGeno %>%
-    dplyr::select(all_of(c(m1,m2))) %>%
-    setNames(c("m1", "m2")) %>%
+    dplyr::select(all_of(c(qtl1,qtl2))) %>%
+    setNames(c("qtl1", "qtl2")) %>%
     dplyr::rowwise() %>%
-    dplyr::mutate(cat=categorize(m1, m2)) %>%
+    dplyr::mutate(cat=categorize(qtl1, qtl2)) %>%
     dplyr::ungroup()
   
   return (haplo$cat)
