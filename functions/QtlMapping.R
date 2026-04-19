@@ -68,8 +68,8 @@ getLodPeaks <- function(RIL, parent1, parent2, ril_dir) {
 # 4: Suitability, 5: Breeding Fitness)
 # ril_dir: a directory in which to save the plots
 # Returns: the number of significant LOD peaks
-epistaticLodPeaks <- function(RIL, parent1, parent2, trait, ril_dir) {
-  cross <- getCross(RIL, parent1, parent2, "riself", snpChip=1)
+epistaticLodPeaks <- function(RIL, parent1, parent2, trait, snpChip, ril_dir) {
+  cross <- getCross(RIL, parent1, parent2, "riself", snpChip=snpChip)
   cross <- drop.nullmarkers(cross)
   # Check to see if there are no markers once null markers have been dropped
   if (length(cross$geno) == 0) {
@@ -90,7 +90,7 @@ epistaticLodPeaks <- function(RIL, parent1, parent2, trait, ril_dir) {
   # https://rqtl.org/tutorials/new_summary_scantwo.pdf
   # Use these to avoid the significant computational time required to do 1000
   # permutations
-  # These were obtained by looking at 10 independendent 1000 perm tests
+  # These were obtained by looking at 10 independent 1000 perm tests
   thresholds <- c(6.6,5.2,4.2,5.0,3.1)
   # This function only calculates based on the pairs of peak values on each chromosome
   # It does not account for multiple QTL per chromosome
@@ -115,6 +115,18 @@ epistaticLodPeaks <- function(RIL, parent1, parent2, trait, ril_dir) {
     return(qtl_id)
   }
   
+  # Find the marker nearest to pos on the specified snp chip and the specified chromosome
+  findMarker <- function(chrId, pos, snpChip) {
+    snpMap <- getSnpMap(snpChip) %>%
+      dplyr::filter(chr == chrId) %>%
+      dplyr::mutate(pos = pos*n.genMapLen)
+    
+    # Find the closest QTL to the closest SNP
+    marker_id <- snpMap$id[which.min(abs(snpMap$pos - pos))]
+    
+    return(marker_id)
+  }
+  
   # Add qtl1 and qtl2 columns - the QTL pait corresponding to each interaction
   if (nrow(peaks) > 0) {
     peaks <- peaks %>%
@@ -124,7 +136,9 @@ epistaticLodPeaks <- function(RIL, parent1, parent2, trait, ril_dir) {
                     pos2=as.numeric(pos2)) %>%
       dplyr::rowwise() %>%
       dplyr::mutate(qtl1 = findQtl(chr1, pos1),
-                    qtl2 = findQtl(chr2, pos2)) %>%
+                    qtl2 = findQtl(chr2, pos2),
+                    m1 = findMarker(chr1, pos1, snpChip=2),
+                    m2 = findMarker(chr2, pos2, snpChip=2)) %>%
       dplyr::ungroup()
   }
 

@@ -18,10 +18,10 @@ library(terra)
 # RIL: an admixed RIL family developed from a cross between parent1 and parent2
 # pop1: The landrace subpopulation from which parent1 was derived
 # pop2: The landrace subpopulation from which parent2 was derived
-# qtl1: One of the QTL from a significant pairwise interaction
-# qtl2: The other QTL from a signficant pairwise interaction
+# m1: One of the markers from a significant pairwise interaction
+# m2: The other marker from a signficant pairwise interaction
 # ril_dir: The directory in which to save the resulting plot
-plot1DLandscape <- function(RIL, pop1, pop2, parent1, parent2, qtl1, qtl2, ril_dir) {
+plot1DLandscape <- function(RIL, pop1, pop2, parent1, parent2, m1, m2, snpChip, ril_dir) {
   # Make a larger RIL to reduce noise
   RIL <- self(RIL, nProgeny=5)
   
@@ -30,36 +30,11 @@ plot1DLandscape <- function(RIL, pop1, pop2, parent1, parent2, qtl1, qtl2, ril_d
   subpops_geno <- rbind(getUniqueQtl(pop1, traits=c(1,2)),
                         getUniqueQtl(pop2, traits=c(1,2)))
   
-  
-  # Determine the haplotypes of parent1 and parent 2 w.r.t. the two QTL markers
-  haplo1 <- getUniqueQtl(parent1) %>%
-    dplyr::select(all_of(c(qtl1, qtl2)))
-  haplo2 <- getUniqueQtl(parent2) %>%
-    dplyr::select(all_of(c(qtl1, qtl2)))
-  
-  # Determine whether a haplotype corresponds to parent 1, parent 2, or neither (recombinant)
-  # allele1: The allele at the first locus
-  # allele2: The allele at the second locus
-  categorize <- function(allele1, allele2) {
-    if (all(c(allele1, allele2) == haplo1)) {
-      return("P1")
-    } else if (all(c(allele1, allele2) == haplo2)) {
-      return("P2")
-    }
-    return("R")
-  }
-
-  # Determine the parental haplotypes of each individual in the RIL family  
-  haplo <- RIL_geno %>%
-    dplyr::select(all_of(c(qtl1,qtl2))) %>%
-    setNames(c("qtl1", "qtl2")) %>%
-    dplyr::rowwise() %>%
-    dplyr::mutate(cat=categorize(qtl1, qtl2)) %>%
-    dplyr::ungroup()
+  haplos <- getHaplos(as.data.frame(pullSnpGeno(RIL, snpChip)), m1, m2, parent1, parent2, snpChip)
   
   # Calculate the breeding fitness of each RIL sample
   RIL_pheno.df <- data.frame(fitness=breedingFitness(pheno(RIL)),
-                             haplo=haplo$cat)
+                             haplo=haplos)
   
   # Run PCA on the landrace subpopulations
   pca <- prcomp(subpops_geno)

@@ -15,7 +15,7 @@ library(ggpubr)
 library(ggplot2)
 library(ggpmisc)
 library(patchwork)
-library(qtl2convert)
+library(qtl)
 library(RColorBrewer)
 library(reshape2)
 library(tibble)
@@ -39,21 +39,24 @@ base_dir <- file.path(getwd(), "output/GWP")
 if (!dir.exists(base_dir)) dir.create(base_dir)
 
 source("functions/Fitness.R")
+source("functions/GenoConversions.R")
 source("functions/GenomewidePrediction.R")
 source("functions/MappingPopulations.R")
+source("functions/QtlMapping.R")
 source("functions/QuantGen.R")
 source("functions/TraitArchitecture.R")
 source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
-n.popResets <- 100
+n.popResets <- 200
 # Number of adaptive walk replications per pair of subpopulations
 n.reps <- 2
 
 # Recurrent selection cycles
 n.C <- 20
 
-gsPheno <- "pheno"
+# Phenotype to use for genomic selection
+gsPheno <- "gv"
 
 # Store the results of GWP from landrace into the RIL family
 RIL.df <- data.frame(
@@ -88,13 +91,13 @@ RS.df <- data.frame(
 )
 
 # All the parameter combinations to iterate through
-qtl_vec <- c(10,20,50)
+qtl_vec <- c(10)
 
 output_dir <- file.path(base_dir, paste0("Sim_", format(Sys.time(), "%F_%H_%M")))
 if (!dir.exists(output_dir)) dir.create(output_dir)
 
-for (lx in 1:length(qtl_vec)) {
-  n.L <- qtl_vec[lx]
+for (n.L in qtl_vec) {
+  #n.L <- qtl_vec[lx]
   print(paste0("QTL: ", n.L))
   
   # The directory for this number of QTL
@@ -134,6 +137,8 @@ for (lx in 1:length(qtl_vec)) {
       res_admixed <- createRIL(purelines1[[1]], purelines2[[1]])
       # Select the parents from the result, and the RIL population
       RIL_admixed <- res_admixed[-(1:2)]
+      parent1 <- res_admixed[1]
+      parent2 <- res_admixed[2]
       # Admixed GWP
       rAdmixed <- evaluateGWP_W(trainPop=c(pops[[1]],pops[[2]]), testPop=RIL_admixed)
       
@@ -146,10 +151,10 @@ for (lx in 1:length(qtl_vec)) {
       RIL_pop2 <- res_pop2[-(1:2)]
       
       # Calculate isoeliteness for each trait
-      isoElite_T1 <- isoEliteness(res_admixed[1], res_admixed[2], founderPop, 1)
-      isoElite_T2 <- isoEliteness(res_admixed[1], res_admixed[2], founderPop, 2)
+      isoElite_T1 <- isoEliteness(parent1, parent2, founderPop, 1)
+      isoElite_T2 <- isoEliteness(parent1, parent2, founderPop, 2)
       isoEliteAtt <- mean(c(isoElite_T1, isoElite_T2))
-      isoElite_T3 <- isoEliteness(res_admixed[1], res_admixed[2], founderPop, 3)
+      isoElite_T3 <- isoEliteness(parent1, parent2, founderPop, 3)
 
       # Store admixed, within, and cross-population prediction accuracies
       RIL.df <- rbind(RIL.df,
@@ -165,9 +170,9 @@ for (lx in 1:length(qtl_vec)) {
                         rP1P2=evaluateGWP_W(trainPop=c(pops[[1]]), testPop=RIL_pop2),
                         rP2P1=evaluateGWP_W(trainPop=c(pops[[2]]), testPop=RIL_pop1)
                       ))
-      
+
       # Run recurrent selection to improve the admixed RIL
-      newRow <- recurrentSelection(RIL_admixed) %>%
+      newRow <- recurrentSelection(RIL_admixed, parent1, parent2) %>%
         dplyr::mutate(qtl=n.L,
                       founder=f,
                       rep=rep,
@@ -184,7 +189,7 @@ for (lx in 1:length(qtl_vec)) {
       isoElite_T3 <- isoEliteness(res_pop1[1], res_pop1[2], founderPop, 3)
 
       # Run recurrent selection to improve the unadmixed RIL
-      newRow <- recurrentSelection(RIL_pop1) %>%
+      newRow <- recurrentSelection(RIL_pop1, parent1, parent2) %>%
         dplyr::mutate(qtl=n.L,
                       founder=f,
                       rep=rep,

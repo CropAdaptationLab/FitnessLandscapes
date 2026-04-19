@@ -57,7 +57,7 @@ source("scripts/GlobalParameters.R")
 # Number of founder populations to simulate
 n.popResets <- 1
 # Number of adaptive walk replications per pair of subpopulations
-n.reps <- 10
+n.reps <- 1
 
 SAMPLING <- 'geometric'
 n.minMAF <- 0.3
@@ -72,16 +72,16 @@ saveFixationOrder <- TRUE
 saveEffectSizes <- TRUE
 
 # PLOTTING
-saveQtlPlots <- FALSE
-saveTraitPlots <- FALSE
-saveAllelePlots <- FALSE
-saveFitnessPlots <- FALSE
+saveQtlPlots <- TRUE
+saveTraitPlots <- TRUE
+saveAllelePlots <- TRUE
+saveFitnessPlots <- TRUE
 
 # Set to true for doing G > F landscape creation (not currently working)
 sampleInds <- FALSE
 
 # All the parameter combinations to iterate through
-qtl_vec <- c(10,20,50)
+qtl_vec <- c(10)
 
 output_dir <- file.path(base_dir, paste0("Sim_", format(Sys.time(), "%F_%H_%M")))
 if (!dir.exists(output_dir)) dir.create(output_dir)
@@ -234,14 +234,14 @@ for (lx in 1:length(qtl_vec)) {
       # Get number of significant interaction effects
       if (twoQtlMapping) {
         # Get the peak locations
-        peaks <- epistaticLodPeaks(RIL, parent1, parent2, trait=5, ril_dir)
+        peaks <- epistaticLodPeaks(RIL, parent1, parent2, trait=5, snpChip=1, ril_dir)
         if (nrow(peaks) > 0) {
           maxLodIdx <- which.max(peaks$lod.int)
-          qtl1 <- peaks$qtl1[maxLodIdx]
-          qtl2 <- peaks$qtl2[maxLodIdx]
-          if ((qtl1 != qtl2) & (saveQtlPlots)) {
-            plotReactionNorm(RIL, qtl1, qtl2, parent1, parent2, suitFunc, ril_dir)
-            plot1DLandscape(RIL, pops[[1]], pops[[2]], parent1, parent2, qtl1, qtl2, ril_dir)
+          m1 <- peaks$m1[maxLodIdx]
+          m2 <- peaks$m2[maxLodIdx]
+          if ((m1 != m2) & (saveQtlPlots)) {
+            plotReactionNorm(RIL, m1, m2, parent1, parent2, suitFunc, snpChip=1, ril_dir)
+            plot1DLandscape(RIL, pops[[1]], pops[[2]], parent1, parent2, m1, m2, snpChip=1, ril_dir)
           }
         }
         nIntPeaks <- nrow(peaks)
@@ -288,7 +288,7 @@ for (lx in 1:length(qtl_vec)) {
         }
         
         if (twoQtlMapping) {
-          peaks <- epistaticLodPeaks(RIL, parent1, parent2, trait=4, ril_dir)
+          peaks <- epistaticLodPeaks(RIL, parent1, parent2, trait=5, ril_dir)
           nIntPeaks <- nrow(peaks)
         } else {
           nIntPeaks <- 0
