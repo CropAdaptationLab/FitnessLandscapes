@@ -69,15 +69,28 @@ recurrentSelection <- function(basePop, parent1, parent2) {
   peaks <- epistaticLodPeaks(basePop, parent1, parent2, snpChip=2, trait=5)
   if (nrow(peaks) > 0) {
     masGeno <- getUniqueQtl(basePop)
+    # Number of actual QTL interactions
+    nInt <- 0
     for (r in 1:nrow(peaks)) {
       qtl1 <- peaks$qtl1[r]
       qtl2 <- peaks$qtl2[r]
+      if (is.na(qtl1) | is.na(qtl2)) {
+        next
+      }
+      # Check that both QTL are segregating
+      if (!segLocus(masGeno[,qtl1]) | !segLocus(masGeno[,qtl2])) {
+        next
+      }
       haplos <- getHaplos(masGeno, qtl1, qtl2, parent1, parent2, snpChip=2)
+      nInt <- nInt + 1
       masHaplo <- cbind(masHaplo, haplos)
     }
-    colnames(masHaplo) <- c("id", paste0("INT_", 1:nrow(peaks)))
+    if (nInt > 0) {
+      colnames(masHaplo) <- c("id", paste0("INT_", 1:nInt))
+    }
   }
 
+  
   # Calculate sum of the favorable haplotypes
   masInds <- masHaplo %>%
     dplyr::rowwise() %>%
