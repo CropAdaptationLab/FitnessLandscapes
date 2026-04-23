@@ -13,10 +13,10 @@ library(patchwork)
 library(tibble)
 library(tidyr)
 
-setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/Sim_2026-04-19_17_10")
-output_dir <- getwd()
-RIL.df <- rbind(read.csv("QTL_10/ril_results.csv"))
-RS.df <- rbind(read.csv("QTL_10/rs_results.csv"))
+#setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/Sim_2026-04-22_11_08")
+#output_dir <- getwd()
+#RIL.df <- rbind(read.csv("QTL_10/ril_results.csv"))
+#RS.df <- rbind(read.csv("QTL_10/rs_results.csv"))
 
 theme <- theme_minimal(base_size = 8,
                        base_family="Helvetica") +
@@ -90,7 +90,7 @@ gwp.df %>%
   ) +
   scale_fill_gwp +
   scale_y_continuous(expand=c(0,0.1)) +
-  labs(x="Test Fanily", y="GWP accuracy for breeding fitness (r)") +
+  labs(x="Test Family", y="GWP accuracy for breeding fitness (r)") +
   theme +
   theme(legend.position = "none")
 
@@ -122,25 +122,25 @@ gwp.df %>%
     aes(fill = after_stat(level)),
     geom = "polygon",
     contour = TRUE,
-    bins = 5,                          # number of contour levels
+    bins = 4,                          # number of contour levels
     alpha = 0.7
   ) +
   stat_density_2d(
     color = "grey30",                  # contour outlines
     linewidth = 0.2,
     contour = TRUE,
-    bins = 5
+    bins = 4
   ) +
   scale_fill_gradientn(
     colors = LSD::colorpalette("heat"),
     name = "Density"
   ) +
-  geom_point(size = 0.5, alpha = 0.2, color = "grey20") +
+  geom_point(size = 0.5, alpha = 0.5, color = "black") +
   geom_smooth(method = "lm", se = FALSE, linewidth = 0.4, color = "black") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.3, color = "grey40") +
   sig_cor +
   labs(
-    x = "Mean Isoeliteness",
+    x = "Attained Trait Isoeliteness",
     y = "GWP accuracy for breeding fitness (r)"
   ) +
   theme +
@@ -163,21 +163,14 @@ gwp.df %>%
   dplyr::filter(type=="Admixed",
                 qtl==10) %>%
   ggplot(aes(x=isoElite, y=r)) +
-  geom_point(aes(color=pt_fill), size=0.5) +
+  geom_point(size=2, aes(color=isoEliteDes)) +
   geom_smooth(method="lm", se=FALSE, linewidth=0.4, color= "black") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.3, color = "grey40") +
   guides(color = guide_legend(override.aes = list(shape = 16, linetype = 1, size=2))) +
-  scale_color_manual(
-    values = c("pos" = "steelblue",
-               "neg" = "firebrick")
-  ) +
   sig_cor +
-  labs(x="Mean Isoeliteness",
+  labs(x="Attained Trait Isoeliteness",
        y="GWP accuracy for breeding fitness (r)") +
-  theme +
-  theme(
-    legend.position = "none",
-  )
+  theme
 
 ggplot2::ggsave(filename = "gwp_ie_qtl10.jpg",
                 path=output_dir,
@@ -197,16 +190,12 @@ gwp.df %>%
   dplyr::filter(type=="Admixed",
                 qtl==10) %>%
   ggplot(aes(x=isoEliteDes, y=r)) +
-  geom_point(aes(color=pt_fill), size=0.5) +
+  geom_point(size=0.5) +
   geom_smooth(method="lm", se=FALSE, linewidth=0.4, color= "black") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.3, color = "grey40") +
   guides(color = guide_legend(override.aes = list(shape = 16, linetype = 1, size=2))) +
-  scale_color_manual(
-    values = c("pos" = "steelblue",
-               "neg" = "firebrick")
-  ) +
   sig_cor +
-  labs(x="Mean Isoeliteness",
+  labs(x="Desired Trait Isoeliteness",
        y="GWP accuracy for breeding fitness (r)") +
   theme +
   theme(
@@ -220,6 +209,33 @@ ggplot2::ggsave(filename = "gwp_ie_des_qtl10.jpg",
                 height=3,
                 dpi=600)
 ggplot2::ggsave(filename = "gwp_ie_des_qtl10.pdf",
+                path=output_dir,
+                device = "pdf",
+                width=3.5,
+                height=3)
+
+gwp.df %>%
+  dplyr::filter(type=="Admixed",
+                qtl==10) %>%
+  ggplot(aes(x=isoEliteDes, y=isoElite)) +
+  geom_point(size=0.5) +
+  geom_smooth(method="lm", se=FALSE, linewidth=0.4, color= "black") +
+  guides(color = guide_legend(override.aes = list(shape = 16, linetype = 1, size=2))) +
+  sig_cor +
+  labs(x="Desired Trait Isoeliteness",
+       y="Attained Trait Isoeliteness") +
+  theme +
+  theme(
+    legend.position = "none",
+  )
+
+ggplot2::ggsave(filename = "gwp_att_des.jpg",
+                path=output_dir,
+                device = "jpg",
+                width=3.5,
+                height=3,
+                dpi=600)
+ggplot2::ggsave(filename = "gwp_att_des.pdf",
                 path=output_dir,
                 device = "pdf",
                 width=3.5,
@@ -320,9 +336,9 @@ reps.df <- gs.df %>%
 # Create discrete categories of isoeliteness
 ie_means.df <- reps.df %>%
   dplyr::mutate(ie_cat = dplyr::case_when(
-    meanIe > 0.9          ~ "> 0.9",
-    meanIe >= 0.8          ~ "0.8 - 0.9",
-    meanIe <  0.8          ~ "< 0.8"
+    meanIe > 0.9          ~ "High",
+    meanIe >= 0.8          ~ "Moderate",
+    meanIe <  0.8          ~ "Low"
   ))
 
 ie_cats.df <- ie_means.df %>%
@@ -334,7 +350,7 @@ ie_cats.df <- ie_means.df %>%
     .groups = "drop"
   )
 ie_cats.df$ie_cat <- factor(ie_cats.df$ie_cat,
-                             levels=c("< 0.8", "0.8 - 0.9", "> 0.9"))
+                             levels=c("Low", "Moderate", "High"))
 
 minW <- min(reps.df$w)
 maxW <- max(reps.df$w)
@@ -354,10 +370,10 @@ plotAllCurves <- function(selType) {
               aes(x = c, y = w, group = ie_cat, color = ie_cat),
               linewidth = 0.8) +
     scale_color_manual(
-      name = "Mean\nIsoeliteness",
-      values = c("> 0.9"    = "steelblue",
-                 "0.8 - 0.9" = "grey40",
-                 "< 0.8"  = "firebrick")
+      name = "Attained Trait\nIsoeliteness",
+      values = c("High"    = "steelblue",
+                 "Moderate" = "grey40",
+                 "Low"  = "firebrick")
     ) +
     labs(
       x = "Cycle",
@@ -563,19 +579,29 @@ ggplot2::ggsave(filename = "hetR.pdf",
                 height=2.5)
 
 # Calculate genetic gain per rep
+
+# Safe lookup of w at c == 1
+# Will return NA if there is no w value at that cycle
+# Otherwise, returns the value of w at that cycle
+safe_w <- function(w, c, target_c) {
+  val <- w[c == target_c]
+  if (length(val) == 0) NA else val[1]
+}
+
 geneticGain.df <- gs.df %>%
   dplyr::group_by(qtl, founder, rep, type, sel) %>%
   dplyr::summarize(
-    "5" =  w[c == 5] - w[c == 1],
-    "10" =  w[c == 10] - w[c == 1],
-    "20" = w[c == max(c)] - w[c == 1],
+    "5"  = safe_w(w, c, 5) - safe_w(w, c, 1),
+    "10" = safe_w(w, c, 10) - safe_w(w, c, 1),
+    "20" = safe_w(w, c, max(c)) - safe_w(w, c, 1),
     meanIe = mean(isoElite),
     .groups = "drop"
   ) %>%
+  drop_na() %>%
   dplyr::mutate(ie_cat = dplyr::case_when(
-    meanIe > 0.9          ~ "> 0.9",
-    meanIe >= 0.8          ~ "0.8 - 0.9",
-    meanIe <  0.8          ~ "< 0.8"
+    meanIe > 0.9 ~ "High",
+    meanIe >= 0.8 ~ "Moderate",
+    meanIe <  0.8 ~ "Low"
   )) %>%
   tidyr::pivot_longer(cols=c("5", "10", "20"),
                       names_to="cycles",
@@ -584,7 +610,7 @@ geneticGain.df <- gs.df %>%
 
 geneticGain.df$cycles <- factor(geneticGain.df$cycles, levels=c("5", "10", "20"))
 geneticGain.df$ie_cat <- factor(geneticGain.df$ie_cat,
-                            levels=c("< 0.8", "0.8 - 0.9", "> 0.9"))
+                            levels=c("Low", "Moderate", "High"))
 
 maxGain <- max(geneticGain.df$gain)
 
@@ -604,10 +630,10 @@ plotGeneticGain <- function(df, cycle, ylabel=TRUE) {
       y = "Genetic Gain"
     ) + 
     scale_fill_manual(
-      name = "Mean\nIsoeliteness",
-      values = c("> 0.9"    = "steelblue",
-                 "0.8 - 0.9" = "grey40",
-                 "< 0.8"  = "firebrick")
+      name = "Attained Trait\nIsoeliteness",
+      values = c("High"    = "steelblue",
+                 "Moderate" = "grey40",
+                 "Low"  = "firebrick")
     ) +
     scale_y_continuous(limits=c(0,maxGain)) +
     stat_compare_means(
@@ -658,12 +684,12 @@ geneticGain.df %>%
   sig_cor +
   labs(
     #title  = paste("QTL: ", nQtl),
-    x = "Mean Isoeliteness",
+    x = "Attained Trait Isoeliteness",
     y = "Genetic Gain"
   ) + 
   scale_color_manual(
     name = "Number of Cycles",
-    values = c("navy", "steelblue", "lightblue3")
+    values = c("#4A1A6B", "#9B59B6", "#D7B8F3")
   ) +
   #scale_x_continuous(limits=c(minIe, 1)) +
   scale_y_continuous(limits=c(minGain, maxGain)) +
@@ -689,7 +715,34 @@ gwp.df %>%
   write.csv(file.path(output_dir, "gwpAccuracy.csv"),quote=FALSE)
 
 geneticGain.df %>%
-  dplyr::group_by(qtl, type, sel, cycles) %>%
+  dplyr::filter(type=="Admixed") %>%
+  dplyr::group_by(qtl, sel, cycles, ie_cat) %>%
   dplyr::summarize(meanGain=mean(gain),
                    varGain=var(gain))%>%
   write.csv(file.path(output_dir, "geneticGain.csv"),quote=FALSE)
+
+
+# ANOVA
+sig.df <- geneticGain.df %>%
+  dplyr::filter(type=="Admixed",
+                qtl==10,
+                sel %in% c("GS", "MAS"))
+
+
+# Test whether there is more variance in GS than MAS
+var.test(gain ~ sel, data=sig.df %>% filter(cycles==5,
+                                                 ie_cat=="Low"))
+
+# SIGNIFICANT
+anova(lm(gain ~ sel, data=sig.df %>% filter(cycles==5,
+                                                 ie_cat == "Low")))
+anova(lm(gain ~ sel, data=sig.df %>% filter(cycles==10,
+                                                 ie_cat == "Low")))
+anova(lm(gain ~ sel, data=sig.df %>% filter(cycles==20,
+                                                 ie_cat == "Low")))
+anova(lm(gain ~ sel, data=sig.df %>% filter(cycles==5,
+                                                 ie_cat == "Moderate")))
+anova(lm(gain ~ sel, data=sig.df %>% filter(cycles==10,
+                                                 ie_cat == "Moderate")))
+anova(lm(gain ~ sel, data=sig.df %>% filter(cycles==20,
+                                                 ie_cat == "Moderate")))

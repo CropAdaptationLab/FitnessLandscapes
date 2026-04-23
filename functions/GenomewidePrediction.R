@@ -95,7 +95,7 @@ recurrentSelection <- function(basePop, parent1, parent2) {
   masInds <- masHaplo %>%
     dplyr::rowwise() %>%
     dplyr::mutate(
-      favHaplos = sum(c_across(starts_with("INT_")) %in% c("P1", "P2"))
+      favHaplos = sum(c_across(starts_with("INT_")) == "P1")
     ) %>%
     dplyr::ungroup() %>%
     dplyr::filter(favHaplos==max(favHaplos)) %>%
