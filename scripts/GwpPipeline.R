@@ -97,7 +97,6 @@ output_dir <- file.path(base_dir, paste0("Sim_", format(Sys.time(), "%F_%H_%M"))
 if (!dir.exists(output_dir)) dir.create(output_dir)
 
 for (n.L in qtl_vec) {
-  #n.L <- qtl_vec[lx]
   print(paste0("QTL: ", n.L))
   
   # The directory for this number of QTL
@@ -140,7 +139,7 @@ for (n.L in qtl_vec) {
       parent1 <- res_admixed[1]
       parent2 <- res_admixed[2]
       # Admixed GWP
-      rAdmixed <- evaluateGWP_W(trainPop=c(pops[[1]],pops[[2]]), testPop=RIL_admixed)
+      rAdmixed <- evaluateRRBLUP_W(trainPop=c(pops[[1]],pops[[2]]), testPop=RIL_admixed)
       
       # POP1
       res_pop1 <- createRIL(purelines1[[1]], purelines1[[2]])
@@ -164,11 +163,11 @@ for (n.L in qtl_vec) {
                         rep=rep,
                         isoElite=isoEliteAtt,
                         isoEliteDes=isoElite_T3,
-                        rAdmixed=evaluateGWP_W(trainPop=c(pops[[1]],pops[[2]]), testPop=RIL_admixed),
-                        rP1=evaluateGWP_W(trainPop=c(pops[[1]]), testPop=RIL_pop1),
-                        rP2=evaluateGWP_W(trainPop=c(pops[[2]]), testPop=RIL_pop2),
-                        rP1P2=evaluateGWP_W(trainPop=c(pops[[1]]), testPop=RIL_pop2),
-                        rP2P1=evaluateGWP_W(trainPop=c(pops[[2]]), testPop=RIL_pop1)
+                        rAdmixed=evaluateRRBLUP_W(trainPop=c(pops[[1]],pops[[2]]), testPop=RIL_admixed),
+                        rP1=evaluateRRBLUP_W(trainPop=c(pops[[1]]), testPop=RIL_pop1),
+                        rP2=evaluateRRBLUP_W(trainPop=c(pops[[2]]), testPop=RIL_pop2),
+                        rP1P2=evaluateRRBLUP_W(trainPop=c(pops[[1]]), testPop=RIL_pop2),
+                        rP2P1=evaluateRRBLUP_W(trainPop=c(pops[[2]]), testPop=RIL_pop1)
                       ))
 
       # Run recurrent selection to improve the admixed RIL

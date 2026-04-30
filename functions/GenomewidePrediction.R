@@ -2,6 +2,8 @@
 # Author: Ted Monyak
 # Description: Contains functions for genomewide prediction
 
+library(rrBLUP)
+
 # Calculates breeding fitness and removes a dimension to allow for easy 
 # computation of correlation with EBVs
 calculateW_GWP <- function(x, suitFunc=suitabilityGaussian) {
@@ -16,7 +18,7 @@ calculateW_GWP <- function(x, suitFunc=suitabilityGaussian) {
 # testPop: the test population
 # trait: the AlphaSimR phenotype index
 # Return correlation (r) between the EBVs and the actual genetic values in the test pop
-evaluateGWP <- function(trainPop, testPop, trait) {
+evaluateRRBLUP <- function(trainPop, testPop, trait) {
   # Update phenotype to have heritability associated with breeding programs
   trainPop <- setPheno(trainPop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
   # Train the model
@@ -35,7 +37,7 @@ evaluateGWP <- function(trainPop, testPop, trait) {
 # testPop: the test population
 # trait: the AlphaSimR phenotype index
 # Return correlation (r) between the EBVs and the actual genetic values in the test pop
-evaluateGWP_W <- function(trainPop, testPop) {
+evaluateRRBLUP_W <- function(trainPop, testPop) {
   # Update phenotype to have heritabilities associated with breeding programs
   trainPop <- setPheno(trainPop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
   # snpChip 2 is for genomic prediction
@@ -44,6 +46,39 @@ evaluateGWP_W <- function(trainPop, testPop) {
   # Determine the correlation between genetic values and estimated breeding values
   # in the test population
   r <- cor(calculateW_GWP(gv(testPop)), ebv(testPop))[1]
+  return (r)
+}
+
+# Train a G-BLUP model from the rrBLUP package
+# trainPop: the training population
+# testPop: the test population
+# Return correlation (r) between the EBVs and the actual genetic values in the test pop
+evaluateGBLUP_W <- function(trainPop, testPop) {
+  # Pull genotype matrices for both populations
+  geno <- rbind(pullSnpGeno(trainPop, snpChip = 2),
+                pullSnpGeno(testPop, snpChip = 2))
+  
+  # Update phenotypes
+  trainPop <- setPheno(trainPop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
+  # Set W pheno
+  
+  # Get breeding fitness values for train pop
+  w <- data.frame(gv=trainPop@gv) %>%
+    dplyr::mutate(w=calculateBreedingFitness(gv.Trait1, gv.Trait2, gv.Trait3)) %>%
+    dplyr::pull(w)
+  
+  # Create a phenotype dataframe
+  pheno <- data.frame(id=trainPop@id,
+                      W=w)
+  
+  # Add the test pop ids with NAs as the phenotypes
+  pheno <- dplyr::bind_rows(pheno,
+                            data.frame(id=testPop@id))
+  
+  # Estimate GEBVS with GBLUP
+  GEBV_W <- kin.blup(data=pheno,geno="id",pheno="W", K=A.mat(geno))$pred
+
+  r <- cor(calculateW_GWP(gv(testPop)), tail(GEBV_W, nInd(testPop)))[1]
   return (r)
 }
 
