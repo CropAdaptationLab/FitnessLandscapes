@@ -115,17 +115,27 @@ epistaticLodPeaks <- function(RIL, parent1, parent2, trait, snpChip, ril_dir) {
     return(qtl_id)
   }
   
+  # Find the nearest segregating marker based on proximity to
+  # pos on the specified snp chip and the specified chromosome
   # TODO: find a marker in LD with the QTL, instead of just a flanking marker
-  # Find the marker nearest to pos on the specified snp chip and the specified chromosome
   findMarker <- function(chrId, pos, snpChip) {
-    snpMap <- getSnpMap(snpChip) %>%
+    snpGeno <- pullSnpGeno(RIL, snpChip)
+    
+    # Get the snp chip genetic distance map, and order it by distance from pos
+    # Filter by segregating snps
+    segSnps <- getSnpMap(snpChip) %>%
       dplyr::filter(chr == chrId) %>%
-      dplyr::mutate(pos = pos*n.genMapLen)
+      dplyr::mutate(pos = pos*n.genMapLen) %>%
+      dplyr::mutate(dist = abs(pos - !!pos)) %>%
+      dplyr::mutate(seg = mapply(function(i) segLocus(snpGeno[, i]), id)) %>%
+      dplyr::filter(seg) %>%
+      dplyr::arrange(dist) %>%
+      dplyr::pull(id) 
     
-    # Find the closest QTL to the closest SNP
-    marker_id <- snpMap$id[which.min(abs(snpMap$pos - pos))]
-    
-    return(marker_id)
+    if (is_empty(segSnps)) {
+      return (NA)
+    }
+    return (segSnps[1])
   }
   
   # Add qtl1 and qtl2 columns - the QTL pait corresponding to each interaction
@@ -137,9 +147,11 @@ epistaticLodPeaks <- function(RIL, parent1, parent2, trait, snpChip, ril_dir) {
                     pos2=as.numeric(pos2)) %>%
       dplyr::rowwise() %>%
       dplyr::mutate(qtl1 = findQtl(chr1, pos1),
-                    qtl2 = findQtl(chr2, pos2)) %>%
-                    # m1 = findMarker(chr1, pos1, snpChip=2),
-                    # m2 = findMarker(chr2, pos2, snpChip=2)) %>%
+                    qtl2 = findQtl(chr2, pos2),
+                    m1_hr = findMarker(chr1, pos1, snpChip=2),
+                    m2_hr = findMarker(chr2, pos2, snpChip=2),
+                    m1_lr = findMarker(chr1, pos1, snpChip=3),
+                    m2_lr = findMarker(chr2, pos2, snpChip=3)) %>%
       dplyr::ungroup()
   }
 

@@ -32,9 +32,9 @@ theme <- theme_minimal(base_size = 8,
     aspect.ratio=1)
 
 scale_fill_gwp <- scale_fill_manual(name = "Test Family",
-                                values = c("Admixed" = "#E8B84B",
-                                           "Within-population" = "#d5a6bd",
-                                           "Cross-population" = "#8e7cc3"),
+                                values = c("Admixed" = "goldenrod1",
+                                           "Within-population" = "#7EBD4F",
+                                           "Cross-population" = "#A66A28"),
                                 breaks = c("Within-population", "Admixed", "Cross-population"))
 
 scale_color <- scale_color_manual(name = "QTL per\nAttained Trait",
@@ -132,7 +132,7 @@ gwp.df %>%
     bins = 5
   ) +
   scale_fill_gradientn(
-    colors = LSD::colorpalette("heat"),
+    colours = brewer.pal(5, "Oranges"),
     name = "Density"
   ) +
   geom_point(size = 0.5, alpha = 0.4, color = "black") +
@@ -195,7 +195,7 @@ ie_des <- gwp.df %>%
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.3, color = "grey40") +
   guides(color = guide_legend(override.aes = list(shape = 16, linetype = 1, size=2))) +
   sig_cor +
-  labs(x="Desired Trait Isoeliteness",
+  labs(x="Desired Trait Heterogeneity",
        y="GWP accuracy for breeding fitness (r)") +
   theme +
   theme(
@@ -210,7 +210,7 @@ att_des <- gwp.df %>%
   geom_smooth(method="lm", se=FALSE, linewidth=0.4, color= "black") +
   guides(color = guide_legend(override.aes = list(shape = 16, linetype = 1, size=2))) +
   sig_cor +
-  labs(x="Desired Trait Isoeliteness",
+  labs(x="Desired Trait Heterogeneity",
        y="Attained Trait Isoeliteness") +
   theme +
   theme(
@@ -238,10 +238,12 @@ gs.df <- RS.df %>%
 gs.df$pop <- factor(gs.df$pop,
                      levels=c("Admixed GS",
                               "Admixed PS",
-                              "Admixed MAS",
+                              "Admixed lrMAS",
+                              "Admixed ieMAS",
                               "Unadmixed GS",
                               "Unadmixed PS",
-                              "Unadmixed MAS"))
+                              "Unadmixed lrMAS",
+                              "Unadmixed ieMAS"))
 gs.df$qtl <- as.factor(as.character(gs.df$qtl))
 
 # Calculate average breeding fitness per pop per cycle
@@ -264,13 +266,13 @@ cycleMean.df <-  gs.df %>%
     )
   )
 
-minCycleW <- min(cycleMean.df$w)
-maxCycleW <- max(cycleMean.df$w)
+minCycleW <- 120
+maxCycleW <- 175
 
 # Plot for QTL == 10 only
 cycleMean.df %>%
   dplyr::filter(qtl==10) %>%
-  dplyr::filter(sel != "MAS") %>%
+  dplyr::filter(sel == "GS" | sel == "PS") %>%
   ggplot(aes(x = c, y = w, group = pop)) +
   geom_line() +
   geom_point(aes(fill = pt_fill, shape = pop), stroke = 0.5, size = 1) +
@@ -288,6 +290,7 @@ cycleMean.df %>%
     ))
   ) +
   scale_fill_identity() +
+  scale_y_continuous(limits = c(minCycleW, maxCycleW)) +
   labs(
     x = "Cycle",
     y = "Breeding Fitness"
@@ -335,9 +338,6 @@ ie_cats.df <- ie_means.df %>%
 ie_cats.df$ie_cat <- factor(ie_cats.df$ie_cat,
                              levels=c("Low", "Moderate", "High"))
 
-minW <- min(reps.df$w)
-maxW <- max(reps.df$w)
-
 plotAllCurves <- function(selType, ylabel = TRUE) {
   ggplot() +
     geom_line(data = reps.df %>% dplyr::filter(sel == selType),
@@ -363,8 +363,7 @@ plotAllCurves <- function(selType, ylabel = TRUE) {
       y = "Breeding Fitness",
       title = selType
     ) +
-    #scale_y_continuous(limits = c(minW, maxW)) +
-    scale_y_continuous(limits = c(120, 175)) +
+    scale_y_continuous(limits = c(minCycleW, maxCycleW)) +
     theme +
     theme(
       axis.title.y = if (!ylabel) element_blank() else element_text(),
@@ -372,7 +371,7 @@ plotAllCurves <- function(selType, ylabel = TRUE) {
     )
 }
 
-(plotAllCurves("GS") | plotAllCurves("MAS", FALSE)) + plot_layout(guides = "collect", axes = "collect")
+(plotAllCurves("GS") | plotAllCurves("ieMAS", FALSE)) + plot_layout(guides = "collect", axes = "collect")
 
 ggplot2::ggsave(filename = "fitness_by_ieCat.jpg",
                 path=output_dir,
@@ -420,13 +419,17 @@ geneticGain.df <- gs.df %>%
 geneticGain.df$cycles <- factor(geneticGain.df$cycles, levels=c("5", "10", "20"))
 geneticGain.df$ie_cat <- factor(geneticGain.df$ie_cat,
                             levels=c("Low", "Moderate", "High"))
+geneticGain.df$sel <- factor(geneticGain.df$sel,
+                                levels=c("GS", "lowResMAS", "highResMAS", "ieMAS"))
 
 maxGain <- max(geneticGain.df$gain)
 
 # Plot the genetic gain per replicate as a boxplot
-plotGeneticGain <- function(df, cycle, ylabel=TRUE) {
+plotGeneticGain <- function(df, cycle, selTypes, ylabel=TRUE) {
   df %>%
-    dplyr::filter(cycles==cycle, type=="Admixed") %>%
+    dplyr::filter(cycles==cycle,
+                  type=="Admixed",
+                  sel %in% selTypes) %>%
     ggplot(aes(x = ie_cat, y = gain, fill=sel)) +
     geom_boxplot(
       outlier.shape=NA,
@@ -440,8 +443,10 @@ plotGeneticGain <- function(df, cycle, ylabel=TRUE) {
     ) + 
     scale_fill_manual(
       name = "Selection",
-      values = c("GS"    = "grey",
-                 "MAS" = "black")
+      values = c("GS"    = "grey90",
+                 "ieMAS" = "grey30",
+                 "lowResMAS" = "grey60",
+                 "highResMAS" = "grey90")
     ) +
     scale_y_continuous(limits=c(0,maxGain)) +
     stat_compare_means(
@@ -458,9 +463,9 @@ plotGeneticGain <- function(df, cycle, ylabel=TRUE) {
 }
 
 
-gain5 <- plotGeneticGain(geneticGain.df, "5")
-gain10 <- plotGeneticGain(geneticGain.df, "10", ylabel=FALSE)
-gain20 <- plotGeneticGain(geneticGain.df, "20", ylabel=FALSE)
+gain5 <- plotGeneticGain(geneticGain.df, "5", c("GS", "ieMAS"))
+gain10 <- plotGeneticGain(geneticGain.df, "10", c("GS", "ieMAS"), ylabel=FALSE)
+gain20 <- plotGeneticGain(geneticGain.df, "20", c("GS", "ieMAS"), ylabel=FALSE)
 
 (gain5 |gain10 | gain20) + plot_layout(guides = "collect", axes = "collect")
 ggplot2::ggsave(filename = "genetic_gain_boxplot.jpg",
@@ -470,6 +475,23 @@ ggplot2::ggsave(filename = "genetic_gain_boxplot.jpg",
                 height=2.5,
                 dpi=600)
 ggplot2::ggsave(filename = "genetic_gain_boxplot.pdf",
+                path=output_dir,
+                device = "pdf",
+                width=6.5,
+                height=2.5)
+
+gain5_MAS <- plotGeneticGain(geneticGain.df, "5", c("lowResMAS", "highResMAS", "ieMAS"))
+gain10_MAS <- plotGeneticGain(geneticGain.df, "10", c("lowResMAS", "highResMAS", "ieMAS"), ylabel=FALSE)
+gain20_MAS <- plotGeneticGain(geneticGain.df, "20", c("lowResMAS", "highResMAS", "ieMAS"), ylabel=FALSE)
+
+(gain5_MAS | gain10_MAS | gain20_MAS) + plot_layout(guides = "collect", axes = "collect")
+ggplot2::ggsave(filename = "MAS_boxplot.jpg",
+                path=output_dir,
+                device = "jpg",
+                width=6.5,
+                height=2.5,
+                dpi=600)
+ggplot2::ggsave(filename = "MAS_boxplot.pdf",
                 path=output_dir,
                 device = "pdf",
                 width=6.5,
@@ -509,7 +531,8 @@ plotGeneticGainVsIe <- function(df, selType, ylabel=TRUE) {
 }
 
 
-(plotGeneticGainVsIe(geneticGain.df, "GS") | plotGeneticGainVsIe(geneticGain.df, "MAS", FALSE)) +
+(plotGeneticGainVsIe(geneticGain.df, "GS") |
+  plotGeneticGainVsIe(geneticGain.df, "ieMAS", FALSE)) +
   plot_layout(guides = "collect", axes = "collect")
 
 ggplot2::ggsave(filename = "genetic_gain_ie.jpg",
@@ -665,7 +688,7 @@ maxPopIe <- max(cycleMean.df$ie)
 # Plot for QTL=10 only
 cycleMean.df %>%
   dplyr::filter(qtl==10) %>%
-  dplyr::filter(sel != "MAS") %>%
+  dplyr::filter(sel %in% c("GS", "PS")) %>%
   ggplot(aes(x = c, y = ie, group = pop)) +
   geom_line() +
   geom_point(aes(fill = pt_fill, shape = pop), stroke = 0.5, size = 1) +
@@ -708,26 +731,26 @@ maxRsR <- max(gs.df$r, na.rm=TRUE)
 gwp.df %>%
   dplyr::group_by(qtl, type) %>%
   dplyr::summarize(meanR=mean(r)) %>%
-  write.csv(file.path(output_dir, "gwp_accuracy.csv"),quote=FALSE)
+  write.csv(file.path(output_dir, "gwp_accuracy.csv"), quote=FALSE)
 
 geneticGain.df %>%
   dplyr::filter(type=="Admixed") %>%
   dplyr::group_by(qtl, sel, cycles, ie_cat) %>%
   dplyr::summarize(meanGain=mean(gain),
                    varGain=var(gain))%>%
-  write.csv(file.path(output_dir, "genetic_gain.csv"),quote=FALSE)
+  write.csv(file.path(output_dir, "genetic_gain.csv"), quote=FALSE)
 
 
 # ANOVA
 sig.df <- geneticGain.df %>%
   dplyr::filter(type=="Admixed",
                 qtl==10,
-                sel %in% c("GS", "MAS"))
+                sel %in% c("GS", "ieMAS"))
 
 
 # Test whether there is more variance in GS than MAS
 var.test(gain ~ sel, data=sig.df %>% filter(cycles==5,
-                                                 ie_cat=="Low"))
+                                            ie_cat=="Low"))
 
 # SIGNIFICANT
 anova(lm(gain ~ sel, data=sig.df %>% filter(cycles==5,

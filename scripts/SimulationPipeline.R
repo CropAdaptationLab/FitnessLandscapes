@@ -78,7 +78,7 @@ saveAllelePlots <- TRUE
 saveFitnessPlots <- TRUE
 
 # Set to true for doing G > F landscape creation (not currently working)
-sampleInds <- FALSE
+sampleInds <- TRUE
 
 # All the parameter combinations to iterate through
 qtl_vec <- c(10)

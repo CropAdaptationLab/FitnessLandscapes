@@ -28,7 +28,14 @@ pops <- vector(mode="list", length=n.nPops)
 # Lists for storing results
 fit_dfs <- list()
 subpop_dirs <- list()
-sampled_inds <- list()
+
+# Sample individuals for the genotype-to-fitness landscape
+#sampled_inds <- matrix(data=pullSnpGeno(founderPop, snpChip=2),
+#                       nrow=nInd(founderPop),
+#                       ncol=(n.GSmarkers*n.chr))
+
+sampled_inds <- founderPop
+
 for (p in 1:n.nPops) {
   # Assign subpop 'p'
   pops[[p]] <- selectInd(pop, trait=selectSubPop, selectTop=TRUE, nInd=n.subPopSize, idx=p, randVec=randVec)
@@ -52,9 +59,6 @@ for (p in 1:n.nPops) {
   subpop_dir <- file.path(rep_dir, paste0("Subpop_", p))
   if (!dir.exists(subpop_dir)) dir.create(subpop_dir)
   subpop_dirs[[p]] <- subpop_dir
-  
-  # A way to store the sampled individuals from each generation
-  sampled_inds[[p]] <- matrix(data=NA, nrow=n.gens, ncol=(n.markers*n.chr))
 }
 
 # Stores the order in which an allele is fixed along an adaptive walk
@@ -73,7 +77,8 @@ for (gen in 1:n.gens) {
     
     # Get mean phenotypes for this generation
     pheno <- as.data.frame(pheno(pop)) %>%
-      dplyr::mutate(suit=suitFunc(Trait1, Trait2))
+      dplyr::mutate(suit=suitFunc(Trait1, Trait2)) %>%
+      dplyr::mutate(id=pop@id)
     meanSuit <- mean(pheno$suit)
     traitVal1 <- mean(pheno$Trait1)
     traitVal2 <- mean(pheno$Trait2)
@@ -94,27 +99,30 @@ for (gen in 1:n.gens) {
     
     # Sample individuals closest to the mean for each of traits 1 and 2
     if (sampleInds) {
+      #sample <- selectInd(pop, use="rand", nInd=n.selInds)
+      #sampled_inds <- rbind(sampled_inds,pullSnpGeno(sample, snpChip=2))
+      
       # The midpoint of the number of individuals in the population
       mid <- nInd(pop)/2
-      # The window to look for individuals with "middle" phenotypes
-      window <- 100
-      pheno <- pheno %>%
-        rownames_to_column("idx")
       
-      # Sort by trait 1 and find the middle 'window' individuals
+      # Sort phenotypes by attained trait 1
       trait1 <- pheno %>%
         arrange(Trait1)
+      # Get the middle individuals w.r.t. trait 1
       middle_t1 <- trait1[(mid-(window/2)):(mid+(window/2)),]  
-      # Sort by trait 2 and find the middle 'window' individuals
       trait2 <- pheno %>%
         arrange(Trait2)
-      middle_t2 <- trait2[(mid-(window/2)):(mid+(window/2)),] 
+      # Get the middle individuals w.r.t. trait 2
+      middle_t2 <- trait2[(mid-(window/2)):(mid+(window/2)),]
       
-      # Find the intersection between both lists of individuals
-      common_ids <- intersect(middle_t1,
-                              middle_t2)
-      # Add the marker data for each of the sampled individuals to the storage matrix
-      sampled_inds[[p]][gen,] <- pullSnpGeno(pop)[as.numeric(common_ids$idx[1]), ]
+      # Find the individuals with middle phenotypes for both of the traits
+      common_ids <- intersect(middle_t1$id,
+                              middle_t2$id)
+      
+      # Get the phenotypes of the selected individuals
+      sampleNum <- min(length(common_ids), n.selInds)
+      sampleIds <- sample(pheno$id, size=sampleNum, replace=FALSE)
+      sampled_inds <- c(sampled_inds, pop[sampleIds])
     }
     
     # Select n.m percentage of individuals to migrate in a stepping stone model

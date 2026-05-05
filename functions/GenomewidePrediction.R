@@ -82,6 +82,62 @@ evaluateGBLUP_W <- function(trainPop, testPop) {
   return (r)
 }
 
+# Train an RR-BLUP model with the top 20% of the population from the previous cycle
+# based on EBV, plus the top 20% of the population from the previous cycle, based on phenotype
+# Follows Muleta et al. 2019
+# Returns: a model produced by fastRRBLUP
+retrainModel <- function(pop) {
+  # Top 20% based on EBV
+  topEBV <- selectInd(pop, nInd=0.2*nInd(pop), use="ebv")
+  # Top 20% based on pheno
+  topPheno <- selectInd(pop, nInd=0.2*nInd(pop), trait=breedingFitness)
+  trainPop <- c(topEBV, topPheno)
+  
+  # Retrain model
+  newModel <- fastRRBLUP(trainPop, traits=calculateW_GWP, use=gsPheno, snpChip=2)
+  return (newModel)
+}
+
+# Calculates metrics for a population at a particular cycle
+# pop: An AlphaSimR population
+# sel: The selection type (e.g. "GS", "PS", etc.)
+# Returns: a dataframe tabulating all metrics
+cycleMetrics <- function(pop, cycle, sel) {
+  # Calulate accuracy of predictions
+  r <- NA
+  if (sel != "PS") {
+    r <- cor(calculateW_GWP(gv(pop)), ebv(pop))[1]
+  }
+  
+  # Genome-wide heterozygosity
+  genome_het <- meanHetLocus(pullSnpGeno(pop, snpChip=2))
+  # Attained trait heterozygosity
+  attained_het <- meanHetLocus(getUniqueQtl(pop))
+  # Desired trait heterozygosity
+  desired_het <- meanHetLocus(pullQtlGeno(pop, trait=3))
+  # Get the population-level isoeliteness
+  pop_ie <- popIsoeliteness(pop)
+  
+  # Calculate mean breeding fitness of GS population
+  w <- as.data.frame(pheno(pop)) %>%
+    dplyr::mutate(w=calculateBreedingFitness(Trait1, Trait2, Trait3)) %>%
+    dplyr::summarize(meanW=mean(w)) %>%
+    pull(meanW)
+  
+  return (data.frame(
+    c=cycle,
+    sel=sel,
+    w=w,
+    r=r,
+    genome_het=genome_het,
+    attained_het=attained_het,
+    desired_het=desired_het,
+    pop_ie=pop_ie,
+    gvar=varG(pop)[3,3]))
+}
+
+
+
 # Run recurrent population improvement on the basePop
 # Run epistatic linkage mapping to determine significant interactions,
 # and run marker-assisted selection to recover parental haplotypes
@@ -89,45 +145,89 @@ evaluateGBLUP_W <- function(trainPop, testPop) {
 # and genomics-assisted recurrent selection (GS)
 # Store breeding fitness at each generation
 # The GS population has an extra selection each cycle, representative of a winter nursery
-# Initial training population for RRBLUP is basePop. After that, the training population
-# for cycle C is the top 20% of the population from the previous cycle based on EBV,
-# plus the top 20% of the population from the previous cycle, based on phenotype
+# Initial training population for RRBLUP is basePop. 
 # Return a dataframe with n.C*2 rows (for both PS and GS)
 recurrentSelection <- function(basePop, parent1, parent2) {
   # Set phenotypes for base population
   basePop <- setPheno(basePop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
 
   # Do marker-assisted selection
+
+  # QTL-based haplotypes
+  masHaplo_PERFECT <- data.frame(id=basePop@id)
+  # Low resolution-based haplotypes
+  masHaplo_LOW <- data.frame(id=basePop@id)
+  # High resolution-based haplotypes
+  masHaplo_HIGH <- data.frame(id=basePop@id)
+  
   # 2D linkage mapping
   # Find all pairs of epistatic loci
-  masHaplo <- data.frame(id=basePop@id)
   peaks <- epistaticLodPeaks(basePop, parent1, parent2, snpChip=2, trait=5)
   if (nrow(peaks) > 0) {
-    masGeno <- getUniqueQtl(basePop)
-    # Number of actual QTL interactions
-    nInt <- 0
+    
+    masGeno_PERFECT <- getUniqueQtl(basePop)
+    masGeno_HIGH <- as.data.frame(pullSnpGeno(basePop, snpChip=2))
+    masGeno_LOW <- as.data.frame(pullSnpGeno(basePop, snpChip=3))
+    
+    # Number of actual interactions
+    nInt_PERFECT <- 0
+    nInt_LOW <- 0
+    nInt_HIGH <- 0
     for (r in 1:nrow(peaks)) {
+      # QTL interactions
       qtl1 <- peaks$qtl1[r]
       qtl2 <- peaks$qtl2[r]
-      if (is.na(qtl1) | is.na(qtl2)) {
-        next
+      if (!is.na(qtl1) & !is.na(qtl2)) {
+        if (segLocus(masGeno_PERFECT[,qtl1]) & segLocus(masGeno_PERFECT[,qtl2])) {
+          haplos <- getHaplos(masGeno_PERFECT, qtl1, qtl2, parent1, parent2, snpChip=2, useQtls=TRUE)
+          nInt_PERFECT <- nInt_PERFECT + 1
+          masHaplo_PERFECT <- cbind(masHaplo_PERFECT, haplos)
+        }
       }
-      # Check that both QTL are segregating
-      if (!segLocus(masGeno[,qtl1]) | !segLocus(masGeno[,qtl2])) {
-        next
+      
+      # High resolution
+      m1_hr <- peaks$m1_hr[r]
+      m2_hr <- peaks$m2_hr[r]
+      if (!is.na(m1_hr) & !is.na(m2_hr)) {
+        if (segLocus(masGeno_HIGH[,m1_hr]) & segLocus(masGeno_HIGH[,m2_hr])) {
+          haplos <- getHaplos(masGeno_HIGH, m1_hr, m2_hr, parent1, parent2, snpChip=2, useQtls=FALSE)
+          nInt_HIGH <- nInt_HIGH + 1
+          masHaplo_HIGH <- cbind(masHaplo_HIGH, haplos)
+        }
       }
-      haplos <- getHaplos(masGeno, qtl1, qtl2, parent1, parent2, snpChip=2)
-      nInt <- nInt + 1
-      masHaplo <- cbind(masHaplo, haplos)
+
+      # Low resolution
+      m1_lr <- peaks$m1_lr[r]
+      m2_lr <- peaks$m2_lr[r]
+      if (!is.na(m1_lr) & !is.na(m2_lr)) {
+        if (segLocus(masGeno_LOW[,m1_lr]) & segLocus(masGeno_LOW[,m2_lr])) {
+          haplos <- getHaplos(masGeno_LOW, m1_lr, m2_lr, parent1, parent2, snpChip=3, useQtls=FALSE)
+          nInt_LOW <- nInt_LOW + 1
+          masHaplo_LOW <- cbind(masHaplo_LOW, haplos)
+        }
+      }
+      
     }
-    if (nInt > 0) {
-      colnames(masHaplo) <- c("id", paste0("INT_", 1:nInt))
+    # Number of QTL interactions
+    if (nInt_PERFECT > 0) {
+      colnames(masHaplo_PERFECT) <- c("id", paste0("INT_", 1:nInt_PERFECT))
+    }
+
+    # Number of high res marker interactions
+    if (nInt_HIGH > 0) {
+      colnames(masHaplo_HIGH) <- c("id", paste0("INT_", 1:nInt_HIGH))
+    }
+    
+    # Number of low res marker interactions
+    if (nInt_LOW > 0) {
+      colnames(masHaplo_LOW) <- c("id", paste0("INT_", 1:nInt_LOW))
     }
   }
 
   
-  # Calculate sum of the favorable haplotypes
-  masInds <- masHaplo %>%
+  # Calculate sum of the favorable haplotypes and select individuals with
+  # the maxmimum number
+  masInds_PERFECT <- masHaplo_PERFECT %>%
     dplyr::rowwise() %>%
     dplyr::mutate(
       favHaplos = sum(c_across(starts_with("INT_")) == "P1")
@@ -136,9 +236,30 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     dplyr::filter(favHaplos==max(favHaplos)) %>%
     dplyr::pull(id)
   
-  # Fit an RR-BLUP model
+  masInds_HIGH <- masHaplo_HIGH %>%
+    dplyr::rowwise() %>%
+    dplyr::mutate(
+      favHaplos = sum(c_across(starts_with("INT_")) == "P1")
+    ) %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(favHaplos==max(favHaplos)) %>%
+    dplyr::pull(id)
+
+  masInds_LOW <- masHaplo_LOW %>%
+    dplyr::rowwise() %>%
+    dplyr::mutate(
+      favHaplos = sum(c_across(starts_with("INT_")) == "P1")
+    ) %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(favHaplos==max(favHaplos)) %>%
+    dplyr::pull(id)
+  
+  
+  # Fit an RR-BLUP model to use initially for the 3 GS populations
   gsModel <- fastRRBLUP(basePop, traits=calculateW_GWP, use=gsPheno, snpChip=2)
-  masModel <- gsModel
+  masModel_PERFECT <- gsModel
+  masModel_HIGH <- gsModel
+  masModel_LOW <- gsModel
   
   # For storing results
   result <- data.frame(c=c(),
@@ -166,146 +287,69 @@ recurrentSelection <- function(basePop, parent1, parent2) {
   psPop <- gsPop
   
   # Use MAS to select individuals with the most favorable epistatic haplotypes
-  masPop <- selectInd(basePop,
+  masPop_PERFECT <- selectInd(basePop,
                       trait=breedingFitness,
-                      nInd=min(nInd(basePop)*n.selInt, length(masInds)),
-                      candidates=masInds)
-  masPop <- randCross(masPop, nCrosses=nInd(basePop))
+                      nInd=min(nInd(basePop)*n.selInt, length(masInds_PERFECT)),
+                      candidates=masInds_PERFECT)
+  masPop_PERFECT <- randCross(masPop_PERFECT, nCrosses=nInd(basePop))
+  
+  masPop_HIGH <- selectInd(basePop,
+                        trait=breedingFitness,
+                        nInd=min(nInd(basePop)*n.selInt, length(masInds_HIGH)),
+                        candidates=masInds_HIGH)
+  masPop_HIGH <- randCross(masPop_HIGH, nCrosses=nInd(basePop))
+  
+  masPop_LOW <- selectInd(basePop,
+                            trait=breedingFitness,
+                            nInd=min(nInd(basePop)*n.selInt, length(masInds_LOW)),
+                            candidates=masInds_LOW)
+  masPop_LOW <- randCross(masPop_LOW, nCrosses=nInd(basePop))
   
   # Iterate through each cycle
-  for (c in 1:n.C) {
+  for (cycle in 1:n.C) {
     
-    # Estimate BVs
+    # GENOMIC SELECTION MAS
     gsPop <- setEBV(gsPop, gsModel)
+    result <- rbind(result, cycleMetrics(gsPop, cycle, "GS"))
     
-    # Calulate accuracy of predictions
-    r <- cor(calculateW_GWP(gv(gsPop)), ebv(gsPop))[1]
+    # PHENOTYPIC SELECTION
+    result <- rbind(result, cycleMetrics(psPop, cycle, "PS"))
     
-    # Genome-wide heterozygosity
-    genome_het <- meanHetLocus(pullSnpGeno(gsPop, snpChip=2))
-    # Attained trait heterozygosity
-    attained_het <- meanHetLocus(getUniqueQtl(gsPop))
-    # Desired trait heterozygosity
-    desired_het <- meanHetLocus(pullQtlGeno(gsPop, trait=3))
-    # Get the population-level isoeliteness
-    pop_ie <- popIsoeliteness(gsPop)
+    # PERFECT MAS
+    masPop_PERFECT <- setEBV(masPop_PERFECT, masModel_PERFECT)
+    result <- rbind(result, cycleMetrics(masPop_PERFECT, cycle, "ieMAS"))
     
-    # Calculate mean breeding fitness of GS population
-    wGS <- as.data.frame(pheno(gsPop)) %>%
-      dplyr::mutate(w=calculateBreedingFitness(Trait1, Trait2, Trait3)) %>%
-      dplyr::summarize(meanW=mean(w)) %>%
-      pull(meanW)
-
-    result <- rbind(result,
-                    data.frame(
-                      c=c,
-                      sel="GS",
-                      w=wGS,
-                      r=r,
-                      genome_het=genome_het,
-                      attained_het=attained_het,
-                      desired_het=desired_het,
-                      pop_ie=pop_ie,
-                      gvar=varG(gsPop)[3,3]))
+    # LOW RESOLUTION MAS
+    masPop_LOW <- setEBV(masPop_LOW, masModel_LOW)
+    result <- rbind(result, cycleMetrics(masPop_LOW, cycle, "lowResMAS"))
     
-    # Mean breeding fitness of PS population
-    wPS <- as.data.frame(pheno(psPop)) %>%
-      dplyr::mutate(w=calculateBreedingFitness(Trait1, Trait2, Trait3)) %>%
-      dplyr::summarize(meanW=mean(w)) %>%
-      pull(meanW)
-    
-    # Genome-wide heterozygosity
-    genome_het <- meanHetLocus(pullSnpGeno(psPop, snpChip=2))
-    # Attained trait heterozygosity
-    attained_het <- meanHetLocus(getUniqueQtl(psPop))
-    # Desired trait heterozygosity
-    desired_het <- meanHetLocus(pullQtlGeno(psPop, trait=3))
-    # Get the population-level isoeliteness
-    pop_ie <- popIsoeliteness(psPop)
-    
-    result <- rbind(result,
-                    data.frame(
-                      c=c,
-                      sel="PS",
-                      w=wPS,
-                      r=NA,
-                      genome_het=genome_het,
-                      attained_het=attained_het,
-                      desired_het=desired_het,
-                      pop_ie=pop_ie,
-                      gvar=varG(psPop)[3,3]))
-    
-    
-    masPop <- setEBV(masPop, masModel)
-    # Calulate accuracy of predictions
-    r <- cor(calculateW_GWP(gv(masPop)), ebv(masPop))[1]
-    
-    # Marker-assisted selection population
-    wMAS <- as.data.frame(pheno(masPop)) %>%
-      dplyr::mutate(w=calculateBreedingFitness(Trait1, Trait2, Trait3)) %>%
-      dplyr::summarize(meanW=mean(w)) %>%
-      pull(meanW)
-
-    # Genome-wide heterozygosity
-    genome_het <- meanHetLocus(pullSnpGeno(masPop, snpChip=2))
-    # Attained trait heterozygosity
-    attained_het <- meanHetLocus(getUniqueQtl(masPop))
-    # Desired trait heterozygosity
-    desired_het <- meanHetLocus(pullQtlGeno(masPop, trait=3))
-    # Get the population-level isoeliteness
-    pop_ie <- popIsoeliteness(masPop)
-    
-    result <- rbind(result,
-                    data.frame(
-                      c=c,
-                      sel="MAS",
-                      w=wMAS,
-                      r=r,
-                      genome_het=genome_het,
-                      attained_het=attained_het,
-                      desired_het=desired_het,
-                      pop_ie=pop_ie,
-                      gvar=varG(masPop)[3,3]))
-    
+    # HIGH RESOLUTION MAS
+    masPop_HIGH <- setEBV(masPop_HIGH, masModel_HIGH)
+    result <- rbind(result, cycleMetrics(masPop_HIGH, cycle, "highResMAS"))
     
     # Update the models in even cycles
-    if (c %% 2 == 0) {
-      # GS training population:
-      # Top 20% based on EBV
-      topEBV <- selectInd(gsPop, nInd=0.2*nInd(gsPop), use="ebv")
-      # Top 20% based on pheno
-      topPheno <- selectInd(gsPop, nInd=0.2*nInd(gsPop), trait=breedingFitness)
-      trainPop <- c(topEBV, topPheno)
-    
-      # Retrain model
-      gsModel <- fastRRBLUP(trainPop, traits=calculateW_GWP, use=gsPheno, snpChip=2)
-
-      # If the model does not fit any values, there is no genetic variance
-      # in the population
-      if (any(is.na(gsModel@gv[[1]]@addEff))) {
-        return(result)
-      }
-      
-      # MAS training population:
-      # Top 20% of based on EBV
-      topEBV <- selectInd(masPop, nInd=0.2*nInd(masPop), use="ebv")
-      # Top 20% of wGS based on pheno
-      topPheno <- selectInd(masPop, nInd=0.2*nInd(masPop), trait=breedingFitness)
-      trainPop <- c(topEBV, topPheno)
-      
-      # Retrain model
-      masModel <- fastRRBLUP(trainPop, traits=calculateW_GWP, use=gsPheno, snpChip=2)
+    if (cycle %% 2 == 0) {
+      # Retrain models
+      gsModel <- retrainModel(gsPop)
+      masModel_PERFECT <- retrainModel(masPop_PERFECT)
+      masModel_LOW <- retrainModel(masPop_LOW)
+      masModel_HIGH <- retrainModel(masPop_HIGH)
       
       # If the model does not fit any values, there is no genetic variance
       # in the population
-      if (any(is.na(masModel@gv[[1]]@addEff))) {
+      if (any(is.na(gsModel@gv[[1]]@addEff)) |
+          any(is.na(masModel_PERFECT@gv[[1]]@addEff)) |
+          any(is.na(masModel_LOW@gv[[1]]@addEff)) |
+          any(is.na(masModel_HIGH@gv[[1]]@addEff))) {
         return(result)
       }
     }
 
     gsPop <- selectCross(gsPop, use="ebv", nInd=nInd(gsPop)*n.selInt, nCrosses=nInd(gsPop))
     psPop <- selectCross(psPop, trait=breedingFitness, nInd=nInd(psPop)*n.selInt, nCrosses=nInd(psPop))
-    masPop <- selectCross(masPop, use="ebv", nInd=nInd(masPop)*n.selInt, nCrosses=nInd(masPop))
+    masPop_PERFECT <- selectCross(masPop_PERFECT, use="ebv", nInd=nInd(masPop_PERFECT)*n.selInt, nCrosses=nInd(masPop_PERFECT))
+    masPop_LOW <- selectCross(masPop_LOW, use="ebv", nInd=nInd(masPop_LOW)*n.selInt, nCrosses=nInd(masPop_LOW))
+    masPop_HIGH <- selectCross(masPop_HIGH, use="ebv", nInd=nInd(masPop_HIGH)*n.selInt, nCrosses=nInd(masPop_HIGH))
   }
   return (result)
 }

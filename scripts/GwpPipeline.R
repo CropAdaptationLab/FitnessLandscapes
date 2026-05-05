@@ -48,7 +48,7 @@ source("functions/TraitArchitecture.R")
 source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
-n.popResets <- 150
+n.popResets <- 2
 # Number of adaptive walk replications per pair of subpopulations
 n.reps <- 2
 
@@ -81,7 +81,7 @@ RS.df <- data.frame(
   isoElite=c(), # mean isoeliteness of parents
   isoEliteDes=c(), # isoeliteness of desired trait
   c=c(), # cycle
-  sel=c(), # GARS or PRS
+  sel=c(), # GS, PS, ieMAS, lrMAS
   w=c(), # breeding fitness
   r=c(), # GWP accuracy per cycle
   genome_het=c(), # genome-wide heterozygosity

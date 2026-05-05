@@ -38,6 +38,7 @@ n.burnInGens <- 5 # number of burn-in generations for founder population
 n.nPops <- 2 # number of independent subpopulations to create
 n.selProp <- 0.1 # % of the population to advance during main adaptive walk
 n.selR <- 1 # the r value to use in the geometric series for a decaying selection intensity. Set to 1 for a non-decaying intensity, and decrease this to increase the rate of decay
+n.selInds <- 50 # the number of individuals to sample each generation for a G > F landscape
 
 # SIMULATIONS
 n.popResets <- 1 # number of times to reset the founder population in a simulation
@@ -50,6 +51,7 @@ n.indPerRIL <- 4 # number of replicates in each RIL
 # GENOMIC SELECTION
 n.C <- 30 # Cycles of recurrent selection
 n.GSmarkers <- 100 # Markers per chromosome to use for GWP
+n.LRmarkers <- 20 # Low-resolution SNP array
 n.selInt <- 0.1 # Selection intensity for recurrent selection
 gsPheno <- "gv" # Set to 'gv' or 'pheno'. For training the RRBLUP
 
