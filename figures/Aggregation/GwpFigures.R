@@ -238,12 +238,14 @@ gs.df <- RS.df %>%
 gs.df$pop <- factor(gs.df$pop,
                      levels=c("Admixed GS",
                               "Admixed PS",
-                              "Admixed lrMAS",
                               "Admixed ieMAS",
+                              "Admixed lowResMAS",
+                              "Admixed highResMAS",
                               "Unadmixed GS",
                               "Unadmixed PS",
-                              "Unadmixed lrMAS",
-                              "Unadmixed ieMAS"))
+                              "Unadmixed ieMAS",
+                              "Unadmixed lowResMAS",
+                              "Unadmixed highResMAS"))
 gs.df$qtl <- as.factor(as.character(gs.df$qtl))
 
 # Calculate average breeding fitness per pop per cycle
@@ -261,13 +263,15 @@ cycleMean.df <-  gs.df %>%
     pt_fill = case_when(
       pop == "Admixed GS" ~ "black",
       pop == "Admixed PS" ~ "white",
-      pop == "Unadmixed GS" ~ "gray",
-      pop == "Unadmixed PS"  ~ "white"
+      pop == "Admixed highResMAS" ~ "grey",
+      pop == "Unadmixed GS" ~ "black",
+      pop == "Unadmixed PS"  ~ "white",
+      pop == "Unadmixed highResMAS"  ~ "grey"
     )
   )
 
 minCycleW <- 120
-maxCycleW <- 175
+maxCycleW <- 165
 
 # Plot for QTL == 10 only
 cycleMean.df %>%
@@ -338,7 +342,7 @@ ie_cats.df <- ie_means.df %>%
 ie_cats.df$ie_cat <- factor(ie_cats.df$ie_cat,
                              levels=c("Low", "Moderate", "High"))
 
-plotAllCurves <- function(selType, ylabel = TRUE) {
+plotAllCurves <- function(selType, title, ylabel = TRUE) {
   ggplot() +
     geom_line(data = reps.df %>% dplyr::filter(sel == selType),
               aes(x = c, y = w, group = interaction(founder, rep)),
@@ -361,7 +365,7 @@ plotAllCurves <- function(selType, ylabel = TRUE) {
     labs(
       x = "Cycle",
       y = "Breeding Fitness",
-      title = selType
+      title = title
     ) +
     scale_y_continuous(limits = c(minCycleW, maxCycleW)) +
     theme +
@@ -371,7 +375,7 @@ plotAllCurves <- function(selType, ylabel = TRUE) {
     )
 }
 
-(plotAllCurves("GS") | plotAllCurves("ieMAS", FALSE)) + plot_layout(guides = "collect", axes = "collect")
+(plotAllCurves("GS", "GS") | plotAllCurves("highResMAS", "ieMAS + GS", FALSE)) + plot_layout(guides = "collect", axes = "collect")
 
 ggplot2::ggsave(filename = "fitness_by_ieCat.jpg",
                 path=output_dir,
@@ -444,10 +448,13 @@ plotGeneticGain <- function(df, cycle, selTypes, ylabel=TRUE) {
     scale_fill_manual(
       name = "Selection",
       values = c("GS"    = "grey90",
-                 "ieMAS" = "grey30",
+                 "ieMAS" = "grey90",
                  "lowResMAS" = "grey60",
-                 "highResMAS" = "grey90")
-    ) +
+                 "highResMAS" = "grey30"),
+      labels = c("GS" = "GS",
+                 "ieMAS" = "ieMAS (Perfect) + GS",
+                 "lowResMAS" = "ieMAS (Low Resolution) + GS",
+                 "highResMAS" = "ieMAS + GS")) +
     scale_y_continuous(limits=c(0,maxGain)) +
     stat_compare_means(
       label = "p.signif",
@@ -463,9 +470,9 @@ plotGeneticGain <- function(df, cycle, selTypes, ylabel=TRUE) {
 }
 
 
-gain5 <- plotGeneticGain(geneticGain.df, "5", c("GS", "ieMAS"))
-gain10 <- plotGeneticGain(geneticGain.df, "10", c("GS", "ieMAS"), ylabel=FALSE)
-gain20 <- plotGeneticGain(geneticGain.df, "20", c("GS", "ieMAS"), ylabel=FALSE)
+gain5 <- plotGeneticGain(geneticGain.df, "5", c("GS", "highResMAS"))
+gain10 <- plotGeneticGain(geneticGain.df, "10", c("GS", "highResMAS"), ylabel=FALSE)
+gain20 <- plotGeneticGain(geneticGain.df, "20", c("GS", "highResMAS"), ylabel=FALSE)
 
 (gain5 |gain10 | gain20) + plot_layout(guides = "collect", axes = "collect")
 ggplot2::ggsave(filename = "genetic_gain_boxplot.jpg",
@@ -505,7 +512,7 @@ minGain <- minMaxGain$min
 maxGain <- minMaxGain$max
 
 # Plot isoeliteness against genetic gain after varying numbers of cycles
-plotGeneticGainVsIe <- function(df, selType, ylabel=TRUE) {
+plotGeneticGainVsIe <- function(df, selType, title, ylabel=TRUE) {
   df %>%
     dplyr::filter(type == "Admixed", sel==selType) %>%
     ggplot(aes(x = meanIe, y = gain, color = cycles)) +
@@ -513,7 +520,7 @@ plotGeneticGainVsIe <- function(df, selType, ylabel=TRUE) {
     geom_smooth(method="lm", se=FALSE, aes(color=cycles), linewidth=0.4) +
     sig_cor +
     labs(
-      title  = paste(selType),
+      title  = title,
       x = "Attained Trait Isoeliteness",
       y = "Genetic Gain"
     ) + 
@@ -521,7 +528,6 @@ plotGeneticGainVsIe <- function(df, selType, ylabel=TRUE) {
       name = "Number of Cycles",
       values = c("#4A1A6B", "#9B59B6", "#D7B8F3")
     ) +
-    #scale_x_continuous(limits=c(minIe, 1)) +
     scale_y_continuous(limits=c(minGain, maxGain)) +
     theme +
     theme(
@@ -531,8 +537,8 @@ plotGeneticGainVsIe <- function(df, selType, ylabel=TRUE) {
 }
 
 
-(plotGeneticGainVsIe(geneticGain.df, "GS") |
-  plotGeneticGainVsIe(geneticGain.df, "ieMAS", FALSE)) +
+(plotGeneticGainVsIe(geneticGain.df, "GS", "GS") |
+  plotGeneticGainVsIe(geneticGain.df, "highResMAS", "ieMAS + GS", FALSE)) +
   plot_layout(guides = "collect", axes = "collect")
 
 ggplot2::ggsave(filename = "genetic_gain_ie.jpg",
@@ -688,7 +694,7 @@ maxPopIe <- max(cycleMean.df$ie)
 # Plot for QTL=10 only
 cycleMean.df %>%
   dplyr::filter(qtl==10) %>%
-  dplyr::filter(sel %in% c("GS", "PS")) %>%
+  dplyr::filter(sel %in% c("GS", "PS", "highResMAS")) %>%
   ggplot(aes(x = c, y = ie, group = pop)) +
   geom_line() +
   geom_point(aes(fill = pt_fill, shape = pop), stroke = 0.5, size = 1) +
@@ -697,11 +703,13 @@ cycleMean.df %>%
     values = c(
       "Admixed GS"   = 16,
       "Admixed PS"    = 21,
+      "Admixed highResMAS" = 21,
       "Unadmixed GS" = 17,
-      "Unadmixed PS"  = 24
+      "Unadmixed PS"  = 24,
+      "Unadmixed highResMAS" = 24
     ),
     guide = guide_legend(override.aes = list(
-      fill  = c("black", "white", "black", "white"),
+      fill  = c("black", "white", "grey", "black", "white", "grey"),
       size  = 3
     ))
   ) +
@@ -745,12 +753,16 @@ geneticGain.df %>%
 sig.df <- geneticGain.df %>%
   dplyr::filter(type=="Admixed",
                 qtl==10,
-                sel %in% c("GS", "ieMAS"))
+                sel %in% c("GS", "highResMAS"))
 
 
 # Test whether there is more variance in GS than MAS
 var.test(gain ~ sel, data=sig.df %>% filter(cycles==5,
                                             ie_cat=="Low"))
+var.test(gain ~ sel, data=sig.df %>% filter(cycles==5,
+                                            ie_cat=="Moderate"))
+var.test(gain ~ sel, data=sig.df %>% filter(cycles==5,
+                                            ie_cat=="High"))
 
 # SIGNIFICANT
 anova(lm(gain ~ sel, data=sig.df %>% filter(cycles==5,
@@ -765,3 +777,9 @@ anova(lm(gain ~ sel, data=sig.df %>% filter(cycles==10,
                                                  ie_cat == "Moderate")))
 anova(lm(gain ~ sel, data=sig.df %>% filter(cycles==20,
                                                  ie_cat == "Moderate")))
+anova(lm(gain ~ sel, data=sig.df %>% filter(cycles==5,
+                                            ie_cat == "High")))
+anova(lm(gain ~ sel, data=sig.df %>% filter(cycles==10,
+                                            ie_cat == "High")))
+anova(lm(gain ~ sel, data=sig.df %>% filter(cycles==20,
+                                            ie_cat == "High")))

@@ -48,7 +48,7 @@ source("functions/TraitArchitecture.R")
 source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
-n.popResets <- 2
+n.popResets <- 250
 # Number of adaptive walk replications per pair of subpopulations
 n.reps <- 2
 
