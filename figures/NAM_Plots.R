@@ -21,7 +21,7 @@ plot_NAM_suit_distribution <- function(pca_plot_df) {
   pca_plot_df %>%
     dplyr::filter(grepl("_RIL", Family)) %>%
     ggplot(aes(x=Suit, color=Family)) +
-    geom_density(size=0.4) +
+    geom_density(linewidth=0.4) +
     scale_color_manual(values=c(family_colors),
                        aesthetics=c("color")) +
     labs(x = "Suitability",

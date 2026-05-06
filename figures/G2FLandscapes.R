@@ -5,6 +5,8 @@
 
 library(fields)
 library(ggdensity)
+library(reshape2)
+library(sp)
 library(stats)
 library(terra)
 
@@ -43,7 +45,7 @@ plot1DLandscape <- function(RIL, pop1, pop2, parent1, parent2, qtl1, qtl2, snpCh
   # Project the admixed RIL family onto the principal components
   pc_RIL <- predict(pca, RIL_geno)
   
-  # Creat a dataframe for plotting
+  # Create a dataframe for plotting
   df.PCA = data.frame(
     "Fitness" = RIL_pheno.df$fitness,
     "PC1" = pc_RIL[, 1],
@@ -94,60 +96,139 @@ plot1DLandscape <- function(RIL, pop1, pop2, parent1, parent2, qtl1, qtl2, snpCh
                   height=3.5)
 }
 
-# Create a smoothed landscape by iteratively running a gaussian filter
-# suit_df: A datafame containing the principal component coordinates
-# and 'Suit', suitability values for each sample
-# pcx: The principal component for the x-axis
-# pcy: The principal component for the y-axis
-# thetas: A list of kernel sizes for each iteration of gaussian smoothing
-generate_landscape <- function(suit_df, pcx=1, pcy=2, thetas=c(1:14)) {
-  # Obtain the initial smoothed image
-  z <- suit_df$Suit
-  xy <- cbind(suit_df[,pcx], suit_df[,pcy])
-  smoothed <- smooth.2d(Y = z, x = xy, theta = thetas[1])
+# Plots individuals along an adaptive walk on a genotype-to-fitness landscape
+# Assumes the following objects exist: sampled_inds, RIL, pops[[1]], pops[[2]]
+# sampled_inds: an AlphaSimR population made up of one or more subpopulations
+# traversing to a fitness peak
+# Returns: a plot_ly object with the fitness surface and the individuals projected onto it
+plotAdaptiveWalkLandscape <- function() {
+  # Run PCA on the RIL and both subpopulations
+  pca_geno <- pullSnpGeno(c(RIL,
+                            pops[[1]],
+                            pops[[2]]), snpChip=2)
+  pca <- prcomp(pca_geno)
+  # Variance explained
+  VAF <- summary(pca)$importance[2,] * 100
   
-  # Iterate through each iteration of the gaussian smoothing
-  for (i in 2:(length(thetas))) {
-    
-    # Convert the smooth.2d result into a datafame to filter out Suit values
-    # that are infinite, or fall outside the 0 to 1 range
-    smoothed_df <- as.data.frame(smoothed$z) %>%
-      setNames(smoothed$y) %>%
-      mutate(x = smoothed$x) %>%
-      pivot_longer(cols = -x, 
-                   names_to = "y", 
-                   values_to = "Suit") %>%
-      mutate(y = as.numeric(y)) %>%
-      rename(PCX = x, PCY = y) %>%
-      drop_na(Suit) %>%
-      filter(is.finite(Suit), Suit <= 1, Suit >= 0)
-    
-    smoothed <- smooth.2d(Y = smoothed_df$Suit, 
-                          x = cbind(smoothed_df$PCX, smoothed_df$PCY),
-                          theta = thetas[i])
-  }
-  return(smoothed)
+  # Project the admixed RIL family onto the principal components
+  sampled_inds_geno <- pullSnpGeno(sampled_inds, snpChip=2)
+  pc_pred <- predict(pca, sampled_inds_geno)
+  
+  # Determine suitability based on genotypic values
+  # Heritability is low, and this is a G > F landscape, so genotypic values
+  # as phenotypes are appropriate
+  pheno <- as.data.frame(gv(sampled_inds)) %>%
+    dplyr::mutate(Suit=suitFunc(Trait1, Trait2)) %>%
+    dplyr::pull(Suit)
+  
+  # Create a dataframe for plotting
+  suit_df = data.frame(
+    "PC1" = pc_pred[, 1],
+    "PC2" = pc_pred[, 2],
+    "Suit" = pheno)
+  
+  # Plot color-coded PCA
+  #ggplot(suit_df, aes(x=PC1, y=PC2, color=Suit)) +
+  #  geom_point()
+  
+  # Add in the metadata (subpop and generation)
+  suit_df <- cbind(suit_df, sampled_inds_metadata)
+
+  # Add color-coding
+  suit_df <- suit_df %>%
+    dplyr::mutate(
+      family_color= case_when(
+        subpop == "Founder" ~ "#B04EDE",
+        subpop == "Subpop. 1" ~ "#CC0000",
+        subpop == "Subpop. 2" ~ "#3C78D8"
+      )) %>%
+    dplyr::rename(
+      "Family" = "subpop"
+    )
+
+  # Downsample so that there is just one individual per subpop per generation
+  # Take the "mean" indvidual based on euclidean distance from the mean PC1 and PC2
+  # from each generation
+  adaptive_walk_df <- suit_df %>%
+    dplyr::group_by(gen, Family) %>%
+    dplyr::mutate(
+      mean_PC1 = mean(PC1, na.rm = TRUE),
+      mean_PC2 = mean(PC2, na.rm = TRUE),
+      # Euclidean distance from the centroid
+      dist_to_mean = sqrt((PC1 - mean_PC1)^2 + (PC2 - mean_PC2)^2)
+    ) %>%
+    # Get closest individual
+    dplyr::slice_min(dist_to_mean, n = 1, with_ties = FALSE) %>%
+    dplyr::select(-mean_PC1, -mean_PC2, -dist_to_mean) %>%
+    ungroup() %>%
+    dplyr::filter(Family != "Founder")
+
+  # Create a smoothed landscape
+  landscape <- generate_landscape(df=suit_df,
+                                  pred_df=adaptive_walk_df,
+                                  pcx=1,
+                                  pcy=2)
+
+  # Render the new smoothed landscape
+  # render_2d_landscape(landscape[[2]], VAF, 1, 2)
+  
+  p <- render_3d_landscape(smoothed=landscape[[3]],
+                      df=landscape[[1]],
+                      plot_inds=FALSE,
+                      families=c("Founder", "Subpop. 1", "Subpop. 2"),
+                      pcx=1,
+                      pcy=2)
+  return (p)
+}
+
+# Created a smoothed landscape based on a color-coded PCA result
+# Uses a Thin Plate Spline from the fields() package to estimate a smooth surface
+# df should have as its first columns the principal components, in order
+# Suit should be a column appearing after the PCs
+# pcx and pcy are the principal coordinates to use as the axes
+# pred_df contains a set of points to project onto the landscape
+# Returns a list:
+#   - pred_df: The original pred_df, with the points projected onto the estimated landscape
+#   - grid: A dataframe with a 'Suitability' value for each coordinate
+#   - smoothed: A list with x (pcx), y (pcy), and z (a wide matrix format of the suitability values)
+generate_landscape <- function(df, pred_df, pcx, pcy) {
+  # Fit a thin plate spline to the data
+  tps_fit <- fields::Tps(x = cbind(df[[pcx]], df[[pcy]]), Y = df$Suit)
+  # Predict values on a full 100x100 square grid
+  n_grid <- 100
+  grid <- expand.grid(
+    PCX = seq(min(df[[pcx]]), max(df[[pcx]]), length = n_grid),
+    PCY = seq(min(df[[pcy]]), max(df[[pcy]]), length = n_grid)
+  )
+  grid$Suitability <- predict(tps_fit, x = as.matrix(grid[, c("PCX", "PCY")]))
+  
+  # Transform the long-format grid into an array
+  suit_matrix <- reshape2::acast(grid,  PCX ~ PCY, value.var = "Suitability")
+  smoothed <- list(
+    x = as.numeric(colnames(suit_matrix)),  # PCX
+    y = as.numeric(rownames(suit_matrix)),  # PCY
+    z = suit_matrix
+  )
+  
+  # Project the PCA coordinates onto the plane estimated by thin plate spline
+  # Add a slight offset to get the dots to render above the surface
+  pred_df$Suitability <- predict(tps_fit, 
+                                 x = cbind(pred_df[[pcx]],
+                                           pred_df[[pcy]])) + 0.005
+  
+  return (list(pred_df, grid, smoothed))
 }
 
 # Render a 2d image of the smoothed G > F landscape
-# smoothed: The result of a smooth.2d() call
+# grid: a dataframe with PCX, PCY, and Suitability values
+# PCX and PCY should span an entire square grid coordinate system
 # VAF: the variance explained by each PC
 # pcx: The principal component for the x-axis
 # pcy: The principal component for the y-axis
-render_2d_landscape <- function(smoothed, VAF, pcx=1, pcy=1) {
-  # Clip the smoothed result between 0 and 1
-  smoothed_df <- as.data.frame(smoothed$z) %>%
-    setNames(smoothed$y) %>%
-    mutate(x = smoothed$x) %>%
-    pivot_longer(cols = -x, names_to = "y", values_to = "Suit") %>%
-    mutate(y = as.numeric(y)) %>%
-    rename(PCX = x, PCY = y) %>%
-    filter(Suit >= 0, Suit <= 1)
-  
-  # Plot a 2-dimensional version of the genotype-to-fitness landscape
-  ggplot(smoothed_df, aes(x = PCX, y = PCY)) +
-    geom_point(aes(colour = Suit)) +
-    scale_color_viridis(alpha=0.9, name="Suitability") +
+render_2d_landscape <- function(grid, VAF, pcx=1, pcy=2) {
+  ggplot(grid, aes(x = PCX, y = PCY, fill = Suitability)) +
+    geom_tile() +
+    scale_fill_viridis_c(name = "Suitability") +
     labs(x = paste0("PC", pcx),
          y = paste0("PC", pcy)) +
     #labs(x = paste0("PC", pcx, ": ", round(VAF[pcx]), "%"),
@@ -217,7 +298,7 @@ wright_landscape <- function(smoothed, pcx, pcy, window=5) {
       showlabels = FALSE,
       start = min(z_mat, na.rm = TRUE),
       end = max(z_mat, na.rm = TRUE),
-      size = (max(z_mat, na.rm = TRUE) - min(z_mat, na.rm = TRUE)) / 8
+      size = (max(z_mat, na.rm = TRUE) - min(z_mat, na.rm = TRUE)) / 10
     ),
     line = list(color = 'black', width = 1, dash='dot'),
     showscale = FALSE 
@@ -230,7 +311,7 @@ wright_landscape <- function(smoothed, pcx, pcy, window=5) {
                      x = peaks$x[k], y = peaks$y[k],
                      type = 'scatter', mode = 'text',
                      text = '+',
-                     textfont = list(size = 16, color = 'black', family = 'Arial'),
+                     textfont = list(size = 24, color = 'black', family = 'Helvetica'),
                      line = list(width = 0),
                      showlegend = FALSE,
                      hoverinfo = 'none',
@@ -249,7 +330,7 @@ wright_landscape <- function(smoothed, pcx, pcy, window=5) {
                      x = valleys$x[k], y = valleys$y[k],
                      type = 'scatter', mode = 'text',
                      text = '\u2212',
-                     textfont = list(size = 16, color = 'black', family = 'Arial'),
+                     textfont = list(size = 24, color = 'black', family = 'Helvetica'),
                      line = list(width = 0),
                      showlegend = FALSE,
                      hoverinfo = 'none',
@@ -261,8 +342,12 @@ wright_landscape <- function(smoothed, pcx, pcy, window=5) {
   }
 
   p <- p %>% layout(
+    font=list(
+      family="Helvetica",
+      size=20,
+      color="black"),
     xaxis = list(
-      title = '',
+      title = paste0("PC", pcx),
       showticklabels = FALSE,
       ticks = '',
       showline = TRUE,
@@ -271,7 +356,7 @@ wright_landscape <- function(smoothed, pcx, pcy, window=5) {
       showgrid = FALSE
     ),
     yaxis = list(
-      title = '',
+      title = paste0("PC", pcy),
       showticklabels = FALSE,
       ticks = '',
       showline = TRUE,
@@ -285,24 +370,26 @@ wright_landscape <- function(smoothed, pcx, pcy, window=5) {
   return (p)
 }
 
-# Create a 3D rendering of the fitness landscape, with samples projected onto the surface
-# This is only tested with the sorghum NAM
-# smoothed: The output of smooth.2d()
+# Create a 3D rendering of the fitness landscape,
+# with samples projected onto the surface
+# smoothed: A list with x, y and z values
 # pca_plot_df: Contains the PC coordinates of each sample
 # families: a list of family names in the plot
-# founders: a list of each of the founder line names
+# plot_inds: if TRUE, plots samples. If FALSE, plots adaptive walks
+# founders: a list of each of the founder line names (only relevant for NAM)
 # pcx: The principal component for the x-axis
 # pcy: The principal component for the y-axis
 render_3d_landscape <- function(smoothed,
-                                pca_plot_df,
+                                df,
+                                plot_inds=TRUE,
                                 families,
-                                founders,
                                 pcx=1,
-                                pcy=2) {
+                                pcy=2,
+                                founders=c()) {
   p <- plot_ly(
     x=smoothed[["x"]],
     y=smoothed[["y"]],
-    z=t(smoothed[["z"]]), # Transpose because smooth.2d() produces a transposed matrix
+    z=smoothed[["z"]], # Transpose because smooth.2d() produces a transposed matrix
     type='surface',
     colorscale = 'Greys',
     #colors = viridis(50, alpha = 1, begin = 0, end = 1, direction = 1),
@@ -316,69 +403,58 @@ render_3d_landscape <- function(smoothed,
                end = max(smoothed[["y"]]), size = 8,
                color = "black", width = 1, highlightcolor = "black")
     ))
-  
   # Project each of the samples onto the surface (hovering slightly above)
   for (fam in families) {
-    df_sub <- pca_plot_df[pca_plot_df$Family == fam, ]
+    df_sub <- df[df$Family == fam, ]
     
     # Founders should be marked with a large diamond
-    is_founder <- !grepl("_RIL$", fam)
-    marker_symbol <- if (is_founder) "diamond" else "circle"
-    marker_size   <- if (is_founder) 12 else 5
-
-    p <- add_trace(p,
-                   data = df_sub,
-                   x = df_sub[[pcx]], y = df_sub[[pcy]], z = ~Suitability,
-                   type = 'scatter3d', mode = 'markers', # set to 'lines' for adaptive walk
-                   name = fam,
-                   marker = list(size = marker_size,
-                                 symbol = marker_symbol,
-                                 color = ~family_color
-                                 #color = ~Suit,
-                                 #colorscale = "Viridis",
-                                 #showscale = TRUE,
-                                 #colorbar = list(title = "Suitability", len = 0.5)
-                   ),
-                   # UNCOMMENT THIS FOR DOING ADAPTIVE WALK
-                   # line = list(width = 4, dash = 'solid'),
-                   showlegend = TRUE) # set to false if doing suitabillity colorscale
+    is_founder <- FALSE
+    if (length(founders) > 0) {
+      is_founder <- !grepl("_RIL$", fam)
+    }
+    
+    if (plot_inds) {
+      p <- add_trace(p,
+                     data = df_sub,
+                     x = df_sub[[pcy]], y = df_sub[[pcx]], z = df_sub$Suitability,
+                     type = 'scatter3d', mode = 'markers',
+                     name = fam,
+                     marker = list(size = if (is_founder) 12 else 5,
+                                   symbol = if (is_founder) "diamond" else "circle",
+                                   color = df_sub$family_color
+                                   #color = ~Suit,
+                                   #colorscale = "Viridis",
+                                   #showscale = TRUE,
+                                   #colorbar = list(title = "Suitability", len = 0.5)
+                     ),
+                     showlegend = TRUE) # set to false if doing suitability colorscale
+    } else { # Plot adaptive walk
+      p <- add_trace(p,
+                     data = df_sub,
+                     x = df_sub[[pcy]], y = df_sub[[pcx]], z = df_sub$Suitability[,1],
+                     type = 'scatter3d', mode = 'lines',
+                     name = fam,
+                     line = list(autocolorscale=FALSE, color=df_sub$family_color, which=2, width = 10),
+                     showlegend = TRUE) 
+    }
+    p
   }
-  
-  p <- p %>% layout(legend = 
-                 list(
-                   font=list(
-                     family="Helvetica",
-                     size=20,
-                     color="black"),
-                   title=list(text="Family")),
-                scene = list(xaxis = list(title = paste0("PC", pcx), 
-                                          showgrid = FALSE,
-                                          zeroline = FALSE,
-                                          showticklabels = FALSE,
-                                          showline = FALSE),
-                             yaxis = list(title = paste0("PC", pcy), 
-                                          showgrid = FALSE,
-                                          zeroline = FALSE,
-                                          showticklabels = FALSE,
-                                          showline = FALSE),
-                             zaxis = list(title = "Suitability", showgrid=FALSE, zeroline=FALSE),
-                             aspectmode = 'cube'))
-  return (p)
+  return(p)
 }
 
 # Create a 3D rendering of the each sample, with its height determined by its suitability
 # This is only tested with the sorghum NAM
 # smoothed: The output of smooth.2d()
-# pca_plot_df: Contains the PC coordinates of each sample
+# df: Contains the PC coordinates of each sample
 # families: a list of family names in the plot
 # founders: a list of each of the founder line names
 # pcx: The principal component for the x-axis
 # pcy: The principal component for the y-axis
-render_individuals <- function(pca_plot_df, families, founders, pcx=1, pcy=2) {
+render_individuals <- function(df, families, founders, pcx=1, pcy=2) {
   p <- plot_ly()
   
   for (fam in families) {
-    df_sub <- pca_plot_df[pca_plot_df$Family == fam, ]
+    df_sub <- df[df$Family == fam, ]
     
     # Founders should be marked with a large diamond
     is_founder <- !grepl("_RIL$", fam)
@@ -416,3 +492,5 @@ render_individuals <- function(pca_plot_df, families, founders, pcx=1, pcy=2) {
                                  aspectmode = 'cube'))
   return (p)
 }
+
+

@@ -194,3 +194,9 @@ if (saveFitnessPlots) {
   fname <- file.path(rep_dir, "3DFitness.html")
   htmlwidgets::saveWidget(as_widget(fig), fname)
 }
+
+# Plot the adaptive walks on a G > F landscape
+if (sampleInds) {
+  p <- plotAdaptiveWalkLandscape()
+  htmlwidgets::saveWidget(as_widget(p), file.path(rep_dir, "adaptive_walk_genotype.html"))
+}

@@ -30,11 +30,10 @@ fit_dfs <- list()
 subpop_dirs <- list()
 
 # Sample individuals for the genotype-to-fitness landscape
-#sampled_inds <- matrix(data=pullSnpGeno(founderPop, snpChip=2),
-#                       nrow=nInd(founderPop),
-#                       ncol=(n.GSmarkers*n.chr))
-
 sampled_inds <- founderPop
+sampled_inds_metadata <- data.frame(
+  subpop=c(rep("Founder", each=nInd(founderPop))),
+  gen=c(rep(0, each=nInd(founderPop))))
 
 for (p in 1:n.nPops) {
   # Assign subpop 'p'
@@ -109,6 +108,7 @@ for (gen in 1:n.gens) {
       trait1 <- pheno %>%
         arrange(Trait1)
       # Get the middle individuals w.r.t. trait 1
+      window <- 100
       middle_t1 <- trait1[(mid-(window/2)):(mid+(window/2)),]  
       trait2 <- pheno %>%
         arrange(Trait2)
@@ -123,6 +123,9 @@ for (gen in 1:n.gens) {
       sampleNum <- min(length(common_ids), n.selInds)
       sampleIds <- sample(pheno$id, size=sampleNum, replace=FALSE)
       sampled_inds <- c(sampled_inds, pop[sampleIds])
+      sampled_inds_metadata <- rbind(sampled_inds_metadata,
+                                     data.frame(subpop=c(rep(paste0("Subpop. ", p), each=sampleNum)),
+                                                gen=c(rep(gen, each=sampleNum))))
     }
     
     # Select n.m percentage of individuals to migrate in a stepping stone model

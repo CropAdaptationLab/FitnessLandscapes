@@ -5,10 +5,10 @@
 
 library(ggplot2)
 library(dplyr)
-library(fields)
-library(RColorBrewer)
 library(parallel)
+library(patchwork)
 library(plotly)
+library(RColorBrewer)
 library(stringr)
 library(tibble)
 library(tidyr)
@@ -148,8 +148,17 @@ full_pca_plot_df <- full_pca_plot_df %>%
 # plot_families <- unique(full_pca_plot_df$Family)
 
 # Select just these families to plot
-plot_families <- c("SC35_RIL", "SC283_RIL", "Macia_RIL", "SC265_RIL", "Ajabsido_RIL",
-                   "SC35", "SC283", "Macia", "SC265", "Ajabsido", "RTx430")
+plot_families <- c("SC35_RIL", "SC35",
+                   "SC283_RIL", "SC283",
+                   "Macia_RIL", "Macia",
+                   "SC265_RIL", "SC265",
+                   "Ajabsido_RIL", "Ajabsido",
+                   "P898012_RIL", "P898012",
+                   "Segeolane_RIL", "Segeolane",
+                   "SC1345_RIL", "SC1345",
+                   "SC971_RIL", "SC971",
+                   "SC1103_RIL", "SC1103",
+                   "RTx430")
 
 # Filter data by the selected families
 pca_plot_df <- full_pca_plot_df %>%
@@ -204,11 +213,11 @@ getTopPC <- function(phenotype) {
 
 getTopPC("FT_norm")
 getTopPC("PH_norm")
-# Results: FT: PC3, PH: PC6
+# Results: FT: PC127, PH: PC260
 
 # Iterate through all 4 combinations of PCs
-for (PCX in c(1, 3)) {
-  for (PCY in c(2, 6)) {
+for (PCX in c(1, 127)) {
+  for (PCY in c(2, 260)) {
     # Plot the PCA, color-coded by family
     plot_NAM_family(pca_plot_df, VAF, pcx=PCX, pcy=PCY)
     ggplot2::ggsave(filename = file.path(output_dir, paste0("PCA_fam_PC", PCX, "_", PCY, ".jpg")),
@@ -238,9 +247,13 @@ for (PCX in c(1, 3)) {
     pi
     htmlwidgets::saveWidget(as_widget(pi), file.path(output_dir, paste0("individuals_", PCX, "_", PCY, ".html")))
     
-    # Create a smoothed version of the landscape with 14 iterations of a gaussian filter
-    smoothed <- generate_landscape(pca_plot_df, PCX, PCY, thetas=c(1:14))
-    render_2d_landscape(smoothed, VAF, PCX, PCY)
+    # Create a smoothed landscape
+    landscape <- generate_landscape(df=pca_plot_df,
+                                    pred_df=pca_plot_df,
+                                    pcx=PCX,
+                                    pcy=PCY)
+    
+    render_2d_landscape(grid, VAF, PCX, PCY)
     ggplot2::ggsave(filename = file.path(output_dir,  paste0("2d_smoothed_landscape_", PCX, "_", PCY, ".jpg")),
                     device = "jpg",
                     width=3.5,
@@ -251,24 +264,22 @@ for (PCX in c(1, 3)) {
                     width=3.5,
                     height=2.5)
     
-    # Interpolate a surface onto PCX and PCY
-    pca_plot_df$Suitability <- fields::interp.surface(
-      smoothed, 
-      cbind(pca_plot_df[,PCX], pca_plot_df[,PCY])
-    )
-    # Add a slight offset to get the dots to render above the surface
-    pca_plot_df$Suitability <- pca_plot_df$Suitability + 0.005
-    
     # Recreate Wright's fitness landscape
-    wright <- wright_landscape(smoothed, PCX, PCY, window=3)
+    wright <- wright_landscape(landscape[[3]], PCX, PCY, window=9)
     wright
     htmlwidgets::saveWidget(as_widget(wright), file.path(output_dir, "wright.html"))
+
     
     # Render the 3d fitness landscape with individuals overlaid
-    p <- render_3d_landscape(smoothed, pca_plot_df, plot_families, founders, PCX, PCY)
+    p <- render_3d_landscape(smoothed=landscape[[3]],
+                             df=landscape[[1]],
+                             plot_inds=TRUE,
+                             families=plot_families,
+                             pcx=PCX,
+                             pcy=PCY,
+                             founders=founders)
     p
     htmlwidgets::saveWidget(as_widget(p), file.path(output_dir, paste0("landscape_", PCX, "_", PCY, ".html")))
-    
   }
 }
 
