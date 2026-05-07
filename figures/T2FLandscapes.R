@@ -25,6 +25,10 @@ overlayWalkOnLandscape <- function(pop1_df,
   fitness_y = seq(traitMin,traitMax, by=(traitMax-traitMin)/40)
   fitness_z = outer(fitness_x,fitness_y,suitFunc)
   
+  # Filter to the first 50 generations for simplified visualization
+  #pop1_df <- pop1_df %>% dplyr::filter(gen <= 50)
+  #pop2_df <- pop2_df %>% dplyr::filter(gen <= 50)
+  
   f <- list(family="Helvetica", size=20)
   fig <- plot_ly()
   if (type == "CONTOUR") {
@@ -92,7 +96,12 @@ overlayWalkOnLandscape <- function(pop1_df,
         type = 'scatter3d',
         mode = 'lines',
         opacity = 1,
-        line = list(autocolorscale=FALSE, color="#CC0000", which=2, width = 10)
+        line = list(
+          color = pop1_df$gen,
+          colorscale = list(c(0, "#ffc9c9"), c(0.25, "#cc0000"), c(1, "#7a0000")),
+          width = 10,
+          autocolorscale = FALSE
+        )
       ) %>%
       add_trace(
         fig,
@@ -104,7 +113,12 @@ overlayWalkOnLandscape <- function(pop1_df,
         type = 'scatter3d',
         mode = 'lines',
         opacity = 1,
-        line = list(autocolorscale=FALSE, color="#3C78D8", which=2, width = 10)
+        line = list(
+          color = pop2_df$gen,
+          colorscale = list(c(0, "#accbfc"), c(0.25, "#0957d6"), c(1, "#063a8f")),
+          width = 10,
+          autocolorscale = FALSE
+        )
       ) %>%
       add_trace(
         fig,

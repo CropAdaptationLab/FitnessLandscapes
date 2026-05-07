@@ -29,7 +29,7 @@ if (saveTraitPlots) {
     ggplot(aes(Trait1, fill=Population, color=Population)) +
     scale_color_manual(values=c("#CC0000", "#3C78D8", "gold"),
                        aesthetics=c("color", "fill")) +
-    geom_density(size=0.5, alpha=0.3) +
+    geom_density(linewidth=0.5, alpha=0.3) +
     xlim(-n.initTraitVal,n.initTraitVal) +
     labs(x="Attained Trait 1", y="Density") +
     annotate("text",
@@ -47,7 +47,7 @@ if (saveTraitPlots) {
     ggplot(aes(Trait2, fill=Population, color=Population)) +
     scale_color_manual(values=c("#CC0000", "#3C78D8", "gold"),
                        aesthetics=c("color", "fill")) +
-    geom_density(size=0.5, alpha=0.3) +
+    geom_density(linewidth=0.5, alpha=0.3) +
     xlim(-n.initTraitVal,n.initTraitVal) +
     labs(x="Attained Trait 2", y="Density") +
     annotate("text",
@@ -66,7 +66,7 @@ if (saveTraitPlots) {
     ggplot(aes(Suitability, fill=Population, color=Population)) +
     scale_color_manual(values=c("#CC0000", "#3C78D8", "gold"),
                        aesthetics=c("color", "fill")) +
-    geom_density(size=0.5, alpha=0.3) +
+    geom_density(linewidth=0.5, alpha=0.3) +
     labs(x="Suitability", y="Density") +
     annotate("text",
              label=paste0("EV = ", round(ev_Suit,2)),
@@ -84,7 +84,7 @@ if (saveTraitPlots) {
     ggplot(aes(Trait3, fill=Population, color=Population)) +
     scale_color_manual(values=c("#CC0000", "#3C78D8", "gold"),
                        aesthetics=c("color", "fill")) +
-    geom_density(size=0.5, alpha=0.3) +
+    geom_density(linewidth=0.5, alpha=0.3) +
     labs(x="Desired Trait", y="Density") +
     annotate("text",
              label=paste0("EV = ", round(ev_T3,2)),
@@ -102,7 +102,7 @@ if (saveTraitPlots) {
     ggplot(aes(W, fill=Population, color=Population)) +
     scale_color_manual(values=c("#CC0000", "#3C78D8", "gold"),
                        aesthetics=c("color", "fill")) +
-    geom_density(size=0.5, alpha=0.3) +
+    geom_density(linewidth=0.5, alpha=0.3) +
     labs(x="Breeding Fitness", y="Density") +
     annotate("text",
              label=paste0("EV = ", round(ev_W,2)),

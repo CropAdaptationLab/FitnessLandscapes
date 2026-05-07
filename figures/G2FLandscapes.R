@@ -135,12 +135,14 @@ plotAdaptiveWalkLandscape <- function() {
   suit_df <- cbind(suit_df, sampled_inds_metadata)
 
   # Add color-coding
+  red_pal  <- scales::col_numeric(palette = c("#ffc9c9", "#cc0000", "#a30000", "#7a0000"), domain = range(suit_df$gen))
+  blue_pal <- scales::col_numeric(palette = c("#accbfc", "#0957d6", "#0748b2", "#063a8f"), domain = range(suit_df$gen))
   suit_df <- suit_df %>%
     dplyr::mutate(
       family_color= case_when(
         subpop == "Founder" ~ "#B04EDE",
-        subpop == "Subpop. 1" ~ "#CC0000",
-        subpop == "Subpop. 2" ~ "#3C78D8"
+        subpop == "Subpop. 1" ~ red_pal(gen),
+        subpop == "Subpop. 2" ~ blue_pal(gen)
       )) %>%
     dplyr::rename(
       "Family" = "subpop"
@@ -386,6 +388,11 @@ render_3d_landscape <- function(smoothed,
                                 pcx=1,
                                 pcy=2,
                                 founders=c()) {
+  if (plot_inds) {
+    contour_size <- 8
+  } else {
+    contour_size <- 1
+  }
   p <- plot_ly(
     x=smoothed[["x"]],
     y=smoothed[["y"]],
@@ -397,10 +404,10 @@ render_3d_landscape <- function(smoothed,
     colorbar=list(title="Suitability"),
     contours = list(
       x = list(show = TRUE, start = min(smoothed[["x"]]), 
-               end = max(smoothed[["x"]]), size = 8,
+               end = max(smoothed[["x"]]), size = contour_size,
                color = "black", width = 1, highlightcolor = "black"),
       y = list(show = TRUE, start = min(smoothed[["y"]]), 
-               end = max(smoothed[["y"]]), size = 8,
+               end = max(smoothed[["y"]]), size = contour_size,
                color = "black", width = 1, highlightcolor = "black")
     ))
   # Project each of the samples onto the surface (hovering slightly above)
