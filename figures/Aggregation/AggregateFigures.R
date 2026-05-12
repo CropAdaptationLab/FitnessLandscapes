@@ -13,7 +13,7 @@ library(patchwork)
 # Manually override this to load old data
 if (FALSE) {
   setwd("~/Documents/CSU/FitnessLandscapes/output/AggregatedResults")
-  output_dir <- file.path(getwd(), "Sim_manuscript2")
+  output_dir <- file.path(getwd(), "Sim_manuscript")
   if (!dir.exists(output_dir)) dir.create(output_dir)
   
   res.df <- readRDS("Sim_manuscript/figure_data/sim_results.rds")
@@ -56,14 +56,14 @@ scale_fill <- scale_fill_manual(name = "RIL Family",
                   labels = c("Admixed", "Unadmixed"))
 
 scale_color <- scale_color_manual(name = "QTL per\nAttained Trait",
-                                  values = c("10" = "#4A1A6B",
-                                             "20" = "#9B59B6",
-                                             "50" = "#D7B8F3"))
+                                  values = c("10" = "black",
+                                             "20" = "grey40",
+                                             "50" = "grey70"))
 
 scale_fill_qtl <- scale_fill_manual(name = "QTL per\nAttained Trait",
-                                  values = c("10" = "#4A1A6B",
-                                             "20" = "#9B59B6",
-                                             "50" = "#D7B8F3"),
+                                  values = c("10" = "black",
+                                             "20" = "grey40",
+                                             "50" = "grey70"),
                                   guide="none")
 
 # Alpha value for the pts

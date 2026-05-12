@@ -84,7 +84,8 @@ overlayWalkOnLandscape <- function(pop1_df,
         scene = list(xaxis = list(title = "Attained Trait 1"),
                      yaxis = list(title = "Attained Trait 2"),
                      zaxis = list(title = "Suitability"),
-                     aspectmode='cube'))
+                     aspectmode = "manual",
+                     aspectratio = list(x = 1, y = 1, z = 0.4)))
     fig <- fig %>%
       add_trace(
         fig,
@@ -98,7 +99,7 @@ overlayWalkOnLandscape <- function(pop1_df,
         opacity = 1,
         line = list(
           color = pop1_df$gen,
-          colorscale = list(c(0, "#ffc9c9"), c(0.25, "#cc0000"), c(1, "#7a0000")),
+          colorscale = list(c(0, "#ffc9c9"), c(0.1, "#cc0000"), c(1, "#7a0000")),
           width = 10,
           autocolorscale = FALSE
         )
@@ -115,7 +116,7 @@ overlayWalkOnLandscape <- function(pop1_df,
         opacity = 1,
         line = list(
           color = pop2_df$gen,
-          colorscale = list(c(0, "#accbfc"), c(0.25, "#0957d6"), c(1, "#063a8f")),
+          colorscale = list(c(0, "#accbfc"), c(0.1, "#0957d6"), c(1, "#063a8f")),
           width = 10,
           autocolorscale = FALSE
         )
@@ -330,7 +331,8 @@ plotAdaptiveWalkWithIndividuals <- function(mean_res.df,
       scene = list(xaxis = list(title = "Attained Trait 1"),
                    yaxis = list(title = "Attained Trait 2"),
                    zaxis = list(title = "Suitability"),
-                   aspectmode='cube'))
+                   aspectmode = "manual",
+                   aspectratio = list(x = 1, y = 1, z = 0.5)))
   return (surface_fig)
 }
 
@@ -373,7 +375,7 @@ plotAdaptiveWalk3Populations <- function(large_res.df,
                            name="1000",
                            x = ~Trait1,
                            y = ~Trait2,
-                           z = ~Suit+0.03,
+                           z = ~Suit+0.02,
                            type = 'scatter3d',
                            mode = 'lines',
                            opacity = 1,
@@ -385,7 +387,7 @@ plotAdaptiveWalk3Populations <- function(large_res.df,
     name="500",
     x = ~Trait1,
     y = ~Trait2,
-    z = ~Suit+0.03,
+    z = ~Suit+0.02,
     type = 'scatter3d',
     mode = 'lines',
     opacity = 1,
@@ -397,7 +399,7 @@ plotAdaptiveWalk3Populations <- function(large_res.df,
     name="200",
     x = ~Trait1,
     y = ~Trait2,
-    z = ~Suit+0.03,
+    z = ~Suit+0.02,
     type = 'scatter3d',
     mode = 'lines',
     opacity = 1,
@@ -414,7 +416,8 @@ plotAdaptiveWalk3Populations <- function(large_res.df,
       scene = list(xaxis = list(title = "Attained Trait 1"),
                    yaxis = list(title = "Attained Trait 2"),
                    zaxis = list(title = "Suitability"),
-                   aspectmode='cube'))
+                   aspectmode = "manual",
+                   aspectratio = list(x = 1, y = 1, z = 0.5)))
   return (three_pop_fig)
 }
 

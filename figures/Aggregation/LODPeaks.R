@@ -30,7 +30,10 @@ sig_cor <- stat_cor(method="pearson",
                                     ifelse(after_stat(p) < 0.05,  '"*"', '"ns"'))),
                       sep="~"
                     )),
-                    parse=TRUE)
+                    label.x.npc="right",
+                    label.y.npc="top",
+                    hjust=1,
+                    size=2.5)
 
 # Find the maximum number of LOD peaks to have a consistent y axis
 qMax <- max(c(res.df$nLod_T1,
@@ -71,9 +74,9 @@ iMax <- 1
 make_isolod <- function(x_var, y_var, x_label) {
   res.df %>%
     dplyr::filter(type == "Admixed") %>%
-    ggplot(aes(x = .data[[x_var]], y = .data[[y_var]])) +
-    geom_point(aes(color = qtl), alpha = a, size = s) +
-    geom_smooth(method = "lm", se = FALSE, color = "black", linewidth = 0.4) +
+    ggplot(aes(x = .data[[x_var]], y = .data[[y_var]], color=qtl)) +
+    geom_point(alpha=a, size=s) +
+    geom_smooth(method="lm", se=FALSE, linewidth=0.4) +
     sig_cor +
     guides(color = guide_legend(override.aes = list(size = 2))) +
     scale_x_continuous(limits = c(iMin, iMax), breaks = seq(0.4, 1, by = 0.2)) +
@@ -139,6 +142,7 @@ intW <- res.df %>%
   labs(x="QTL per Attained Trait", y="Breeding Fitness Interactions") +
   theme
 
+intW
 ggplot2::ggsave(filename = file.path(output_dir, paste0("interaction.jpg")),
                 device = "jpg",
                 height=2,
@@ -152,9 +156,9 @@ ggplot2::ggsave(filename = file.path(output_dir, paste0("interaction.pdf")),
 # Plot isoeliteness against the number of interaction LOD peaks
 intW_ie <- res.df %>%
   dplyr::filter(type=="Admixed") %>%
-  ggplot(aes(x=isoElite_Att, y=nLod_Int)) +
-  geom_point(aes(color=qtl), alpha=a, size=s) +
-  geom_smooth(method="lm", se=FALSE, color="black", linewidth=0.4) +
+  ggplot(aes(x=isoElite_Att, y=nLod_Int, color=qtl)) +
+  geom_point(alpha=a, size=s) +
+  geom_smooth(method="lm", se=FALSE, linewidth=0.4) +
   sig_cor +
   guides(color = guide_legend(override.aes = list(size = 2))) +
   scale_color +

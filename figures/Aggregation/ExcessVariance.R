@@ -16,7 +16,22 @@ theme <- theme_minimal(base_size = 8,
     plot.title = element_text(hjust = 0.5, size=7),
     aspect.ratio=1)
 
-s <- 0.2
+# The size of the geom_points
+s <- 0.1
+
+# Determine a string representation of the correlation and significance
+sig_cor <- stat_cor(method="pearson",
+                    aes(label=paste(
+                      sub("R", "r", after_stat(r.label)),
+                      ifelse(after_stat(p) < 0.001, '"***"',
+                             ifelse(after_stat(p) < 0.01,  '"**"',
+                                    ifelse(after_stat(p) < 0.05,  '"*"', '"ns"'))),
+                      sep="~"
+                    )),
+                    label.x.npc="right",
+                    label.y.npc="top",
+                    hjust=1,
+                    size=2)
 
 vMin <- min(c(res.df$ev_T1, res.df$ev_T2, res.df$ev_T3, res.df$ev_Suit, res.df$ev_W), na.rm=TRUE, inf.rm=TRUE)
 vMax <- max(c(res.df$ev_T1, res.df$ev_T2, res.df$ev_T3, res.df$ev_Suit, res.df$ev_W), na.rm=TRUE, inf.rm=TRUE)
@@ -50,6 +65,8 @@ make_ev_scatter <- function(x_var, y_var, x_label, title) {
     dplyr::filter(!is.na(.data[[y_var]]) & !is.infinite(.data[[y_var]])) %>%
     ggplot(aes(x = .data[[x_var]], y = .data[[y_var]], color = qtl)) +
     geom_point(alpha = a, size = s) +
+    geom_smooth(method="lm", se=FALSE, linewidth=0.4) +
+    sig_cor +
     guides(color = guide_legend(override.aes = list(size = 2))) +
     scale_x_continuous(limits = c(iMin, iMax), breaks = seq(0.4, 1, by = 0.2)) +
     scale_y_continuous(limits = c(vMin, vMax * 1.05), expand = c(0, 0.1)) +

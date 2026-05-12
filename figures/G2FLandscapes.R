@@ -1,4 +1,4 @@
-# Title: Genotype-to-Fitness Landscapes
+# Title: GENOTYPE-TO-FITNESS LANDSCAPES Landscapes
 # Author: Ted Monyak
 # Description: This file contains plotting functions for creating genotype to
 # fitness landscapes
@@ -96,91 +96,9 @@ plot1DLandscape <- function(RIL, pop1, pop2, parent1, parent2, qtl1, qtl2, snpCh
                   height=3.5)
 }
 
-# Plots individuals along an adaptive walk on a genotype-to-fitness landscape
-# Assumes the following objects exist: sampled_inds, RIL, pops[[1]], pops[[2]]
-# sampled_inds: an AlphaSimR population made up of one or more subpopulations
-# traversing to a fitness peak
-# Returns: a plot_ly object with the fitness surface and the individuals projected onto it
+
 plotAdaptiveWalkLandscape <- function() {
-  # Run PCA on the RIL and both subpopulations
-  pca_geno <- pullSnpGeno(c(RIL,
-                            pops[[1]],
-                            pops[[2]]), snpChip=2)
-  pca <- prcomp(pca_geno)
-  # Variance explained
-  VAF <- summary(pca)$importance[2,] * 100
   
-  # Project the admixed RIL family onto the principal components
-  sampled_inds_geno <- pullSnpGeno(sampled_inds, snpChip=2)
-  pc_pred <- predict(pca, sampled_inds_geno)
-  
-  # Determine suitability based on genotypic values
-  # Heritability is low, and this is a G > F landscape, so genotypic values
-  # as phenotypes are appropriate
-  pheno <- as.data.frame(gv(sampled_inds)) %>%
-    dplyr::mutate(Suit=suitFunc(Trait1, Trait2)) %>%
-    dplyr::pull(Suit)
-  
-  # Create a dataframe for plotting
-  suit_df = data.frame(
-    "PC1" = pc_pred[, 1],
-    "PC2" = pc_pred[, 2],
-    "Suit" = pheno)
-  
-  # Plot color-coded PCA
-  #ggplot(suit_df, aes(x=PC1, y=PC2, color=Suit)) +
-  #  geom_point()
-  
-  # Add in the metadata (subpop and generation)
-  suit_df <- cbind(suit_df, sampled_inds_metadata)
-
-  # Add color-coding
-  red_pal  <- scales::col_numeric(palette = c("#ffc9c9", "#cc0000", "#a30000", "#7a0000"), domain = range(suit_df$gen))
-  blue_pal <- scales::col_numeric(palette = c("#accbfc", "#0957d6", "#0748b2", "#063a8f"), domain = range(suit_df$gen))
-  suit_df <- suit_df %>%
-    dplyr::mutate(
-      family_color= case_when(
-        subpop == "Founder" ~ "#B04EDE",
-        subpop == "Subpop. 1" ~ red_pal(gen),
-        subpop == "Subpop. 2" ~ blue_pal(gen)
-      )) %>%
-    dplyr::rename(
-      "Family" = "subpop"
-    )
-
-  # Downsample so that there is just one individual per subpop per generation
-  # Take the "mean" indvidual based on euclidean distance from the mean PC1 and PC2
-  # from each generation
-  adaptive_walk_df <- suit_df %>%
-    dplyr::group_by(gen, Family) %>%
-    dplyr::mutate(
-      mean_PC1 = mean(PC1, na.rm = TRUE),
-      mean_PC2 = mean(PC2, na.rm = TRUE),
-      # Euclidean distance from the centroid
-      dist_to_mean = sqrt((PC1 - mean_PC1)^2 + (PC2 - mean_PC2)^2)
-    ) %>%
-    # Get closest individual
-    dplyr::slice_min(dist_to_mean, n = 1, with_ties = FALSE) %>%
-    dplyr::select(-mean_PC1, -mean_PC2, -dist_to_mean) %>%
-    ungroup() %>%
-    dplyr::filter(Family != "Founder")
-
-  # Create a smoothed landscape
-  landscape <- generate_landscape(df=suit_df,
-                                  pred_df=adaptive_walk_df,
-                                  pcx=1,
-                                  pcy=2)
-
-  # Render the new smoothed landscape
-  # render_2d_landscape(landscape[[2]], VAF, 1, 2)
-  
-  p <- render_3d_landscape(smoothed=landscape[[3]],
-                      df=landscape[[1]],
-                      plot_inds=FALSE,
-                      families=c("Founder", "Subpop. 1", "Subpop. 2"),
-                      pcx=1,
-                      pcy=2)
-  return (p)
 }
 
 # Created a smoothed landscape based on a color-coded PCA result
@@ -444,8 +362,21 @@ render_3d_landscape <- function(smoothed,
                      line = list(autocolorscale=FALSE, color=df_sub$family_color, which=2, width = 10),
                      showlegend = TRUE) 
     }
-    p
   }
+  p <- p %>% layout(
+    font=list(
+      family="Helvetica",
+      size=14,
+      color="black"
+    ),
+    scene = list(
+      aspectmode = "manual",
+      aspectratio = list(x = 1, y = 1, z = 0.4),
+      xaxis = list(title = paste0("PC", pcy)),
+      yaxis = list(title = paste0("PC", pcx)),
+      zaxis = list(title = "Suitability")
+    )
+  )
   return(p)
 }
 

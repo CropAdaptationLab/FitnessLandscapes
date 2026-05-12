@@ -16,76 +16,92 @@ theme <- theme_minimal(base_size = 12,
     plot.margin= unit(c(1,1,1,1), unit="pt"),
     aspect.ratio = 1)
 
-# Since all attained trait metrics have the suffix _T1 or _T2, we want to consider
-# these together. Therefore, double the amount of rows in the dataframe by
-# creating a column per "paired" (i.e. attained trait) column to store
-# each of T1 and T2 together.
-# Determine the non_paired_cols (not ending in _T1 or _T2 to ignore)
-non_paired_cols <- names(res.df)[!grepl("_T[12]$", names(res.df))]
+col_order <- c("Mean IE",
+               "EV: Attained Traits",
+               "EV: Breeding Fitness",
+               "LOD Peaks: Attained Traits",
+               "LOD Peaks: Breeding Fitness",
+               "LOD Peaks: Desired Trait",
+               "FST")
 
-# Create a dataframe of all the metrics we want to compute correlations between
 cor.df <- res.df %>%
-  dplyr::filter(type=="Admixed") %>%
-  dplyr::select(isoElite_T1, isoElite_T2, isoElite_Att, hamm_T1, hamm_T2, hamm_Att, fst,
-                ev_T1, ev_T2, ev_Suit, ev_W, ev_T3,
-                nLod_T1, nLod_T2, nLod_Suit, nLod_W, nLod_Int, nLod_T3) %>%
-  dplyr::mutate(.row_id = row_number()) %>%
-  pivot_longer( # This is where we are creating new rows to store _T2
-    cols = matches("_T[12]$"),
-    names_to = c(".value", "pair_num"),
-    names_pattern = "^(.+)_T([12])$"
+  dplyr::filter(type == "Admixed") %>%
+  dplyr::select(qtl, isoElite_Att, fst,
+                ev_T1, ev_W,
+                nLod_T1, nLod_T3, nLod_W) %>%
+  dplyr::rename(
+    "Mean IE" = isoElite_Att,
+    "FST" = fst,
+    "EV: Attained Traits"= ev_T1,
+    "EV: Breeding Fitness"= ev_W,
+    "LOD Peaks: Attained Traits" = nLod_T1,
+    "LOD Peaks: Desired Trait" = nLod_T3,
+    "LOD Peaks: Breeding Fitness"= nLod_W
   ) %>%
-  dplyr::mutate(across(
-    .cols = any_of(non_paired_cols),
-    .fns = ~ if_else(pair_num == "2", NA, .x)
-  )) %>%
-  dplyr::select(-.row_id, -pair_num) %>%
-  dplyr::rename("Isoeliteness: Attained Trait"=isoElite,
-         "Isoeliteness: Mean"=isoElite_Att,
-         "Hamming Distance: Attained Traits"=hamm,
-         "Hamming Distance: Mean"=hamm_Att,
-         "FST"=fst,
-         "Excess Variance: Attained Traits"=ev,
-         "Excess Variance: Suitability"=ev_Suit,
-         "Excess Variance: Desired Trait"=ev_T3,
-         "Excess Variance: Breeding Fitness"=ev_W,
-         "LOD Peaks: Attained Traits"=nLod,
-         "LOD Peaks: Suitability"=nLod_Suit,
-         "LOD Peaks: Desired Trait"=nLod_T3,
-         "LOD Peaks: Breeding Fitness"=nLod_W,
-         "LOD Peaks: Fitness Interactions"=nLod_Int)
-cor.df %>%
-  dplyr::filter(!complete.cases(.)) %>%
-  dplyr::summarize(across(everything(), ~sum(is.na(.))))
+  dplyr::select(qtl, all_of(col_order))
 
-# Compute correlations, and extract 'r' and p-values
-cor_res <- rcorr(as.matrix(cor.df))
-r_mat   <- cor_res$r
-p_mat   <- cor_res$P
-# Plot the correlation
-plot_cor <- function () {
-  corrplot(r_mat,
-           method = "square",
-           type = "lower",
-           order = "AOE",
-           hclust.method = "complete",
-           p.mat = p_mat,
-           sig.level = 0.05,
-           insig = "blank",
-           tl.cex = 0.6,
-           tl.col = "black",
-           tl.srt = 45,
-           col = COL2("RdBu"),
-           diag = FALSE, 
-           addCoef.col = "black",
-           number.cex = 0.4,
-           cl.pos="n")
+qtl_vals <- c(10, 20, 50)
+
+n_vars <- length(col_order)
+n_qtls <- length(qtl_vals)
+
+# Row names: var_qtl (in desired order)
+row_names <- as.vector(outer(qtl_vals, col_order,
+                           FUN = function(q, v) paste0(v, " L = ", q)))
+
+r_asym <- matrix(NA, nrow = n_vars * n_qtls, ncol = n_vars,
+                 dimnames = list(row_names, col_order))
+p_asym <- matrix(NA, nrow = n_vars * n_qtls, ncol = n_vars,
+                 dimnames = list(row_names, col_order))
+
+for (qi in seq_along(qtl_vals)) {
+  q <- qtl_vals[qi]
+  sub <- cor.df %>%
+    dplyr::filter(qtl == q) %>%
+    dplyr::select(all_of(col_order))
+  
+  res <- rcorr(as.matrix(sub))  # Replace NA diagonal in P with 1 (self-correlation, r=1, not meaningful)
+  diag(res$P) <- 1
+  
+  for (vi in seq_along(col_order)) {
+    row_name <- paste0(col_order[vi], " L = ", q)
+    r_asym[row_name, ] <- res$r[col_order[vi], col_order]
+    p_asym[row_name, ] <- res$P[col_order[vi], col_order]
+  }
 }
-jpeg(file.path(output_dir, "cor.jpg"), width = 7, height = 5, units = "in", res = 600)
-plot_cor()
+
+# Separator lines between QTL blocks (after row 7 and row 14)
+sep_rows <- seq(n_qtls, n_vars * n_qtls - n_qtls, by = n_qtls)  # after row 3, 6, 9, 12, 15, 18
+
+plot_cor_asym <- function() {
+  corrplot(r_asym,
+           method      = "square",
+           type        = "full",        # must be "full" for asymmetric
+           is.corr     = TRUE,
+           p.mat       = p_asym,
+           sig.level   = 0.05,
+           insig       = "blank",
+           tl.cex      = 0.55,
+           tl.col      = "black",
+           tl.srt      = 45,
+           col         = COL2("RdBu"),
+           diag        = TRUE,
+           addCoef.col = "black",
+           number.cex  = 0.35,
+           cl.pos      = "n")
+  
+  # Draw horizontal lines separating QTL blocks
+  # corrplot draws rows top-to-bottom; abline coords are in matrix row space
+  abline(h = nrow(r_asym) - sep_rows + 0.5, col = "grey40", lwd = 1.2, lty = 2)
+}
+
+jpeg(file.path(output_dir, "cor.jpg"), width = 4, height = 5,
+     units = "in", res = 600)
+plot_cor_asym()
 dev.off()
-pdf(file.path(output_dir, "cor.pdf"), width = 7, height = 5)
-plot_cor()
+
+pdf(file.path(output_dir, "cor.pdf"), width = 4, height = 5)
+plot_cor_asym()
 dev.off()
 
 # Determine the mean trait architecture values for the admixed RIL family
