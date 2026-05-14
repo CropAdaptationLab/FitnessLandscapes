@@ -148,10 +148,8 @@ epistaticLodPeaks <- function(RIL, parent1, parent2, trait, snpChip, ril_dir) {
       dplyr::rowwise() %>%
       dplyr::mutate(qtl1 = findQtl(chr1, pos1),
                     qtl2 = findQtl(chr2, pos2),
-                    m1_hr = findMarker(chr1, pos1, snpChip=2),
-                    m2_hr = findMarker(chr2, pos2, snpChip=2),
-                    m1_lr = findMarker(chr1, pos1, snpChip=3),
-                    m2_lr = findMarker(chr2, pos2, snpChip=3)) %>%
+                    m1 = findMarker(chr1, pos1, snpChip),
+                    m2 = findMarker(chr2, pos2, snpChip)) %>%
       dplyr::ungroup()
   }
 

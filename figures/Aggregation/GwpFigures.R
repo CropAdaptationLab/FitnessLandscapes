@@ -13,12 +13,12 @@ library(patchwork)
 library(tibble)
 library(tidyr)
 
-#setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/Sim_")
-#output_dir <- getwd()
-#RIL.df <- rbind(read.csv("QTL_10/ril_results.csv"))
-#RS.df <- rbind(read.csv("QTL_10/rs_results.csv"))
+setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/Sim_2026-05-07_16_28")
+output_dir <- getwd()
+RIL.df <- rbind(read.csv("QTL_10/ril_results.csv"))
+RS.df <- rbind(read.csv("QTL_10/rs_results.csv"))
 
-theme <- theme_minimal(base_size = 8,
+theme <- theme_minimal(base_size = 10,
                        base_family="Helvetica") +
   theme(
     panel.grid.major = element_blank(),
@@ -32,16 +32,28 @@ theme <- theme_minimal(base_size = 8,
     aspect.ratio=1)
 
 scale_fill_gwp <- scale_fill_manual(name = "Test Family",
-                                values = c("Admixed" = "goldenrod1",
-                                           "Within-population" = "#7EBD4F",
-                                           "Cross-population" = "#A66A28"),
-                                breaks = c("Within-population", "Admixed", "Cross-population"))
+                                values = c("Within-population\n(Positive Control)" = "#7EBD4F",
+                                           "Admixed" = "goldenrod1",
+                                           "Cross-population\n(Negative Control)" = "#A66A28"),
+                                breaks = c("Within-population\n(Positive Control)",
+                                           "Admixed", 
+                                           "Cross-population\n(Negative Control)"),
+                                labels = c("Within-population" = "Within-population\n(Positive Control)",
+                                           "Admixed" = "Admixed",
+                                           "Cross-population" = "Cross-population\n(Negative Control)"))
 
 scale_color <- scale_color_manual(name = "QTL per\nAttained Trait",
                                   values = c("2" = "black",
                                              "10" = "#8F7511",
                                              "20" = "#E69900",
                                              "50" = "gold"))
+
+scale_color_sel <- scale_fill_manual(name = "Selection",
+                                      values = c("PS" = "#8E44C6",
+                                                 "GS" = "#2EBD65",
+                                                 "ieMAS (Low Density) + GS" = "#FFD4A8",
+                                                 "ieMAS (High Density) + GS" = "#F06A00",
+                                                 "ieMAS (Perfect Markers) + GS" = "#C14B00"))
 
 # Determine a string representation of the correlation and significance
 sig_cor <- stat_cor(method="pearson",
@@ -62,8 +74,8 @@ gwp.df <- RIL.df %>%
     values_to = "r"
   ) %>%
   mutate(type = case_when(
-    type %in% c("rP1", "rP2") ~ "Within-population",
-    type %in% c("rP1P2", "rP2P1") ~ "Cross-population",
+    type %in% c("rP1", "rP2") ~ "Within-population\n(Positive Control)",
+    type %in% c("rP1P2", "rP2P1") ~ "Cross-population\n(Negative Control)",
     type == "rAdmixed" ~ "Admixed",
     TRUE ~ type
   ),
@@ -73,7 +85,10 @@ gwp.df <- RIL.df %>%
   ))
 
 gwp.df$type <- factor(gwp.df$type,
-                      levels=c("Within-population", "Admixed", "Cross-population"))
+                      levels=c(
+                        "Within-population\n(Positive Control)",
+                        "Admixed",
+                        "Cross-population\n(Negative Control)"))
 gwp.df$qtl <- as.factor(gwp.df$qtl)
 
 # Plot the GWP results by RIL family type for QTL == 10
@@ -90,7 +105,7 @@ gwp.df %>%
   ) +
   scale_fill_gwp +
   scale_y_continuous(expand=c(0,0.1)) +
-  labs(x="Test Family", y="GWP accuracy for breeding fitness (r)") +
+  labs(x="Test Family", y=expression("GWP accuracy for breeding fitness (r"[GWP]*")")) +
   theme +
   theme(legend.position = "none")
 
@@ -132,7 +147,7 @@ gwp.df %>%
     bins = 5
   ) +
   scale_fill_gradientn(
-    colours = brewer.pal(5, "Oranges"),
+    colours = c("#FFF9C4", "#FFF176", "#FFEB3B", "#FDD835", "#FBC02D"),
     name = "Density"
   ) +
   geom_point(size = 0.5, alpha = 0.4, color = "black") +
@@ -141,7 +156,7 @@ gwp.df %>%
   sig_cor +
   labs(
     x = "Attained Trait Isoeliteness",
-    y = "GWP accuracy for breeding fitness (r)"
+    y = expression("GWP accuracy for breeding fitness (r"[GWP]*")"),
   ) +
   theme +
   theme(legend.position = "none")
@@ -166,10 +181,10 @@ gwp.df %>%
   geom_point(size=2, aes(color=isoEliteDes)) +
   geom_smooth(method="lm", se=FALSE, linewidth=0.4, color= "black") +
   geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.3, color = "grey40") +
-  guides(color = guide_legend(override.aes = list(shape = 16, linetype = 1, size=2))) +
+  #guides(color = guide_legend(override.aes = list(shape = 16, linetype = 1, size=2))) +
   sig_cor +
   labs(x="Attained Trait Isoeliteness",
-       y="GWP accuracy for breeding fitness (r)") +
+       y=expression("GWP accuracy for breeding fitness (r"[GWP]*")")) +
   theme
 
 ggplot2::ggsave(filename = "gwp_ieAtt.jpg",
@@ -233,19 +248,24 @@ ggplot2::ggsave(filename = "gwp_ieDes.pdf",
 
 # Create a unique identifier for the RILTYPE_SELECTION TYPE
 gs.df <- RS.df %>%
-  dplyr::mutate(pop=paste0(type, " ", sel))
+  dplyr::mutate(sel = case_when(
+    sel == "highResMAS" ~ "ieMAS (High Density) + GS",
+    sel == "lowResMAS" ~ "ieMAS (Low Density) + GS",
+    sel == "ieMAS" ~ "ieMAS (Perfect Markers) + GS",
+    TRUE ~ sel
+  )) %>%
+  dplyr::mutate(pop=paste0(type, " ", sel)) %>%
+  dplyr::mutate(pop=factor(pop, levels=c("Admixed GS",
+                                         "Admixed PS",
+                                         "Admixed ieMAS",
+                                         "Admixed ieMAS (Low Density) + GS",
+                                         "Admixed ieMAS (High Density) + GS",
+                                         "Unadmixed GS",
+                                         "Unadmixed PS",
+                                         "Unadmixed ieMAS",
+                                         "Unadmixed ieMAS (Low Density) + GS",
+                                         "Unadmixed ieMAS (High Density) + GS")))
 
-gs.df$pop <- factor(gs.df$pop,
-                     levels=c("Admixed GS",
-                              "Admixed PS",
-                              "Admixed ieMAS",
-                              "Admixed lowResMAS",
-                              "Admixed highResMAS",
-                              "Unadmixed GS",
-                              "Unadmixed PS",
-                              "Unadmixed ieMAS",
-                              "Unadmixed lowResMAS",
-                              "Unadmixed highResMAS"))
 gs.df$qtl <- as.factor(as.character(gs.df$qtl))
 
 # Calculate average breeding fitness per pop per cycle
@@ -261,45 +281,91 @@ cycleMean.df <-  gs.df %>%
                    gvar = mean(gvar)) %>%
   dplyr::mutate(
     pt_fill = case_when(
-      pop == "Admixed GS" ~ "black",
-      pop == "Admixed PS" ~ "white",
-      pop == "Admixed highResMAS" ~ "grey",
-      pop == "Unadmixed GS" ~ "black",
-      pop == "Unadmixed PS"  ~ "white",
-      pop == "Unadmixed highResMAS"  ~ "grey"
+      pop == "Admixed GS" ~ "#2EBD65",
+      pop == "Admixed PS" ~ "#8E44C6",
+      pop == "Admixed ieMAS (High Density) + GS" ~ "#F06A00",
+      pop == "Unadmixed GS" ~ "#2EBD65",
+      pop == "Unadmixed PS"  ~ "#8E44C6",
+      pop == "Unadmixed ieMAS (High Density) + GS"  ~ "#F06A00"
     )
   )
 
-minCycleW <- 120
-maxCycleW <- 165
+
+# PLOT EACH REPLICATE CURVE
+# Group by replicate
+reps.df <- gs.df %>%
+  dplyr::filter(type == "Admixed",
+                qtl == 10,
+                sel != "PS") %>%
+  dplyr::group_by(founder, rep, sel, c) %>%
+  dplyr::summarize(meanIe = mean(isoElite),
+                   w = mean(w),
+                   .groups = "drop") %>%
+  dplyr::mutate(ie_cat = dplyr::case_when(
+    meanIe > 0.9 ~ "High",
+    meanIe >= 0.8 & meanIe <= 0.9 ~ "Moderate",
+    meanIe <  0.8 ~ "Low"
+  ))
+
+ie_cats.df <- reps.df %>%
+  dplyr::group_by(ie_cat, sel, c) %>%
+  dplyr::summarize(
+    n  = n(),
+    se = sd(w) / sqrt(n()),
+    w = mean(w),
+    .groups = "drop"
+  ) %>%
+  # Update the name here
+  dplyr::mutate(sel = factor(sel, levels = c("GS", "ieMAS (High Density) + GS"))) %>%
+  dplyr::mutate(ie_cat = factor(ie_cat, levels = c("Low", "Moderate", "High"))) %>%
+  dplyr::mutate(pop = paste0(sel, " ", ie_cat)) %>%
+  dplyr::mutate(pop = factor(pop, levels=c("GS Low",
+                                           "GS Moderate",
+                                           "GS High",
+                                           "ieMAS (High Density) + GS Low",
+                                           "ieMAS (High Density) + GS Moderate",
+                                           "ieMAS (High Density) + GS High"))) %>%
+  dplyr::mutate(
+    pt_fill = case_when(
+      ie_cat == "Low" ~ "#cc0000",
+      ie_cat == "Moderate" ~ "grey40",
+      ie_cat == "High" ~ "#0957d6"
+    )
+  )
+
+minCycleW <- min(ie_cats.df$w)
+maxCycleW <- max(ie_cats.df$w)
 
 # Plot for QTL == 10 only
 cycleMean.df %>%
   dplyr::filter(qtl==10) %>%
-  dplyr::filter(sel == "GS" | sel == "PS") %>%
-  ggplot(aes(x = c, y = w, group = pop)) +
+  dplyr::filter(sel %in% c("GS", "PS")) %>%
+  ggplot(aes(x = c, y = w, group = pop, color=pt_fill)) +
   geom_line() +
-  geom_point(aes(fill = pt_fill, shape = pop), stroke = 0.5, size = 1) +
+  geom_point(aes(fill = ifelse(type == "Unadmixed", "white", pt_fill), shape = pop), stroke = 0.5, size = 1) +
   scale_shape_manual(
     name = "Population",
     values = c(
-      "Admixed GS"   = 16,
+      "Admixed GS"   = 21,
       "Admixed PS"    = 21,
-      "Unadmixed GS" = 17,
-      "Unadmixed PS"  = 24
+      "Unadmixed GS" = 21,
+      "Unadmixed PS"  = 21
     ),
     guide = guide_legend(override.aes = list(
-      fill  = c("black", "white", "black", "white"),
+      fill  = c("#2EBD65", "#8E44C6", "white", "white"),
+      color = c("#2EBD65", "#8E44C6", "#2EBD65", "#8E44C6"),
       size  = 3
     ))
   ) +
   scale_fill_identity() +
+  scale_color_identity() + # Tells ggplot to treat strings as actual colors
   scale_y_continuous(limits = c(minCycleW, maxCycleW)) +
   labs(
     x = "Cycle",
-    y = "Breeding Fitness"
+    y = "Realized Yield\n(Breeding Fitness)"
   ) +
   theme
+
 ggplot2::ggsave(filename = "fitness_per_cycle.jpg",
                 path=output_dir,
                 device = "jpg",
@@ -312,60 +378,31 @@ ggplot2::ggsave(filename = "fitness_per_cycle.pdf",
                 width=3.5,
                 height=3)
 
-# PLOT EACH REPLICATE CURVE
-# Group by replicate
-reps.df <- gs.df %>%
-  dplyr::filter(type == "Admixed",
-                qtl == 10,
-                sel != "PS") %>%
-  dplyr::group_by(founder, rep, sel, c) %>%
-  dplyr::summarize(meanIe = mean(isoElite),
-                   w = mean(w),
-                   .groups = "drop")
 
-# Create discrete categories of isoeliteness
-ie_means.df <- reps.df %>%
-  dplyr::mutate(ie_cat = dplyr::case_when(
-    meanIe > 0.9 ~ "High",
-    meanIe >= 0.8 & meanIe <= 0.9 ~ "Moderate",
-    meanIe <  0.8 ~ "Low"
-  ))
-
-ie_cats.df <- ie_means.df %>%
-  dplyr::group_by(ie_cat, sel, c) %>%
-  dplyr::summarize(
-    n  = n(),
-    se = sd(w) / sqrt(n()),
-    w  = mean(w),
-    .groups = "drop"
-  )
-ie_cats.df$ie_cat <- factor(ie_cats.df$ie_cat,
-                             levels=c("Low", "Moderate", "High"))
-
-plotAllCurves <- function(selType, title, ylabel = TRUE) {
+plotAllCurves <- function(selType, ylabel = TRUE) {
   ggplot() +
     geom_line(data = reps.df %>% dplyr::filter(sel == selType),
               aes(x = c, y = w, group = interaction(founder, rep)),
               color = "grey",
               alpha = 0.1) +
     geom_errorbar(data = ie_cats.df %>% dplyr::filter(sel == selType),
-                  aes(x = c, ymin = w - se, ymax = w + se, group = ie_cat, color = ie_cat),
+                  aes(x = c, ymin = w - se, ymax = w + se, group = ie_cat, color = pt_fill),
                   width = 0.2,
                   linewidth = 0.3,
                   alpha = 0.6) +
     geom_line(data = ie_cats.df %>% dplyr::filter(sel == selType),
-              aes(x = c, y = w, group = ie_cat, color = ie_cat),
+              aes(x = c, y = w, group = ie_cat, color = pt_fill),
               linewidth = 0.8) +
-    scale_color_manual(
-      name = "Attained Trait\nIsoeliteness",
-      values = c("High"    = "#639922",
-                 "Moderate" = "grey40",
-                 "Low"  = "#BA7517")
+    scale_color_identity(
+      name = "Mean Isoeliteness",
+      guide = "legend",
+      breaks = c("#0957d6", "grey40", "#cc0000"),
+      labels = c("High", "Moderate", "Low")
     ) +
     labs(
       x = "Cycle",
-      y = "Breeding Fitness",
-      title = title
+      y = "Realized Yield\n(Breeding Fitness)",
+      title = selType
     ) +
     scale_y_continuous(limits = c(minCycleW, maxCycleW)) +
     theme +
@@ -375,7 +412,7 @@ plotAllCurves <- function(selType, title, ylabel = TRUE) {
     )
 }
 
-(plotAllCurves("GS", "GS") | plotAllCurves("highResMAS", "ieMAS + GS", FALSE)) + plot_layout(guides = "collect", axes = "collect")
+(plotAllCurves("GS") | plotAllCurves("ieMAS (High Density) + GS", FALSE)) + plot_layout(guides = "collect", axes = "collect")
 
 ggplot2::ggsave(filename = "fitness_by_ieCat.jpg",
                 path=output_dir,
@@ -389,7 +426,48 @@ ggplot2::ggsave(filename = "fitness_by_ieCat.pdf",
                 width=6.5,
                 height=3)
 
-# Calculate genetic gain per rep
+ie_cats.df %>%
+  dplyr::filter(sel %in% c("GS", "ieMAS (High Density) + GS")) %>%
+  ggplot(aes(x = c, y = w, group = pop, color = sel)) +
+  # Main trend lines
+  geom_line(linewidth = 0.8) +
+  # Points with shapes mapped to isoeliteness
+  geom_point(aes(shape = ie_cat), size = 2.5) +
+  # Selection colors (Green vs Orange)
+  scale_color_manual(
+    name = "Selection Scheme",
+    values = c(
+      "GS" = "#2EBD65", 
+      "ieMAS (High Density) + GS" = "#F06A00"
+    )
+  ) +
+  # Different shapes for isoeliteness levels
+  scale_shape_manual(
+    name = "Mean Isoeliteness",
+    values = c(
+      "High"     = 16, # Solid Circle
+      "Moderate" = 17, # Solid Triangle
+      "Low"      = 15  # Solid Square
+    )
+  ) +
+  labs(
+    x = "Cycle", 
+    y = "Realized Yield\n(Breeding Fitness)"
+  ) +
+  scale_y_continuous(limits = c(minCycleW, maxCycleW)) +
+  theme
+
+ggplot2::ggsave(filename = "overlaidFitnessIeCat.jpg",
+                path=output_dir,
+                device = "jpg",
+                width=3.5,
+                height=3,
+                dpi=600)
+ggplot2::ggsave(filename = "overlaidFitnessIeCat.pdf",
+                path=output_dir,
+                device = "pdf",
+                width=6.5,
+                height=3)
 
 # Safe lookup of w at c == 1
 # Will return NA if there is no w value at that cycle
@@ -417,16 +495,10 @@ geneticGain.df <- gs.df %>%
   tidyr::pivot_longer(cols=c("5", "10", "20"),
                       names_to="cycles",
                       values_to = "gain") %>%
-  dplyr::filter(qtl==10,
-                sel!="PS")
-
-geneticGain.df$cycles <- factor(geneticGain.df$cycles, levels=c("5", "10", "20"))
-geneticGain.df$ie_cat <- factor(geneticGain.df$ie_cat,
-                            levels=c("Low", "Moderate", "High"))
-geneticGain.df$sel <- factor(geneticGain.df$sel,
-                                levels=c("GS", "lowResMAS", "highResMAS", "ieMAS"))
-
-maxGain <- max(geneticGain.df$gain)
+  dplyr::filter(qtl==10) %>%
+  dplyr::mutate(cycles=factor(cycles, levels=c("5", "10", "20")),
+                ie_cat=factor(ie_cat, levels=c("Low", "Moderate", "High")),
+                sel=factor(sel, levels=c("PS", "GS", "ieMAS (Low Density) + GS", "ieMAS (High Density) + GS", "ieMAS (Perfect Markers) + GS")))
 
 # Plot the genetic gain per replicate as a boxplot
 plotGeneticGain <- function(df, cycle, selTypes, ylabel=TRUE) {
@@ -442,19 +514,10 @@ plotGeneticGain <- function(df, cycle, selTypes, ylabel=TRUE) {
     ) +
     labs(
       title  = paste("Cycles: ", cycle),
-      x = "Attained Trait Isoeliteness",
+      x = "Mean Isoeliteness",
       y = "Genetic Gain"
     ) + 
-    scale_fill_manual(
-      name = "Selection",
-      values = c("GS"    = "grey90",
-                 "ieMAS" = "grey90",
-                 "lowResMAS" = "grey60",
-                 "highResMAS" = "grey30"),
-      labels = c("GS" = "GS",
-                 "ieMAS" = "ieMAS (Perfect) + GS",
-                 "lowResMAS" = "ieMAS (Low Resolution) + GS",
-                 "highResMAS" = "ieMAS + GS")) +
+    scale_color_sel +
     scale_y_continuous(limits=c(0,maxGain)) +
     stat_compare_means(
       label = "p.signif",
@@ -470,9 +533,9 @@ plotGeneticGain <- function(df, cycle, selTypes, ylabel=TRUE) {
 }
 
 
-gain5 <- plotGeneticGain(geneticGain.df, "5", c("GS", "highResMAS"))
-gain10 <- plotGeneticGain(geneticGain.df, "10", c("GS", "highResMAS"), ylabel=FALSE)
-gain20 <- plotGeneticGain(geneticGain.df, "20", c("GS", "highResMAS"), ylabel=FALSE)
+gain5 <- plotGeneticGain(geneticGain.df, "5", c("GS", "ieMAS (High Density) + GS"))
+gain10 <- plotGeneticGain(geneticGain.df, "10", c("GS", "ieMAS (High Density) + GS"), ylabel=FALSE)
+gain20 <- plotGeneticGain(geneticGain.df, "20", c("GS", "ieMAS (High Density) + GS"), ylabel=FALSE)
 
 (gain5 |gain10 | gain20) + plot_layout(guides = "collect", axes = "collect")
 ggplot2::ggsave(filename = "genetic_gain_boxplot.jpg",
@@ -487,9 +550,9 @@ ggplot2::ggsave(filename = "genetic_gain_boxplot.pdf",
                 width=6.5,
                 height=2.5)
 
-gain5_MAS <- plotGeneticGain(geneticGain.df, "5", c("lowResMAS", "highResMAS", "ieMAS"))
-gain10_MAS <- plotGeneticGain(geneticGain.df, "10", c("lowResMAS", "highResMAS", "ieMAS"), ylabel=FALSE)
-gain20_MAS <- plotGeneticGain(geneticGain.df, "20", c("lowResMAS", "highResMAS", "ieMAS"), ylabel=FALSE)
+gain5_MAS <- plotGeneticGain(geneticGain.df, "5", c("GS", "PS", "ieMAS (Low Density) + GS", "ieMAS (High Density) + GS", "ieMAS (Perfect Markers) + GS"))
+gain10_MAS <- plotGeneticGain(geneticGain.df, "10", c("GS", "PS", "ieMAS (Low Density) + GS", "ieMAS (High Density) + GS", "ieMAS (Perfect Markers) + GS"), ylabel=FALSE)
+gain20_MAS <- plotGeneticGain(geneticGain.df, "20", c("GS", "PS", "ieMAS (Low Density) + GS", "ieMAS (High Density) + GS", "ieMAS (Perfect Markers) + GS"), ylabel=FALSE)
 
 (gain5_MAS | gain10_MAS | gain20_MAS) + plot_layout(guides = "collect", axes = "collect")
 ggplot2::ggsave(filename = "MAS_boxplot.jpg",
@@ -508,6 +571,7 @@ minMaxGain <- geneticGain.df %>%
   dplyr::filter(sel=="GS") %>%
   summarize(min=min(gain),
             max=max(gain))
+
 minGain <- minMaxGain$min
 maxGain <- minMaxGain$max
 
@@ -526,7 +590,7 @@ plotGeneticGainVsIe <- function(df, selType, title, ylabel=TRUE) {
     ) + 
     scale_color_manual(
       name = "Number of Cycles",
-      values = c("#4A1A6B", "#9B59B6", "#D7B8F3")
+      values = c("black", "grey40", "grey70")
     ) +
     scale_y_continuous(limits=c(minGain, maxGain)) +
     theme +
@@ -538,7 +602,7 @@ plotGeneticGainVsIe <- function(df, selType, title, ylabel=TRUE) {
 
 
 (plotGeneticGainVsIe(geneticGain.df, "GS", "GS") |
-  plotGeneticGainVsIe(geneticGain.df, "highResMAS", "ieMAS + GS", FALSE)) +
+  plotGeneticGainVsIe(geneticGain.df, "ieMAS (High Density) + GS", "ieMAS + GS", FALSE)) +
   plot_layout(guides = "collect", axes = "collect")
 
 ggplot2::ggsave(filename = "genetic_gain_ie.jpg",

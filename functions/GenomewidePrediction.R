@@ -164,14 +164,11 @@ recurrentSelection <- function(basePop, parent1, parent2) {
   # Find all pairs of epistatic loci
   peaks <- epistaticLodPeaks(basePop, parent1, parent2, snpChip=2, trait=5)
   if (nrow(peaks) > 0) {
-    
     masGeno_PERFECT <- getUniqueQtl(basePop)
     masGeno_HIGH <- as.data.frame(pullSnpGeno(basePop, snpChip=2))
-    masGeno_LOW <- as.data.frame(pullSnpGeno(basePop, snpChip=3))
     
     # Number of actual interactions
     nInt_PERFECT <- 0
-    nInt_LOW <- 0
     nInt_HIGH <- 0
     for (r in 1:nrow(peaks)) {
       # QTL interactions
@@ -186,38 +183,45 @@ recurrentSelection <- function(basePop, parent1, parent2) {
       }
       
       # High resolution
-      m1_hr <- peaks$m1_hr[r]
-      m2_hr <- peaks$m2_hr[r]
-      if (!is.na(m1_hr) & !is.na(m2_hr)) {
-        if (segLocus(masGeno_HIGH[,m1_hr]) & segLocus(masGeno_HIGH[,m2_hr])) {
-          haplos <- getHaplos(masGeno_HIGH, m1_hr, m2_hr, parent1, parent2, snpChip=2, useQtls=FALSE)
+      m1 <- peaks$m1[r]
+      m2 <- peaks$m2[r]
+      if (!is.na(m1) & !is.na(m2)) {
+        if (segLocus(masGeno_HIGH[,m1]) & segLocus(masGeno_HIGH[,m2])) {
+          haplos <- getHaplos(masGeno_HIGH, m1, m2, parent1, parent2, snpChip=2, useQtls=FALSE)
           nInt_HIGH <- nInt_HIGH + 1
           masHaplo_HIGH <- cbind(masHaplo_HIGH, haplos)
         }
       }
-
-      # Low resolution
-      m1_lr <- peaks$m1_lr[r]
-      m2_lr <- peaks$m2_lr[r]
-      if (!is.na(m1_lr) & !is.na(m2_lr)) {
-        if (segLocus(masGeno_LOW[,m1_lr]) & segLocus(masGeno_LOW[,m2_lr])) {
-          haplos <- getHaplos(masGeno_LOW, m1_lr, m2_lr, parent1, parent2, snpChip=3, useQtls=FALSE)
-          nInt_LOW <- nInt_LOW + 1
-          masHaplo_LOW <- cbind(masHaplo_LOW, haplos)
-        }
-      }
-      
     }
     # Number of QTL interactions
     if (nInt_PERFECT > 0) {
       colnames(masHaplo_PERFECT) <- c("id", paste0("INT_", 1:nInt_PERFECT))
     }
-
+    
     # Number of high res marker interactions
     if (nInt_HIGH > 0) {
       colnames(masHaplo_HIGH) <- c("id", paste0("INT_", 1:nInt_HIGH))
     }
-    
+  }
+
+  # Low resolution mapping
+  low_res_peaks <- epistaticLodPeaks(basePop, parent1, parent2, snpChip=3, trait=5)
+  if (nrow(low_res_peaks) > 0) {
+    masGeno_LOW <- as.data.frame(pullSnpGeno(basePop, snpChip=3))
+    nInt_LOW <- 0
+
+    for (r in 1:nrow(low_res_peaks)) {
+      # Low resolution
+      m1 <- low_res_peaks$m1[r]
+      m2 <- low_res_peaks$m2[r]
+      if (!is.na(m1) & !is.na(m2)) {
+        if (segLocus(masGeno_LOW[,m1]) & segLocus(masGeno_LOW[,m2])) {
+          haplos <- getHaplos(masGeno_LOW, m1, m2, parent1, parent2, snpChip=3, useQtls=FALSE)
+          nInt_LOW <- nInt_LOW + 1
+          masHaplo_LOW <- cbind(masHaplo_LOW, haplos)
+        }
+      }
+    }
     # Number of low res marker interactions
     if (nInt_LOW > 0) {
       colnames(masHaplo_LOW) <- c("id", paste0("INT_", 1:nInt_LOW))

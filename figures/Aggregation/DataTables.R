@@ -45,24 +45,29 @@ qtl_vals <- c(10, 20, 50)
 n_vars <- length(col_order)
 n_qtls <- length(qtl_vals)
 
-# Row names: var_qtl (in desired order)
+# Row order
 row_names <- as.vector(outer(qtl_vals, col_order,
                            FUN = function(q, v) paste0(v, " L = ", q)))
 
+# Store correlations and p-values
 r_asym <- matrix(NA, nrow = n_vars * n_qtls, ncol = n_vars,
                  dimnames = list(row_names, col_order))
 p_asym <- matrix(NA, nrow = n_vars * n_qtls, ncol = n_vars,
                  dimnames = list(row_names, col_order))
 
+# Calculate a correlation matrix for each value of qtl_vals
 for (qi in seq_along(qtl_vals)) {
   q <- qtl_vals[qi]
+  # Subset the correlation matrix
   sub <- cor.df %>%
     dplyr::filter(qtl == q) %>%
     dplyr::select(all_of(col_order))
   
-  res <- rcorr(as.matrix(sub))  # Replace NA diagonal in P with 1 (self-correlation, r=1, not meaningful)
+  # Calculate the correlation
+  res <- rcorr(as.matrix(sub))
   diag(res$P) <- 1
   
+  # For each column, populate the correlation and the p-value
   for (vi in seq_along(col_order)) {
     row_name <- paste0(col_order[vi], " L = ", q)
     r_asym[row_name, ] <- res$r[col_order[vi], col_order]
@@ -70,26 +75,27 @@ for (qi in seq_along(qtl_vals)) {
   }
 }
 
-# Separator lines between QTL blocks (after row 7 and row 14)
-sep_rows <- seq(n_qtls, n_vars * n_qtls - n_qtls, by = n_qtls)  # after row 3, 6, 9, 12, 15, 18
+# Separator lines between QTL blocks after row 3, 6, 9, 12, 15, 18
+sep_rows <- seq(n_qtls, n_vars * n_qtls - n_qtls, by = n_qtls)  
 
+# Plot an asymmetric correlation matrix
 plot_cor_asym <- function() {
   corrplot(r_asym,
-           method      = "square",
-           type        = "full",        # must be "full" for asymmetric
-           is.corr     = TRUE,
-           p.mat       = p_asym,
-           sig.level   = 0.05,
-           insig       = "blank",
-           tl.cex      = 0.55,
-           tl.col      = "black",
-           tl.srt      = 45,
-           col         = COL2("RdBu"),
-           diag        = TRUE,
+           method = "square",
+           type = "full",
+           is.corr = TRUE,
+           p.mat = p_asym,
+           sig.level = 0.05,
+           insig = "blank",
+           tl.cex = 0.55,
+           tl.col = "black",
+           tl.srt = 45,
+           col = COL2("RdBu"),
+           diag = TRUE,
            addCoef.col = "black",
-           number.cex  = 0.35,
-           cl.pos      = "n")
-  
+           number.cex = 0.35,
+           cl.pos = "n")
+
   # Draw horizontal lines separating QTL blocks
   # corrplot draws rows top-to-bottom; abline coords are in matrix row space
   abline(h = nrow(r_asym) - sep_rows + 0.5, col = "grey40", lwd = 1.2, lty = 2)
