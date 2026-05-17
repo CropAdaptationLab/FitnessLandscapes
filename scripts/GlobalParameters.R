@@ -53,7 +53,8 @@ n.C <- 30 # Cycles of recurrent selection
 n.GSmarkers <- 100 # Markers per chromosome to use for GWP
 n.LRmarkers <- 20 # Low-resolution SNP array
 n.selInt <- 0.1 # Selection intensity for recurrent selection
-gsPheno <- "gv" # Set to 'gv' or 'pheno'. For training the RRBLUP
+GS_PHENO <- "pheno" # Set to 'gv' or 'pheno'. For training the GS model
+GS_MODEL <- "GBLUP" # Set to RRBLUP or GBLUP
 
 # PLOTTING
 saveQtlPlots <- FALSE # Save linkage map plots
@@ -137,7 +138,9 @@ getParams <- function() {
     initYieldVal=n.initYieldVal,
     C=n.C,
     gsMarkers=n.GSmarkers,
-    selInt=n.selInt
+    selInt=n.selInt,
+    GS_PHENO=GS_PHENO,
+    GS_MODEL=GS_MODEL
   )
   return (t(n.df))
 }
