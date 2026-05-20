@@ -42,12 +42,18 @@ scale_fill_gwp <- scale_fill_manual(name = "Test Family",
                                            "Admixed" = "Admixed",
                                            "Cross-population" = "Cross-population\n(Negative Control)"))
 
+color_scheme <- c(
+  "PS" = "#8E44C6",
+  "ieMAS (High Density) + PS" = "#eec7ff",
+  "GS" = "#2EBD65",
+  "GS (No Update)" = "#b7edba",
+  "ieMAS (Low Density) + GS" = "#FFD4A8",
+  "ieMAS (High Density) + GS" = "#F06A00",
+  "ieMAS (High Density) + GS (No Update)" = "#C14B00",
+  "ieMAS (Perfect Markers) + GS" = "#7A2900")
+
 scale_color_sel <- scale_fill_manual(name = "Selection",
-                                      values = c("PS" = "#8E44C6",
-                                                 "GS" = "#2EBD65",
-                                                 "ieMAS (Low Density) + GS" = "#FFD4A8",
-                                                 "ieMAS (High Density) + GS" = "#F06A00",
-                                                 "ieMAS (Perfect Markers) + GS" = "#C14B00"))
+                                      values = color_scheme)
 
 # Determine a string representation of the correlation and significance
 sig_cor <- stat_cor(method="pearson",
@@ -219,19 +225,37 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
       sel == "highResMAS" ~ "ieMAS (High Density) + GS",
       sel == "lowResMAS" ~ "ieMAS (Low Density) + GS",
       sel == "ieMAS" ~ "ieMAS (Perfect Markers) + GS",
+      sel == "GSnoUpdate" ~ "GS (No Update)",
+      sel == "PSieMAS" ~ "ieMAS (High Density) + PS",
+      sel == "highResMASnoUpdate" ~ "ieMAS (High Density) + GS (No Update)",
       TRUE ~ sel
     )) %>%
     dplyr::mutate(pop=paste0(type, " ", sel)) %>%
-    dplyr::mutate(pop=factor(pop, levels=c("Admixed GS",
+    dplyr::mutate(type=factor(type, levels=c("Admixed", "Unadmixed")),
+                              sel=factor(sel, levels=c(
+                                           "PS",
+                                           "ieMAS (High Density) + PS",
+                                           "GS (No Update)",
+                                           "GS",
+                                           "ieMAS (Low Density) + GS",
+                                           "ieMAS (High Density) + GS (No Update)",
+                                           "ieMAS (High Density) + GS",
+                                           "ieMAS (Perfect Markers) + GS")),
+                              pop=factor(pop, levels=c(
                                            "Admixed PS",
-                                           "Admixed ieMAS",
+                                           "Admixed ieMAS (High Density) + PS",
+                                           "Admixed GS (No Update)",
+                                           "Admixed GS",
                                            "Admixed ieMAS (Low Density) + GS",
+                                           "Admixed ieMAS (High Density) + GS (No Update)",
                                            "Admixed ieMAS (High Density) + GS",
                                            "Admixed ieMAS (Perfect Markers) + GS",
-                                           "Unadmixed GS",
                                            "Unadmixed PS",
-                                           "Unadmixed ieMAS",
+                                           "Unadmixed ieMAS (High Density) + PS",
+                                           "Unadmixed GS (No Update)",
+                                           "Unadmixed GS",
                                            "Unadmixed ieMAS (Low Density) + GS",
+                                           "Unadmixed ieMAS (High Density) + GS (No Update)",
                                            "Unadmixed ieMAS (High Density) + GS",
                                            "Unadmixed ieMAS (Perfect Markers) + GS")))
   
@@ -249,14 +273,7 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
                      ie = mean(pop_ie),
                      gvar = mean(gvar)) %>%
     dplyr::mutate(
-      pt_fill = case_when(
-        pop == "Admixed GS" ~ "#2EBD65",
-        pop == "Admixed PS" ~ "#8E44C6",
-        pop == "Admixed ieMAS (High Density) + GS" ~ "#F06A00",
-        pop == "Unadmixed GS" ~ "#2EBD65",
-        pop == "Unadmixed PS"  ~ "#8E44C6",
-        pop == "Unadmixed ieMAS (High Density) + GS"  ~ "#F06A00"
-      )
+      pt_fill = color_scheme[sel]
     )
   
   
@@ -265,7 +282,10 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
   reps.df <- gs.df %>%
     dplyr::filter(type == "Admixed",
                   qtl == 10,
-                  sel %in% c("GS", "ieMAS (High Density) + GS")) %>%
+                  sel %in% c("GS",
+                             "ieMAS (High Density) + GS",
+                             "PS",
+                             "ieMAS (High Density) + PS")) %>%
     dplyr::group_by(founder, rep, sel, c) %>%
     dplyr::summarize(meanIe = mean(isoElite),
                      w = mean(w),
@@ -285,10 +305,16 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
       .groups = "drop"
     ) %>%
     # Update the name here
-    dplyr::mutate(sel = factor(sel, levels = c("GS", "ieMAS (High Density) + GS"))) %>%
+    #dplyr::mutate(sel = factor(sel, levels = c("GS", "ieMAS (High Density) + GS"))) %>%
     dplyr::mutate(ie_cat = factor(ie_cat, levels = c("Low", "Moderate", "High"))) %>%
     dplyr::mutate(pop = paste0(sel, " ", ie_cat)) %>%
-    dplyr::mutate(pop = factor(pop, levels=c("GS Low",
+    dplyr::mutate(pop = factor(pop, levels=c("PS Low",
+                                             "PS Moderate",
+                                             "PS High",
+                                             "ieMAS (High Density) + PS Low",
+                                             "ieMAS (High Density) + PS Moderate",
+                                             "ieMAS (High Density) + PS High",
+                                             "GS Low",
                                              "GS Moderate",
                                              "GS High",
                                              "ieMAS (High Density) + GS Low",
@@ -311,7 +337,10 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
     dplyr::filter(sel %in% c("GS", "PS")) %>%
     ggplot(aes(x = c, y = w, group = pop, color=pt_fill)) +
     geom_line() +
-    geom_point(aes(fill = ifelse(type == "Unadmixed", "white", pt_fill), shape = pop), stroke = 0.5, size = 1) +
+    geom_point(aes(fill = ifelse(type == "Unadmixed", "white", pt_fill),
+                   shape = pop),
+               stroke = 0.5,
+               size = 1) +
     scale_shape_manual(
       name = "Population",
       values = c(
@@ -321,8 +350,8 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
         "Unadmixed PS"  = 21
       ),
       guide = guide_legend(override.aes = list(
-        fill  = c("#2EBD65", "#8E44C6", "white", "white"),
-        color = c("#2EBD65", "#8E44C6", "#2EBD65", "#8E44C6"),
+        fill  = c(color_scheme["GS"], color_scheme["PS"], "white", "white"),
+        color = c(color_scheme["GS"], color_scheme["PS"], color_scheme["GS"], color_scheme["PS"]),
         size  = 3
       ))
     ) +
@@ -380,7 +409,9 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
       )
   }
   
-  (plotAllCurves("GS") | plotAllCurves("ieMAS (High Density) + GS", FALSE)) + plot_layout(guides = "collect", axes = "collect")
+  ((plotAllCurves("GS") | plotAllCurves("ieMAS (High Density) + GS", FALSE)) /
+      (plotAllCurves("PS")  | plotAllCurves("ieMAS (High Density) + PS", FALSE))) +
+    plot_layout(guides = "collect", axes = "collect")
   
   ggplot2::ggsave(filename = paste0("GS_vs_MAS_Curves_", GS_MODEL, ".jpg"),
                   path=output_dir,
@@ -405,8 +436,8 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
     scale_color_manual(
       name = "Selection Scheme",
       values = c(
-        "GS" = "#2EBD65", 
-        "ieMAS (High Density) + GS" = "#F06A00"
+        "GS" = color_scheme[["GS"]], 
+        "ieMAS (High Density) + GS" = color_scheme[["ieMAS (High Density) + GS"]]
       )
     ) +
     # Different shapes for isoeliteness levels
@@ -465,15 +496,15 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
                         values_to = "gain") %>%
     dplyr::filter(qtl==10) %>%
     dplyr::mutate(cycles=factor(cycles, levels=c("5", "10", "20")),
-                  ie_cat=factor(ie_cat, levels=c("Low", "Moderate", "High")),
-                  sel=factor(sel, levels=c("PS", "GS", "ieMAS (Low Density) + GS", "ieMAS (High Density) + GS", "ieMAS (Perfect Markers) + GS")))
+                  ie_cat=factor(ie_cat, levels=c("Low", "Moderate", "High")))
+                  #sel=factor(sel, levels=c("PS", "GS", "ieMAS (Low Density) + GS", "ieMAS (High Density) + GS", "ieMAS (Perfect Markers) + GS")))
   
   # Plot the genetic gain per replicate as a boxplot
   plotGeneticGain <- function(df, cycle, selTypes, ylabel=TRUE) {
     df %>%
       dplyr::filter(cycles==cycle,
-                    type=="Admixed",
-                    sel %in% selTypes) %>%
+                    type=="Admixed") %>%
+                    #sel %in% selTypes) %>%
       ggplot(aes(x = ie_cat, y = gain, fill=sel)) +
       geom_boxplot(
         outlier.shape=NA,
@@ -567,8 +598,10 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
   }
   
   
-  (plotGeneticGainVsIe(geneticGain.df, "GS", "GS") |
-      plotGeneticGainVsIe(geneticGain.df, "ieMAS (High Density) + GS", "ieMAS + GS", FALSE)) +
+  ((plotGeneticGainVsIe(geneticGain.df, "GS", "GS") |
+      plotGeneticGainVsIe(geneticGain.df, "ieMAS (High Density) + GS", "ieMAS + GS", FALSE)) / 
+  (plotGeneticGainVsIe(geneticGain.df, "PS", "PS") |
+       plotGeneticGainVsIe(geneticGain.df, "ieMAS (High Density) + PS", "ieMAS + PS", FALSE))) +
     plot_layout(guides = "collect", axes = "collect")
   
   ggplot2::ggsave(filename = paste0("Gain_vs_Ie_", GS_MODEL, ".jpg"),
