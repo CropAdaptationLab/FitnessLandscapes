@@ -50,9 +50,9 @@ source("functions/TraitArchitecture.R")
 source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
-n.popResets <- 200
+n.popResets <- 1
 # Number of adaptive walk replications per pair of subpopulations
-n.reps <- 1
+n.reps <- 2
 
 # Recurrent selection cycles
 n.C <- 20
@@ -89,7 +89,8 @@ RS.df <- data.frame(
   isoEliteDes=c(), # isoeliteness of desired trait
   c=c(), # cycle
   sel=c(), # GS, PS, ieMAS, lrMAS
-  w=c(), # breeding fitness
+  w=c(), # breeding fitness phenotype
+  wGV=c(), # breeding fitness GV
   r=c(), # GWP accuracy per cycle
   genome_het=c(), # genome-wide heterozygosity
   attained_het=c(), # attained trait heterozygosity
@@ -98,7 +99,7 @@ RS.df <- data.frame(
 )
 
 # All the parameter combinations to iterate through
-model_vec <- c("GBLUP") # RRBLUP
+model_vec <- c("RRBLUP")
 
 output_dir <- file.path(base_dir, paste0("Sim_", format(Sys.time(), "%F_%H_%M")))
 if (!dir.exists(output_dir)) dir.create(output_dir)

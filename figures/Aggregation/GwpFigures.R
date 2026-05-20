@@ -450,8 +450,7 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
     dplyr::summarize(
       "5"  = safe_w(w, c, 5) - safe_w(w, c, 1),
       "10" = safe_w(w, c, 10) - safe_w(w, c, 1),
-      "20" = safe_w(w, c, 20) - safe_w(w, c, 1),
-      "30" = safe_w(w, c, max(c)) - safe_w(w, c, 1),
+      "20" = safe_w(w, c, max(c)) - safe_w(w, c, 1),
       meanIe = mean(isoElite),
       .groups = "drop"
     ) %>%
@@ -461,7 +460,7 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
       meanIe >= 0.8 ~ "Moderate",
       meanIe <  0.8 ~ "Low"
     )) %>%
-    tidyr::pivot_longer(cols=c("5", "10", "20", "30"),
+    tidyr::pivot_longer(cols=c("5", "10", "20"),
                         names_to="cycles",
                         values_to = "gain") %>%
     dplyr::filter(qtl==10) %>%
@@ -504,9 +503,8 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
   gain5 <- plotGeneticGain(geneticGain.df, "5", c("GS", "ieMAS (High Density) + GS"))
   gain10 <- plotGeneticGain(geneticGain.df, "10", c("GS", "ieMAS (High Density) + GS"), ylabel=FALSE)
   gain20 <- plotGeneticGain(geneticGain.df, "20", c("GS", "ieMAS (High Density) + GS"), ylabel=FALSE)
-  gain30 <- plotGeneticGain(geneticGain.df, "30", c("GS", "ieMAS (High Density) + GS"), ylabel=FALSE)
   
-  (gain5 | gain10 | gain20 | gain30) + plot_layout(guides = "collect", axes = "collect")
+  (gain5 | gain10 | gain20) + plot_layout(guides = "collect", axes = "collect")
   ggplot2::ggsave(filename = paste0("GS_vs_MAS_Boxplot_", GS_MODEL, ".jpg"),
                   path=output_dir,
                   device = "jpg",
@@ -522,9 +520,8 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
   gain5_MAS <- plotGeneticGain(geneticGain.df, "5", c("GS", "PS", "ieMAS (Low Density) + GS", "ieMAS (High Density) + GS", "ieMAS (Perfect Markers) + GS"))
   gain10_MAS <- plotGeneticGain(geneticGain.df, "10", c("GS", "PS", "ieMAS (Low Density) + GS", "ieMAS (High Density) + GS", "ieMAS (Perfect Markers) + GS"), ylabel=FALSE)
   gain20_MAS <- plotGeneticGain(geneticGain.df, "20", c("GS", "PS", "ieMAS (Low Density) + GS", "ieMAS (High Density) + GS", "ieMAS (Perfect Markers) + GS"), ylabel=FALSE)
-  gain30_MAS <- plotGeneticGain(geneticGain.df, "30", c("GS", "PS", "ieMAS (Low Density) + GS", "ieMAS (High Density) + GS", "ieMAS (Perfect Markers) + GS"), ylabel=FALSE)
-  
-  (gain5_MAS | gain10_MAS | gain20_MAS | gain30_MAS) + plot_layout(guides = "collect", axes = "collect")
+
+  (gain5_MAS | gain10_MAS | gain20_MAS) + plot_layout(guides = "collect", axes = "collect")
   ggplot2::ggsave(filename = paste0("GainAll_Boxplot_", GS_MODEL, ".jpg"),
                   path=output_dir,
                   device = "jpg",

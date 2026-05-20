@@ -112,7 +112,8 @@ popIsoeliteness <- function(pop) {
 # Returns a list of size nInd(rilGeno) of 'P1', 'P2', and 'R'
 getHaplos <- function(rilGeno, m1, m2, parent1, parent2, snpChip=2, useQtls=TRUE) {
   # Determine the haplotypes of parent1 and parent 2 w.r.t. the two QTL markers
-  
+  if (m1 == m2) warning("m1 and m2 are the same marker: ", m1)
+
   if (useQtls) {
     haplo1 <- getUniqueQtl(parent1) %>%
       dplyr::select(all_of(c(m1, m2)))
@@ -139,11 +140,10 @@ getHaplos <- function(rilGeno, m1, m2, parent1, parent2, snpChip=2, useQtls=TRUE
   }
   
   # Determine the parental haplotypes of each individual in the RIL family  
-  haplo <- rilGeno %>%
-    dplyr::select(all_of(c(m1,m2))) %>%
-    setNames(c("m1", "m2")) %>%
+  haplo <- tibble(m1 = rilGeno[[m1]],
+                  m2 = rilGeno[[m2]]) %>%
     dplyr::rowwise() %>%
-    dplyr::mutate(cat=categorize(m1, m2)) %>%
+    dplyr::mutate(cat = categorize(m1, m2)) %>%
     dplyr::ungroup()
   
   return (haplo$cat)
