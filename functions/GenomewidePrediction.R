@@ -395,7 +395,7 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     result <- rbind(result, cycleMetrics(psIeMasPop, cycle, "PSieMAS"))
     
     # Update the models in even cycles
-    if (cycle %% 1 == 0) {
+    if (cycle %% 2 == 0) {
       # Retrain models
       gsTrainPop <- createTrainPop(gsPop, gsTrainPop)
       masTrainPop_PERFECT <- createTrainPop(masPop_PERFECT, masTrainPop_PERFECT)
@@ -424,3 +424,35 @@ recurrentSelection <- function(basePop, parent1, parent2) {
   }
   return (result)
 }
+
+# cycle 0 (summer):
+# phenotype base pop families (C0)
+# select best families based on phenotype, recombine
+# train GS model 
+# train GS model on C
+---------
+# cycle 1 (winter)
+# select best C0 from cycle 0
+# recombine those
+# genotype C0, selectCross based on GEBVs
+----------
+# cycle 2 (summer)
+# plant S0s
+# self S0s to get S1s
+# phenotype S1s
+# train GS model on C0
+# genotype S0, selectCross based on GEBVs
+----------
+# cycle 3 (winter)
+# plant S1s
+# select best S1 families based on cycle 2
+# intercross those lines
+
+# genotype S0, selectCross based on GEBVs
+----------
+# cycle 4 (summer)
+# repeat cycle 2
+
+# S0 > S1 is in off-season nursery
+# cycle 1: self
+
