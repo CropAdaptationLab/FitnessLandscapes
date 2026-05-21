@@ -49,10 +49,11 @@ n.RILs <- 250 # number of RILs to create
 n.indPerRIL <- 4 # number of replicates in each RIL
 
 # GENOMIC SELECTION
-n.C <- 30 # Cycles of recurrent selection
+n.Y <- 10 # Years of recurrent selection
+n.recurPopSize <- 1000 # Size of the recurrently improved population
 n.GSmarkers <- 100 # Markers per chromosome to use for GWP
 n.LRmarkers <- 20 # Low-resolution SNP array
-n.selInt <- 0.1 # Selection intensity for recurrent selection
+n.selInt <- 0.2 # Selection intensity for recurrent selection
 GS_PHENO <- "pheno" # Set to 'gv' or 'pheno'. For training the GS model
 GS_MODEL <- "GBLUP" # Set to RRBLUP or GBLUP
 
@@ -136,7 +137,8 @@ getParams <- function() {
     yieldH2=n.yieldH2,
     yieldH2Breeding=n.yieldH2Breeding,
     initYieldVal=n.initYieldVal,
-    C=n.C,
+    Y=n.Y,
+    recurPopSize=n.recurPopSize,
     gsMarkers=n.GSmarkers,
     selInt=n.selInt,
     GS_PHENO=GS_PHENO,

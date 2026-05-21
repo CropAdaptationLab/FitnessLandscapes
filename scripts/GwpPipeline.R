@@ -50,12 +50,12 @@ source("functions/TraitArchitecture.R")
 source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
-n.popResets <- 250
+n.popResets <- 25
 # Number of adaptive walk replications per pair of subpopulations
-n.reps <- 1
+n.reps <- 4
 
-# Recurrent selection cycles
-n.C <- 20
+# Recurrent selection years
+n.Y <- 20
 
 # Phenotype to use for genomic selection
 GS_PHENO <- "pheno" # gv
@@ -99,7 +99,7 @@ RS.df <- data.frame(
 )
 
 # All the parameter combinations to iterate through
-model_vec <- c("RRBLUP")
+model_vec <- c("fastRRBLUP", "RRBLUP", "GBLUP")
 
 output_dir <- file.path(base_dir, paste0("Sim_", format(Sys.time(), "%F_%H_%M")))
 if (!dir.exists(output_dir)) dir.create(output_dir)
