@@ -242,8 +242,8 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
     dplyr::filter(model == GS_MODEL) %>%
     dplyr::group_by(founder, rep, type, sel) %>%
     dplyr::mutate(gain = wGV - wGV[1]) %>%
-    dplyr::filter(c %% 2 == 0) %>%
-    dplyr::mutate(c = c/2) %>%
+    #dplyr::filter(c %% 2 == 0) %>%
+    #dplyr::mutate(c = c/2) %>%
     dplyr::mutate(ie_cat = dplyr::case_when(
       isoElite > 0.9 ~ "High",
       isoElite >= 0.8 & isoElite <= 0.9 ~ "Moderate",
@@ -335,7 +335,7 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
     ) +
     scale_fill_identity() +
     scale_color_identity() +
-    scale_x_continuous(breaks=seq(from=1, to=9, by=2)) +
+    scale_x_continuous(breaks=seq(from=1, to=19, by=2)) +
     #scale_y_continuous(limits = c(minCycleW, maxCycleW)) +
     labs(
       x = "Cycle",
@@ -390,7 +390,7 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
         y = "Genetic Gain\n(Realized Yield units)",
         title = selType
       ) +
-      scale_x_continuous(breaks=seq(from=1, to=9, by=2)) +
+      scale_x_continuous(breaks=seq(from=1, to=19, by=2)) +
       scale_y_continuous(limits = c(minCycleGain, maxCycleGain)) +
       theme +
       theme(
@@ -430,7 +430,7 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
         y = "Genetic Gain\n(Realized Yield units)",
         title = ie
       ) +
-      scale_x_continuous(breaks=seq(from=1, to=9, by=2)) +
+      scale_x_continuous(breaks=seq(from=1, to=19, by=2)) +
       scale_y_continuous(limits = c(minCycleGain, maxCycleGain)) +
       scale_color_sel +
       theme +
@@ -458,17 +458,17 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
     dplyr::filter(type == "Admixed") %>%
     dplyr::group_by(founder, rep, type, sel, ie_cat) %>%
     dplyr::summarize(
-      "3"  = gain[3],
-      "6" = gain[6],
+      "5"  = gain[5],
       "10" = gain[10],
+      "20" = gain[20],
       ie = mean(isoElite),
       .groups = "drop"
     ) %>%
     drop_na() %>%
-    tidyr::pivot_longer(cols=c("3", "6", "10"),
+    tidyr::pivot_longer(cols=c("5", "10", "20"),
                         names_to="cycles",
                         values_to = "gain") %>%
-    dplyr::mutate(cycles=factor(cycles, levels=c("3", "6", "10")))
+    dplyr::mutate(cycles=factor(cycles, levels=c("5", "10", "20")))
   
   # Plot the genetic gain per replicate as a boxplot
   plotGainByCycle <- function(df, cycle, ylabel=TRUE) {
@@ -504,11 +504,11 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
       )
   }
   
-  gain3 <- plotGainByCycle(geneticGain.df, "3")
-  gain6 <- plotGainByCycle(geneticGain.df, "6", ylabel=FALSE)
+  gain5 <- plotGainByCycle(geneticGain.df, "5")
   gain10 <- plotGainByCycle(geneticGain.df, "10", ylabel=FALSE)
+  gain20 <- plotGainByCycle(geneticGain.df, "20", ylabel=FALSE)
   
-  (gain3 | gain6 | gain10) + plot_layout(guides = "collect", axes = "collect")
+  (gain5 | gain10 | gain20) + plot_layout(guides = "collect", axes = "collect")
   ggplot2::ggsave(filename = paste0("Methods_Discrete_Cycles_", GS_MODEL, ".jpg"),
                   path=output_dir,
                   device = "jpg",
@@ -570,11 +570,11 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
       )
   }
   
-  gain3_MAS <- plotGainByIe(geneticGain.df, "3")
-  gain6_MAS <- plotGainByIe(geneticGain.df, "6", ylabel=FALSE)
+  gain5_MAS <- plotGainByIe(geneticGain.df, "5")
   gain10_MAS <- plotGainByIe(geneticGain.df, "10", ylabel=FALSE)
+  gain20_MAS <- plotGainByIe(geneticGain.df, "20", ylabel=FALSE)
 
-  (gain3_MAS | gain6_MAS | gain10_MAS) + plot_layout(guides = "collect", axes = "collect")
+  (gain5_MAS | gain10_MAS | gain20_MAS) + plot_layout(guides = "collect", axes = "collect")
   ggplot2::ggsave(filename = paste0("Ie_DiscreteCycles_", GS_MODEL, ".jpg"),
                   path=output_dir,
                   device = "jpg",
@@ -591,6 +591,7 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
   ie_cor.df <- gs.df %>%
     dplyr::filter(type == "Admixed") %>%
     # Grouping only by population selection and chromosome/condition
+    dplyr::filter(c > 1) %>%
     dplyr::group_by(sel, c) %>%
     dplyr::summarize(
       r = cor(gain, isoElite, method = "pearson", use = "complete.obs"),
@@ -639,7 +640,7 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
         name = "Number of Cycles",
         values = c("black", "grey40", "grey70")
       ) +
-      scale_y_continuous(limits=c(minGain, maxGain)) +
+      scale_y_continuous(limits=c(minCycleGain, maxCycleGain)) +
       theme +
       theme(
         axis.title.y = if (!ylabel) element_blank() else element_text(),
@@ -677,7 +678,6 @@ for (GS_MODEL in c("RRBLUP", "GBLUP")) {
   
   ht.df %>%
     dplyr::filter(pop=="Admixed GS") %>%
-    dplyr::filter(qtl==10) %>%
     ggplot(aes(x = c, y = het, color = qtlType)) +
     geom_line() +
     geom_point() +

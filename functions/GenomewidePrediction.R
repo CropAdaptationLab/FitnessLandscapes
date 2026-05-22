@@ -177,6 +177,14 @@ recurrentSelection <- function(basePop, parent1, parent2) {
 
   # Set phenotypes for base population
   basePop <- setPheno(basePop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
+  result <- rbind(result, cycleMetrics(basePop, 0, "GS"))
+  result <- rbind(result, cycleMetrics(basePop, 0, "GSnoUpdate"))
+  result <- rbind(result, cycleMetrics(basePop, 0, "PS"))
+  result <- rbind(result, cycleMetrics(basePop, 0, "lowResMAS"))
+  result <- rbind(result, cycleMetrics(basePop, 0, "ieMAS"))
+  result <- rbind(result, cycleMetrics(basePop, 0, "highResMAS"))
+  result <- rbind(result, cycleMetrics(basePop, 0, "highResMASnoUpdate"))
+  result <- rbind(result, cycleMetrics(basePop, 0, "PSieMAS"))
   
   # Do marker-assisted selection
 
@@ -263,8 +271,7 @@ recurrentSelection <- function(basePop, parent1, parent2) {
       favHaplos = sum(c_across(starts_with("INT_")) == "P1")
     ) %>%
     dplyr::ungroup() %>%
-    dplyr::filter(favHaplos==max(favHaplos)) %>%
-    dplyr::pull(id)
+    dplyr::pull(favHaplos)
   
   masInds_HIGH <- masHaplo_HIGH %>%
     dplyr::rowwise() %>%
@@ -272,8 +279,7 @@ recurrentSelection <- function(basePop, parent1, parent2) {
       favHaplos = sum(c_across(starts_with("INT_")) == "P1")
     ) %>%
     dplyr::ungroup() %>%
-    dplyr::filter(favHaplos==max(favHaplos)) %>%
-    dplyr::pull(id)
+    dplyr::pull(favHaplos)
 
   masInds_LOW <- masHaplo_LOW %>%
     dplyr::rowwise() %>%
@@ -281,22 +287,23 @@ recurrentSelection <- function(basePop, parent1, parent2) {
       favHaplos = sum(c_across(starts_with("INT_")) == "P1")
     ) %>%
     dplyr::ungroup() %>%
-    dplyr::filter(favHaplos==max(favHaplos)) %>%
-    dplyr::pull(id)
+    dplyr::pull(favHaplos)
+
+  C0_pheno <- as.data.frame(pheno(basePop)) %>%
+    dplyr::mutate(id=basePop@id,
+                  w=calculateBreedingFitness(Trait1, Trait2, Trait3),
+                  perfect=masInds_PERFECT,
+                  high=masInds_HIGH,
+                  low=masInds_LOW) %>%
+    dplyr::select(-c("Trait1", "Trait2", "Trait3"))
   
   # Initial training population
   # Use the genetic values as phenotype, because these are supposed to be
   # replicated inbred lines
   basePop@pheno <- basePop@gv
-  C0 <- selectInd(basePop, trait=breedingFitness, nInd=nInd(basePop)*n.selInt)
-  
-  result <- rbind(result, cycleMetrics(C0, 0, "GS"))
-  result <- rbind(result, cycleMetrics(C0, 0, "GSnoUpdate"))
-  result <- rbind(result, cycleMetrics(C0, 0, "PS"))
-  
-  gsTrainPop <- C0
+  gsTrainPop <- selectInd(basePop, trait=breedingFitness, nInd=400)
   # This will be the same training population throughout all cycles
-  gsTrainPop_noUpdate <- C0
+  gsTrainPop_noUpdate <- gsTrainPop
 
   # Fit an RR-BLUP model to use initially for the 3 GS populations
   if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
@@ -307,8 +314,11 @@ recurrentSelection <- function(basePop, parent1, parent2) {
   }
 
   # Select the first cycle based on phenotype
-  gs_S0 <- randCross(C0,
-                     nCrosses=n.recurPopSize)
+  gs_S0 <- selectCross(basePop,
+                       trait=breedingFitness,
+                       nInd=nInd(basePop)*n.selInt,
+                       nCrosses=n.recurPopSize)
+  
   # This population will use the initial GS model without updates
   gs_S0_noUpdate <- gs_S0
   # Phenotypic selection
@@ -316,52 +326,50 @@ recurrentSelection <- function(basePop, parent1, parent2) {
   
   # Use MAS to select individuals with the most favorable epistatic haplotypes
   # Train a GS model on this population
+  masInds_PERFECT <- C0_pheno %>%
+    dplyr::arrange(desc(perfect), desc(w)) %>%
+    dplyr::slice_max(id,n=nInd(basePop)*n.selInt) %>%
+    dplyr::pull(id)
+  
   gsTrainPop_PERFECT <- basePop[masInds_PERFECT]
-  result <- rbind(result, cycleMetrics(gsTrainPop_PERFECT, 0, "ieMAS"))
 
   if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
     gsModel_MAS_PERFECT <- trainRRBLUPModel(gsTrainPop_PERFECT)
   }
-  mas_S0_PERFECT <- selectCross(gsTrainPop_PERFECT,
-                                trait=breedingFitness,
-                                nInd=min(length(masInds_PERFECT),
-                                         nInd(basePop)*n.selInt),
-                                nCrosses=n.recurPopSize)
+  mas_S0_PERFECT <- randCross(gsTrainPop_PERFECT,
+                              nCrosses=n.recurPopSize)
 
   # Store the initial training population, filtered by haplotypes
+  masInds_HIGH <- C0_pheno %>%
+    dplyr::arrange(desc(high), desc(w)) %>%
+    dplyr::slice_max(id,n=nInd(basePop)*n.selInt) %>%
+    dplyr::pull(id)
   gsTrainPop_HIGH <- basePop[masInds_HIGH]
   # This will be the same training population for use throughout all cycles
   gsTrainPop_HIGH_noUpdate <- gsTrainPop_HIGH
-  
-  result <- rbind(result, cycleMetrics(gsTrainPop_HIGH, 0, "highResMAS"))
-  result <- rbind(result, cycleMetrics(gsTrainPop_HIGH_noUpdate, 0, "highResMASnoUpdate"))
-  result <- rbind(result, cycleMetrics(gsTrainPop_HIGH, 0, "PSieMAS"))
+
   
   if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
     gsModel_MAS_HIGH <- trainRRBLUPModel(gsTrainPop_HIGH)
     gsModel_MAS_HIGH_noUpdate <- gsModel_MAS_HIGH
   }
-  mas_S0_HIGH <- selectCross(gsTrainPop_HIGH,
-                             trait=breedingFitness,
-                             nInd=min(length(masInds_HIGH),
-                                      nInd(basePop)*n.selInt),
-                             nCrosses=n.recurPopSize)
+  mas_S0_HIGH <- randCross(gsTrainPop_HIGH,
+                           nCrosses=n.recurPopSize)
   # This population will use the same GS model without updates for all cycles
   mas_S0_HIGH_noUpdate <- mas_S0_HIGH
   # Conduct phenotypic selection on the population that has been filtered for MAS
   ps_mas_S0 <- mas_S0_HIGH
 
+  masInds_LOW <- C0_pheno %>%
+    dplyr::arrange(desc(low), desc(w)) %>%
+    dplyr::slice_max(id,n=nInd(basePop)*n.selInt) %>%
+    dplyr::pull(id)
   gsTrainPop_LOW <- basePop[masInds_LOW]
-  
-  result <- rbind(result, cycleMetrics(gsTrainPop_LOW, 0, "lowResMAS"))
   if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
     gsModel_MAS_LOW <- trainRRBLUPModel(gsTrainPop_LOW)
   }
-  mas_S0_LOW <- selectCross(gsTrainPop_LOW,
-                            trait=breedingFitness,
-                            nInd=min(length(masInds_LOW),
-                                     nInd(basePop)*n.selInt),
-                            nCrosses=n.recurPopSize)
+  mas_S0_LOW <- randCross(gsTrainPop_LOW,
+                          nCrosses=n.recurPopSize)
   
   # Iterate through each cycle
   cycle <- 0
