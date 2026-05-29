@@ -54,7 +54,9 @@ n.recurPopSize <- 1000 # Size of the recurrently improved population
 n.GSmarkers <- 100 # Markers per chromosome to use for GWP
 n.LRmarkers <- 20 # Low-resolution SNP array
 n.selInt <- 0.2 # Selection intensity for recurrent selection
-GS_PHENO <- "pheno" # Set to 'gv' or 'pheno'. For training the GS model
+n.trainPopSize <- 400 # Number of individuals in the training population for the GWP model
+n.rilReps <- 4 # replications per RIL
+GS_PHENO <- "pheno" # Set to 'gv' or 'pheno'. For training the GWP model
 GS_MODEL <- "GBLUP" # Set to RRBLUP or GBLUP
 
 # PLOTTING
@@ -141,6 +143,8 @@ getParams <- function() {
     recurPopSize=n.recurPopSize,
     gsMarkers=n.GSmarkers,
     selInt=n.selInt,
+    trainPopSize=n.trainPopSize,
+    rilReps=n.rilReps,
     GS_PHENO=GS_PHENO,
     GS_MODEL=GS_MODEL
   )

@@ -2,24 +2,6 @@
 # Author: Ted Monyak
 # Description: Contains functions for genomewide prediction
 
-
-crossValAccuracy <- function(pop) {
-  
-  nSplits <- 5
-  popSize <- pop@nInd
-  
-  results <- numeric(length=nSplits)
-  
-  for (c in seq(1:5)) {
-    start <- (c-1) * popSize/nSplits + 1
-    end <- c*popSize %/% nSplits
-    testPop <- pop[start:end]
-    trainPop <- pop[-(start:end)]
-    results[c] <- evaluateGSModel(trainPop, testPop)
-  }
-  return(mean(results))
-}
-
 # Calculates breeding fitness and removes a dimension to allow for easy 
 # computation of correlation with EBVs
 calculateW_GWP <- function(x, suitFunc=suitabilityGaussian) {
@@ -34,9 +16,11 @@ calculateW_GWP <- function(x, suitFunc=suitabilityGaussian) {
 # testPop: the test population
 # trait: the AlphaSimR phenotype index
 # Return correlation (r) between the EBVs and the actual genetic values in the test pop
-evaluateGSModel <- function(trainPop, testPop) {
-  # Update phenotype to have heritabilities associated with breeding programs
-  trainPop <- setPheno(trainPop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
+evaluateGwpModel <- function(trainPop, testPop) {
+  # Update phenotype to have heritability associated with breeding programs
+  trainPop <- setPheno(trainPop,
+                       h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding),
+                       reps=n.rilReps)
   # snpChip 2 is for genomic prediction
   if (GS_MODEL == "RRBLUP") {
     model <- RRBLUP(trainPop, traits=calculateW_GWP, use=GS_PHENO, snpChip=2)
@@ -45,7 +29,7 @@ evaluateGSModel <- function(trainPop, testPop) {
     model <- fastRRBLUP(trainPop, traits=calculateW_GWP, use=GS_PHENO, snpChip=2)
     testPop <- setEBV(testPop, model)
   } else if (GS_MODEL == "GBLUP") {
-    testPop <- estimateEBV_GBLUP(trainPop, testPop, subset=FALSE)
+    testPop <- calculateEBV_GBLUP(trainPop=trainPop, testPop=testPop)
   }
   # Determine the correlation between genetic values and estimated breeding values
   # in the test population
@@ -53,7 +37,36 @@ evaluateGSModel <- function(trainPop, testPop) {
   return (r)
 }
 
-estimateEBV_GBLUP <- function(trainPop, testPop, subset=FALSE) {
+# Calculates the 5-fold cross validation accuracy for a GWP model trained on 'pop'
+crossValAccuracy <- function(pop) {
+  
+  # Number of folks
+  nSplits <- 5
+  # Number of individuals
+  popSize <- pop@nInd
+  
+  # Stores the results
+  results <- numeric(length=nSplits)
+  
+  # For a population of size 1000, the test pops are:
+  # [1,200], [201,400], etc.
+  for (c in 1:nSplits) {
+    start <- (c-1) * (popSize %/% nSplits) + 1
+    end <- c* (popSize %/% nSplits)
+    # Determine the sequence of individuals in the test pop
+    testPop <- pop[start:end]
+    # Train on the remaining individuals
+    trainPop <- pop[-(start:end)]
+    # Evaluate the GWP model and save the result
+    results[c] <- evaluateGwpModel(trainPop, testPop)
+  }
+  
+  # Cross-validation accuracy is the mean
+  return(mean(results))
+}
+
+# Calculates estimated breeding values (EBV) with GBLUP
+calculateEBV_GBLUP <- function(trainPop, testPop) {
   # Update phenotypes
   trainPop <- setPheno(trainPop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
 
@@ -62,8 +75,8 @@ estimateEBV_GBLUP <- function(trainPop, testPop, subset=FALSE) {
                 pullSnpGeno(testPop, snpChip = 2))
   
   # Get breeding fitness values for train pop
-  w <- data.frame(pheno=trainPop@pheno) %>%
-    dplyr::mutate(w=calculateBreedingFitness(pheno.Trait1, pheno.Trait2, pheno.Trait3)) %>%
+  w <- data.frame(pheno(trainPop)) %>%
+    dplyr::mutate(w=calculateBreedingFitness(Trait1, Trait2, Trait3)) %>%
     dplyr::pull(w)
   
   # Create a phenotype dataframe
@@ -99,8 +112,9 @@ trainRRBLUPModel <- function(trainPop) {
 # based on EBV, plus the top 20% of the previous training population, based on phenotype
 # Follows Muleta et al. 2019
 # Returns: a training population
-createTrainPop <- function(curPop, prevTrainPop, n=400) {
-  # Set phenotypes
+createTrainPop <- function(curPop,
+                           prevTrainPop,
+                           n=n.trainPopSize) {
   curPop <- selectInd(curPop, use="ebv", nInd=n/2)
   prevTrainPop <- setPheno(prevTrainPop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
   prevTrainPop <- selectInd(prevTrainPop, trait=breedingFitness, nInd=n/2)
@@ -114,9 +128,10 @@ createTrainPop <- function(curPop, prevTrainPop, n=400) {
 cycleMetrics <- function(pop, cycle, sel) {
   # Calulate accuracy of predictions
   r <- NA
-  if (sel != "PS") {
+  if (!(sel %in% c("PS", "PSieMAS"))) {
     r <- cor(calculateW_GWP(gv(pop)), ebv(pop))[1]
   }
+  # Update the phenotypes
   pop <- setPheno(pop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
   
   # Genome-wide heterozygosity
@@ -125,8 +140,6 @@ cycleMetrics <- function(pop, cycle, sel) {
   attained_het <- meanHetLocus(getUniqueQtl(pop))
   # Desired trait heterozygosity
   desired_het <- meanHetLocus(pullQtlGeno(pop, trait=3))
-  # Get the population-level isoeliteness
-  pop_ie <- popIsoeliteness(pop)
   
   # Calculate mean breeding fitness of GS population
   w <- as.data.frame(pheno(pop)) %>%
@@ -149,7 +162,6 @@ cycleMetrics <- function(pop, cycle, sel) {
     genome_het=genome_het,
     attained_het=attained_het,
     desired_het=desired_het,
-    pop_ie=pop_ie,
     gvar=varG(pop)[3,3]))
 }
 
@@ -164,29 +176,18 @@ cycleMetrics <- function(pop, cycle, sel) {
 # Return a dataframe with n.C*2 rows (for both PS and GS)
 recurrentSelection <- function(basePop, parent1, parent2) {
   # For storing results
-  result <- data.frame(c=c(),
-                       sel=c(),
-                       w=c(),
-                       wGV=c(),
-                       r=c(),
-                       genome_het=c(),
-                       attained_het=c(),
-                       desired_het=c(),
-                       pop_ie=c(),
-                       gvar=c())
+  results_list <- list()
 
   # Set phenotypes for base population
-  basePop <- setPheno(basePop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
-  result <- rbind(result, cycleMetrics(basePop, 0, "GS"))
-  result <- rbind(result, cycleMetrics(basePop, 0, "GSnoUpdate"))
-  result <- rbind(result, cycleMetrics(basePop, 0, "PS"))
-  result <- rbind(result, cycleMetrics(basePop, 0, "lowResMAS"))
-  result <- rbind(result, cycleMetrics(basePop, 0, "ieMAS"))
-  result <- rbind(result, cycleMetrics(basePop, 0, "highResMAS"))
-  result <- rbind(result, cycleMetrics(basePop, 0, "highResMASnoUpdate"))
-  result <- rbind(result, cycleMetrics(basePop, 0, "PSieMAS"))
-  
-  # Do marker-assisted selection
+  basePop <- setPheno(basePop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding), reps=n.rilReps)
+  results_list[[length(results_list) + 1]] <- cycleMetrics(basePop, 0, "GS")
+  results_list[[length(results_list) + 1]] <- cycleMetrics(basePop, 0, "GSnoUpdate")
+  results_list[[length(results_list) + 1]] <- cycleMetrics(basePop, 0, "PS")
+  results_list[[length(results_list) + 1]] <- cycleMetrics(basePop, 0, "lowResMAS")
+  results_list[[length(results_list) + 1]] <- cycleMetrics(basePop, 0, "ieMAS")
+  results_list[[length(results_list) + 1]] <- cycleMetrics(basePop, 0, "highResMAS")
+  results_list[[length(results_list) + 1]] <- cycleMetrics(basePop, 0, "highResMASnoUpdate")
+  results_list[[length(results_list) + 1]] <- cycleMetrics(basePop, 0, "PSieMAS")
 
   # QTL-based haplotypes
   masHaplo_PERFECT <- data.frame(id=basePop@id)
@@ -289,19 +290,8 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     dplyr::ungroup() %>%
     dplyr::pull(favHaplos)
 
-  C0_pheno <- as.data.frame(pheno(basePop)) %>%
-    dplyr::mutate(id=basePop@id,
-                  w=calculateBreedingFitness(Trait1, Trait2, Trait3),
-                  perfect=masInds_PERFECT,
-                  high=masInds_HIGH,
-                  low=masInds_LOW) %>%
-    dplyr::select(-c("Trait1", "Trait2", "Trait3"))
-  
-  # Initial training population
-  # Use the genetic values as phenotype, because these are supposed to be
-  # replicated inbred lines
-  basePop@pheno <- basePop@gv
-  gsTrainPop <- selectInd(basePop, trait=breedingFitness, nInd=400)
+  # Initial training population is the top n.trainPopSize lines, selected by phenotype
+  gsTrainPop <- selectInd(basePop, trait=breedingFitness, nInd=n.trainPopSize)
   # This will be the same training population throughout all cycles
   gsTrainPop_noUpdate <- gsTrainPop
 
@@ -318,42 +308,60 @@ recurrentSelection <- function(basePop, parent1, parent2) {
                        trait=breedingFitness,
                        nInd=nInd(basePop)*n.selInt,
                        nCrosses=n.recurPopSize)
-  
   # This population will use the initial GS model without updates
   gs_S0_noUpdate <- gs_S0
   # Phenotypic selection
   ps_S0 <- gs_S0
   
+  # MARKER-ASSISTED-SELECTION
+  
+  # Join the phenotypes of the base population with the counts of favorable
+  # haplotypes
+  C0_pheno <- as.data.frame(pheno(basePop)) %>%
+    dplyr::mutate(id=basePop@id,
+                  w=calculateBreedingFitness(Trait1, Trait2, Trait3),
+                  perfect=masInds_PERFECT,
+                  high=masInds_HIGH,
+                  low=masInds_LOW) %>%
+    dplyr::select(-c("Trait1", "Trait2", "Trait3"))
+  
   # Use MAS to select individuals with the most favorable epistatic haplotypes
   # Train a GS model on this population
   masInds_PERFECT <- C0_pheno %>%
     dplyr::arrange(desc(perfect), desc(w)) %>%
-    dplyr::slice_max(id,n=nInd(basePop)*n.selInt) %>%
-    dplyr::pull(id)
+    dplyr::slice_head(n=n.trainPopSize)
   
-  gsTrainPop_PERFECT <- basePop[masInds_PERFECT]
-
+  gsTrainPop_PERFECT <- basePop[masInds_PERFECT$id]
   if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
     gsModel_MAS_PERFECT <- trainRRBLUPModel(gsTrainPop_PERFECT)
   }
-  mas_S0_PERFECT <- randCross(gsTrainPop_PERFECT,
+  
+  # Select a smaller number of individuals to cross to create the S0 population
+  topMasInds_PERFECT <- masInds_PERFECT %>%
+    dplyr::slice_head(n=nInd(basePop)*n.selInt) %>%
+    dplyr::pull(id)
+  
+  mas_S0_PERFECT <- randCross(basePop[topMasInds_PERFECT],
                               nCrosses=n.recurPopSize)
 
   # Store the initial training population, filtered by haplotypes
   masInds_HIGH <- C0_pheno %>%
     dplyr::arrange(desc(high), desc(w)) %>%
-    dplyr::slice_max(id,n=nInd(basePop)*n.selInt) %>%
-    dplyr::pull(id)
-  gsTrainPop_HIGH <- basePop[masInds_HIGH]
+    dplyr::slice_head(n=n.trainPopSize)
+  
+  gsTrainPop_HIGH <- basePop[masInds_HIGH$id]
   # This will be the same training population for use throughout all cycles
   gsTrainPop_HIGH_noUpdate <- gsTrainPop_HIGH
-
   
   if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
     gsModel_MAS_HIGH <- trainRRBLUPModel(gsTrainPop_HIGH)
     gsModel_MAS_HIGH_noUpdate <- gsModel_MAS_HIGH
   }
-  mas_S0_HIGH <- randCross(gsTrainPop_HIGH,
+  
+  topMasInds_HIGH <- masInds_HIGH %>%
+    dplyr::slice_head(n=nInd(basePop)*n.selInt) %>%
+    dplyr::pull(id)
+  mas_S0_HIGH <- randCross(basePop[topMasInds_HIGH],
                            nCrosses=n.recurPopSize)
   # This population will use the same GS model without updates for all cycles
   mas_S0_HIGH_noUpdate <- mas_S0_HIGH
@@ -362,21 +370,22 @@ recurrentSelection <- function(basePop, parent1, parent2) {
 
   masInds_LOW <- C0_pheno %>%
     dplyr::arrange(desc(low), desc(w)) %>%
-    dplyr::slice_max(id,n=nInd(basePop)*n.selInt) %>%
-    dplyr::pull(id)
-  gsTrainPop_LOW <- basePop[masInds_LOW]
+    dplyr::slice_head(n=n.trainPopSize)
+
+  gsTrainPop_LOW <- basePop[masInds_LOW$id]
   if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
     gsModel_MAS_LOW <- trainRRBLUPModel(gsTrainPop_LOW)
   }
-  mas_S0_LOW <- randCross(gsTrainPop_LOW,
-                          nCrosses=n.recurPopSize)
-  
+  topMasInds_LOW <- masInds_LOW %>%
+    dplyr::slice_head(n=nInd(basePop)*n.selInt) %>%
+    dplyr::pull(id)
+  mas_S0_LOW <- randCross(basePop[topMasInds_LOW],
+                           nCrosses=n.recurPopSize)
   # Iterate through each cycle
   cycle <- 0
   for (year in 1:n.Y) {
     
     #-------SUMMER NURSERY-------#
-    
     if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
       # If the new models do not fit any values, there is no genetic variance
       # in the population
@@ -395,30 +404,30 @@ recurrentSelection <- function(basePop, parent1, parent2) {
       mas_S0_HIGH <- setEBV(mas_S0_HIGH, gsModel_MAS_HIGH)
       mas_S0_HIGH_noUpdate <- setEBV(mas_S0_HIGH_noUpdate, gsModel_MAS_HIGH_noUpdate)
     } else if (GS_MODEL == "GBLUP") {
-      gs_S0 <- estimateEBV_GBLUP(gsTrainPop, gs_S0)
-      gs_S0_noUpdate <- estimateEBV_GBLUP(gsTrainPop_noUpdate, gs_S0_noUpdate)
-      mas_S0_PERFECT <- estimateEBV_GBLUP(gsTrainPop_PERFECT, mas_S0_PERFECT)
-      mas_S0_LOW <- estimateEBV_GBLUP(gsTrainPop_LOW, mas_S0_LOW)
-      mas_S0_HIGH <- estimateEBV_GBLUP(gsTrainPop_HIGH, mas_S0_HIGH)
-      mas_S0_HIGH_noUpdate <- estimateEBV_GBLUP(gsTrainPop_HIGH_noUpdate, mas_S0_HIGH_noUpdate)
+      gs_S0 <- calculateEBV_GBLUP(trainPop=gsTrainPop, testPop=gs_S0)
+      gs_S0_noUpdate <- calculateEBV_GBLUP(trainPop=gsTrainPop_noUpdate, testPop=gs_S0_noUpdate)
+      mas_S0_PERFECT <- calculateEBV_GBLUP(trainPop=gsTrainPop_PERFECT, testPop=mas_S0_PERFECT)
+      mas_S0_LOW <- calculateEBV_GBLUP(trainPop=gsTrainPop_LOW, testPop=mas_S0_LOW)
+      mas_S0_HIGH <- calculateEBV_GBLUP(trainPop=gsTrainPop_HIGH, testPop=mas_S0_HIGH)
+      mas_S0_HIGH_noUpdate <- calculateEBV_GBLUP(trainPop=gsTrainPop_HIGH_noUpdate, testPop=mas_S0_HIGH_noUpdate)
     }
 
     cycle <- cycle + 0.5
-    result <- rbind(result, cycleMetrics(gs_S0, cycle, "GS"))
-    result <- rbind(result, cycleMetrics(gs_S0_noUpdate, cycle, "GSnoUpdate"))
-    result <- rbind(result, cycleMetrics(mas_S0_PERFECT, cycle, "ieMAS"))
-    result <- rbind(result, cycleMetrics(mas_S0_LOW, cycle, "lowResMAS"))
-    result <- rbind(result, cycleMetrics(mas_S0_HIGH, cycle, "highResMAS"))
-    result <- rbind(result, cycleMetrics(mas_S0_HIGH_noUpdate, cycle, "highResMASnoUpdate"))
-    result <- rbind(result, cycleMetrics(ps_S0, cycle, "PS"))
-    result <- rbind(result, cycleMetrics(ps_mas_S0, cycle, "PSieMAS"))
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_S0, cycle, "GS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_S0_noUpdate, cycle, "GSnoUpdate")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(mas_S0_PERFECT, cycle, "ieMAS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(mas_S0_LOW, cycle, "lowResMAS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(mas_S0_HIGH, cycle, "highResMAS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(mas_S0_HIGH_noUpdate, cycle, "highResMASnoUpdate")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(ps_S0, cycle, "PS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(ps_mas_S0, cycle, "PSieMAS")
 
     # Establish new training population by selecting the top lines from the populations by gebv
     # Do this before selections and crossing because training happens after harvest
-    gsTrainPop <- createTrainPop(gs_S0, gsTrainPop)
-    gsTrainPop_PERFECT <- createTrainPop(mas_S0_PERFECT, gsTrainPop_PERFECT)
-    gsTrainPop_LOW <- createTrainPop(mas_S0_LOW, gsTrainPop_LOW)
-    gsTrainPop_HIGH <- createTrainPop(mas_S0_HIGH, gsTrainPop_HIGH)
+    gsTrainPop <- createTrainPop(curPop=gs_S0, prevTrainPop=gsTrainPop)
+    gsTrainPop_PERFECT <- createTrainPop(curPop=mas_S0_PERFECT, prevTrainPop=gsTrainPop_PERFECT)
+    gsTrainPop_LOW <- createTrainPop(curPop=mas_S0_LOW, prevTrainPop=gsTrainPop_LOW)
+    gsTrainPop_HIGH <- createTrainPop(curPop=mas_S0_HIGH, prevTrainPop=gsTrainPop_HIGH)
     
     gs_S0 <- selectCross(gs_S0, use="ebv", nInd=nInd(gs_S0)*n.selInt, nCrosses=n.recurPopSize)
     gs_S0_noUpdate <- selectCross(gs_S0_noUpdate, use="ebv", nInd=nInd(gs_S0_noUpdate)*n.selInt, nCrosses=n.recurPopSize)
@@ -427,7 +436,6 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     mas_S0_HIGH <- selectCross(mas_S0_HIGH, use="ebv", nInd=nInd(mas_S0_HIGH)*n.selInt, nCrosses=n.recurPopSize)
     mas_S0_HIGH_noUpdate <- selectCross(mas_S0_HIGH_noUpdate, use="ebv", nInd=nInd(mas_S0_HIGH_noUpdate)*n.selInt, nCrosses=n.recurPopSize)
 
-    # Phenotype the S0s
     ps_S0 <- setPheno(ps_S0, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
     # Select the top individuals by phenotype
     top_ps_S0 <- selectInd(ps_S0, trait=breedingFitness, nInd=nInd(ps_S0)*n.selInt)
@@ -456,24 +464,24 @@ recurrentSelection <- function(basePop, parent1, parent2) {
       mas_S0_HIGH <- setEBV(mas_S0_HIGH, gsModel_MAS_HIGH)
       mas_S0_HIGH_noUpdate <- setEBV(mas_S0_HIGH_noUpdate, gsModel_MAS_HIGH_noUpdate)
     } else if (GS_MODEL == "GBLUP") {
-      gs_S0 <- estimateEBV_GBLUP(gsTrainPop, gs_S0)
-      gs_S0_noUpdate <- estimateEBV_GBLUP(gsTrainPop_noUpdate, gs_S0_noUpdate)
-      mas_S0_PERFECT <- estimateEBV_GBLUP(gsTrainPop_PERFECT, mas_S0_PERFECT)
-      mas_S0_LOW <- estimateEBV_GBLUP(gsTrainPop_LOW, mas_S0_LOW)
-      mas_S0_HIGH <- estimateEBV_GBLUP(gsTrainPop_HIGH, mas_S0_HIGH)
-      mas_S0_HIGH_noUpdate <- estimateEBV_GBLUP(gsTrainPop_HIGH_noUpdate, mas_S0_HIGH_noUpdate)
+      gs_S0 <- calculateEBV_GBLUP(trainPop=gsTrainPop, testPop=gs_S0)
+      gs_S0_noUpdate <- calculateEBV_GBLUP(trainPop=gsTrainPop_noUpdate, testPop=gs_S0_noUpdate)
+      mas_S0_PERFECT <- calculateEBV_GBLUP(trainPop=gsTrainPop_PERFECT, testPop=mas_S0_PERFECT)
+      mas_S0_LOW <- calculateEBV_GBLUP(trainPop=gsTrainPop_LOW, testPop=mas_S0_LOW)
+      mas_S0_HIGH <- calculateEBV_GBLUP(trainPop=gsTrainPop_HIGH, testPop=mas_S0_HIGH)
+      mas_S0_HIGH_noUpdate <- calculateEBV_GBLUP(trainPop=gsTrainPop_HIGH_noUpdate, testPop=mas_S0_HIGH_noUpdate)
     }
     
     #-------WINTER NURSERY-------#
     cycle <- cycle + 0.5
-    result <- rbind(result, cycleMetrics(gs_S0, cycle, "GS"))
-    result <- rbind(result, cycleMetrics(gs_S0_noUpdate, cycle, "GSnoUpdate"))
-    result <- rbind(result, cycleMetrics(mas_S0_PERFECT, cycle, "ieMAS"))
-    result <- rbind(result, cycleMetrics(mas_S0_LOW, cycle, "lowResMAS"))
-    result <- rbind(result, cycleMetrics(mas_S0_HIGH, cycle, "highResMAS"))
-    result <- rbind(result, cycleMetrics(mas_S0_HIGH_noUpdate, cycle, "highResMASnoUpdate"))
-    result <- rbind(result, cycleMetrics(ps_S1, cycle, "PS"))
-    result <- rbind(result, cycleMetrics(ps_mas_S1, cycle, "PSieMAS"))
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_S0, cycle, "GS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_S0_noUpdate, cycle, "GSnoUpdate")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(mas_S0_PERFECT, cycle, "ieMAS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(mas_S0_LOW, cycle, "lowResMAS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(mas_S0_HIGH, cycle, "highResMAS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(mas_S0_HIGH_noUpdate, cycle, "highResMASnoUpdate")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(ps_S1, cycle, "PS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(ps_mas_S1, cycle, "PSieMAS")
     
     # ADVANCE LINES
     gs_S0 <- selectCross(gs_S0, use="ebv", nInd=nInd(gs_S0)*n.selInt, nCrosses=n.recurPopSize)
@@ -485,5 +493,5 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     ps_S0 <- randCross(ps_S1, nCrosses=n.recurPopSize)
     ps_mas_S0 <- randCross(ps_mas_S1, nCrosses=n.recurPopSize)
   }
-  return (result)
+  return (do.call(rbind, results_list))
 }

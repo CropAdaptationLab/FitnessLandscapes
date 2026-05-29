@@ -61,45 +61,13 @@ n.Y <- 20
 GS_PHENO <- "pheno" # gv
 
 # Store the results of GWP from landrace into the RIL family
-RIL.df <- data.frame(
-  qtl=c(), # L
-  founder=c(), # f
-  rep=c(), # r
-  model=c(), # RRBLUP / GBLUP / fastRRBLUP
-  isoElite=c(), # mean isoeliteness of parents
-  isoEliteDes=c(), # isoeliteness of desired trait
-  rAdmixed=c(), # GWP accuracy in admixed family
-  rP1=c(), # GWP accuracy within pop 1
-  rP2=c(), # GWP accuracy within pop 2
-  rP1P2=c(), # GWP cross-pop accuracy (pop1 to pop1)
-  rP2P1=c(), # GWP cross-pop accuracy (pop2 to pop1)
-  rCvP1P2=c(), # Cross-validation accuracy for P1 and P2 combined
-  rP1=c(), # Cross-validation accuracy for P1
-  rP2=c() # Cross-validation accuracy for P2
-)
+RIL.list <- list()
 
 # Store the results of the recurrent selection 
-RS.df <- data.frame(
-  qtl=c(), # L
-  founder=c(), # f
-  rep=c(), # r
-  model=c(), # RRBLUP or GBLUP
-  type=c(), # Admixed / Unadmixed
-  isoElite=c(), # mean isoeliteness of parents
-  isoEliteDes=c(), # isoeliteness of desired trait
-  c=c(), # cycle
-  sel=c(), # GS, PS, ieMAS, lrMAS
-  w=c(), # breeding fitness phenotype
-  wGV=c(), # breeding fitness GV
-  r=c(), # GWP accuracy per cycle
-  genome_het=c(), # genome-wide heterozygosity
-  attained_het=c(), # attained trait heterozygosity
-  desired_het=c(), # desired trait heterozygosity
-  pop_ie=c() # population-level isoeliteness
-)
+RS.list <- list()
 
 # All the parameter combinations to iterate through
-model_vec <- c("RRBLUP", "GBLUP")
+model_vec <- c("RRBLUP")
 
 output_dir <- file.path(base_dir, paste0("Sim_", format(Sys.time(), "%F_%H_%M")))
 if (!dir.exists(output_dir)) dir.create(output_dir)
@@ -155,11 +123,11 @@ for (GS_MODEL in model_vec) {
       res_pop2 <- createRIL(purelines2[[1]], purelines2[[2]])
       RIL_pop2 <- res_pop2[-(1:2)]
       
-      rAdmixed=evaluateGSModel(trainPop=c(pops[[1]],pops[[2]]), testPop=RIL_admixed)
-      rP1=evaluateGSModel(trainPop=c(pops[[1]]), testPop=RIL_pop1)
-      rP2=evaluateGSModel(trainPop=c(pops[[2]]), testPop=RIL_pop2)
-      rP1P2=evaluateGSModel(trainPop=c(pops[[1]]), testPop=RIL_pop2)
-      rP2P1=evaluateGSModel(trainPop=c(pops[[2]]), testPop=RIL_pop1)
+      rAdmixed=evaluateGwpModel(trainPop=c(pops[[1]],pops[[2]]), testPop=RIL_admixed)
+      rP1=evaluateGwpModel(trainPop=c(pops[[1]]), testPop=RIL_pop1)
+      rP2=evaluateGwpModel(trainPop=c(pops[[2]]), testPop=RIL_pop2)
+      rP1P2=evaluateGwpModel(trainPop=c(pops[[1]]), testPop=RIL_pop2)
+      rP2P1=evaluateGwpModel(trainPop=c(pops[[2]]), testPop=RIL_pop1)
       rCvP1P2=crossValAccuracy(pop=c(pops[[1]],pops[[2]]))
       rCvP1=crossValAccuracy(pop=pops[[1]])
       rCvP2=crossValAccuracy(pop=pops[[2]])
@@ -171,8 +139,7 @@ for (GS_MODEL in model_vec) {
       isoElite_T3 <- isoEliteness(parent1, parent2, founderPop, 3)
 
       # Store admixed, within, and cross-population prediction accuracies
-      RIL.df <- rbind(RIL.df,
-                      data.frame(
+      RIL.list[[length(RIL.list) + 1]] <- data.frame(
                         qtl=n.L,
                         founder=f,
                         rep=rep,
@@ -187,10 +154,10 @@ for (GS_MODEL in model_vec) {
                         rCvP1P2=rCvP1P2,
                         rCvP1=rCvP1,
                         rCvP2=rCvP2
-                      ))
+                      )
 
       # Run recurrent selection to improve the admixed RIL
-      newRow <- recurrentSelection(RIL_admixed, parent1, parent2) %>%
+      RS.list[[length(RS.list) + 1]] <- recurrentSelection(RIL_admixed, parent1, parent2) %>%
         dplyr::mutate(qtl=n.L,
                       founder=f,
                       rep=rep,
@@ -199,8 +166,6 @@ for (GS_MODEL in model_vec) {
                       isoElite=isoEliteAtt,
                       isoEliteDes=isoElite_T3,
                       .before=1)
-      RS.df <- rbind(RS.df, newRow)
-
       
       # Just calculate isoeliteness for the P1 unadmixed family
       isoElite_T1 <- isoEliteness(res_pop1[1], res_pop1[2], founderPop, 1)
@@ -212,7 +177,7 @@ for (GS_MODEL in model_vec) {
       # Only do this in even pop resets (because it's only being used as a negative control)
       # Only use P1
       if (f %% 2 == 0) {
-        newRow <- recurrentSelection(RIL_pop1, parent1, parent2) %>%
+        RS.list[[length(RS.list) + 1]] <- recurrentSelection(RIL_pop1, res_pop1[1], res_pop1[2]) %>%
           dplyr::mutate(qtl=n.L,
                         founder=f,
                         rep=rep,
@@ -221,14 +186,15 @@ for (GS_MODEL in model_vec) {
                         isoElite=isoEliteAtt,
                         isoEliteDes=isoElite_T3,
                         .before=1)
-        RS.df <- rbind(RS.df, newRow)
       }
       
     } # end n.reps
   } # end n.popResets
-  write.table((RIL.df %>% dplyr::filter(model==GS_MODEL)),
+  RIL.df <- do.call(rbind, RIL.list)
+  write.table((RIL.df %>% dplyr::filter(model == GS_MODEL)),
               file.path(sim_dir, "ril_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
-  write.table((RS.df %>% dplyr::filter(model==GS_MODEL)),
+  RS.df <- do.call(rbind, RS.list)
+  write.table((RS.df %>% dplyr::filter(model == GS_MODEL)),
               file.path(sim_dir, "rs_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
   write.table(getParams(), file.path(sim_dir, "params.txt"), col.names=FALSE, quote=FALSE, sep=":\t")
 } # end model_vec
