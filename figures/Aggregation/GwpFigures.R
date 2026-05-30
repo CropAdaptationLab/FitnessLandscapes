@@ -336,7 +336,7 @@ for (GS_MODEL in c("RRBLUP")) {
     scale_x_continuous(breaks=seq(from=0, to=20, by=2)) +
     #scale_y_continuous(limits = c(minCycleW, maxCycleW)) +
     labs(
-      x = "Cycle",
+      x = "Year",
       y = "Genetic Gain\n(Realized Yield units)"
     ) +
     theme
@@ -433,7 +433,7 @@ for (GS_MODEL in c("RRBLUP")) {
           "High" = "#0957d6"
           )) +
       labs(
-        x = "Cycle",
+        x = "Year",
         y = "Genetic Gain\n(Realized Yield units)",
         title = selType
       ) +
@@ -480,7 +480,7 @@ for (GS_MODEL in c("RRBLUP")) {
           "High" = "#0957d6"
         )) +
       labs(
-        x = "Cycle",
+        x = "Year",
         y = "Breeding Fitness\n(Realized Yield)",
         title = selType
       ) +
@@ -520,7 +520,7 @@ for (GS_MODEL in c("RRBLUP")) {
                     linewidth = 0.2,
                     alpha = 0.6) +
       labs(
-        x = "Cycle",
+        x = "Year",
         y = "Genetic Gain\n(Realized Yield units)",
         title = ie
       ) +
@@ -559,7 +559,7 @@ for (GS_MODEL in c("RRBLUP")) {
                     linewidth = 0.2,
                     alpha = 0.6) +
       labs(
-        x = "Cycle",
+        x = "Year",
         y = "Breeding Fitness\n(Realized Yield)",
         title = ie
       ) +
@@ -647,7 +647,7 @@ for (GS_MODEL in c("RRBLUP")) {
       labs(
         title  = paste0("Cycles: ", cycle),
         x = "Mean Isoeliteness",
-        y = "Genetic Gain"
+        y = "Genetic Gain\n(Realized Yield units)"
       ) + 
       scale_color_sel +
       theme +
@@ -698,7 +698,7 @@ for (GS_MODEL in c("RRBLUP")) {
       labs(
         title  = paste0("Cycles: ", cycle),
         x = "Mean Isoeliteness",
-        y = "Genetic Gain"
+        y = "Breeding Fitness\n(Realized Yield)"
       ) + 
       scale_color_sel +
       theme +
@@ -875,7 +875,7 @@ for (GS_MODEL in c("RRBLUP")) {
     geom_line(linewidth = 0.3) +
     geom_point(size=1) +
     labs(
-      x = "Cycle",
+      x = "Year",
       y = "Correlation (r) between\nIsoeliteness and Genetic Gain",
     ) +
     scale_x_continuous(breaks=seq(from=0, to=20, by=2)) +
@@ -899,7 +899,7 @@ for (GS_MODEL in c("RRBLUP")) {
     geom_line(linewidth = 0.3) +
     geom_point(size=1) +
     labs(
-      x = "Cycle",
+      x = "Year",
       y = "Correlation (r) between\nIsoeliteness and Breeding Fitness",
     ) +
     scale_x_continuous(breaks=seq(from=0, to=20, by=2)) +
@@ -1016,11 +1016,12 @@ for (GS_MODEL in c("RRBLUP")) {
   
   ht.df %>%
     dplyr::filter(pop=="Admixed GS") %>%
+    dplyr::filter(c > 1) %>%
     ggplot(aes(x = c, y = het, color = qtlType)) +
     geom_line() +
     geom_point() +
     labs(
-      x = "Cycle",
+      x = "Year",
       y = "Heterozygosity"
     ) + 
     scale_color_manual(name = "QTL",
@@ -1051,7 +1052,7 @@ for (GS_MODEL in c("RRBLUP")) {
     geom_line() +
     geom_point() +
     labs(
-      x = "Cycle",
+      x = "Year",
       y = "GWP accuracy for breeding fitness (r)"
     ) +
     theme
