@@ -50,15 +50,17 @@ source("functions/TraitArchitecture.R")
 source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
-n.popResets <- 400
+n.popResets <- 200
 # Number of adaptive walk replications per pair of subpopulations
 n.reps <- 1
 
 # Recurrent selection years
-n.Y <- 20
+n.Y <- 15
 
 # Phenotype to use for genomic selection
 GS_PHENO <- "pheno" # gv
+
+n.trainPopSize <- 400
 
 # Store the results of GWP from landrace into the RIL family
 RIL.list <- list()

@@ -115,24 +115,25 @@ trainRRBLUPModel <- function(trainPop) {
 createTrainPop <- function(curPop,
                            prevTrainPop,
                            n=n.trainPopSize) {
-  curPop <- selectInd(curPop, use="ebv", nInd=n/2)
+  topFams <- selectFam(curPop, nFam=n.topFamilies, use="ebv")
+  topInds <- selectWithinFam(topFams, use="ebv", nInd=1)
   prevTrainPop <- setPheno(prevTrainPop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
-  prevTrainPop <- selectInd(prevTrainPop, trait=breedingFitness, nInd=n/2)
-  return(c(curPop, prevTrainPop))
+  prevTrainPop <- selectInd(prevTrainPop, trait=breedingFitness, nInd=n-nInd(topInds))
+  return(c(topInds, prevTrainPop))
 }
 
 # Calculates metrics for a population at a particular cycle
 # pop: An AlphaSimR population
 # sel: The selection type (e.g. "GS", "PS", etc.)
 # Returns: a dataframe tabulating all metrics
-cycleMetrics <- function(pop, cycle, sel) {
+cycleMetrics <- function(pop, season, cycle, sel) {
   # Calulate accuracy of predictions
   r <- NA
   if (!(sel %in% c("PS", "PSieMAS"))) {
     r <- cor(calculateW_GWP(gv(pop)), ebv(pop))[1]
   }
   # Update the phenotypes
-  pop <- setPheno(pop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
+  #pop <- setPheno(pop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
   
   # Genome-wide heterozygosity
   genome_het <- meanHetLocus(pullSnpGeno(pop, snpChip=2))
@@ -154,6 +155,7 @@ cycleMetrics <- function(pop, cycle, sel) {
     pull(meanW)
   
   return (data.frame(
+    season=season,
     c=cycle,
     sel=sel,
     w=w,
@@ -163,6 +165,75 @@ cycleMetrics <- function(pop, cycle, sel) {
     attained_het=attained_het,
     desired_het=desired_het,
     gvar=varG(pop)[3,3]))
+}
+
+# Carry out marker-assisted selection
+getMasInds <- function(pop, peaks, masSelInt, snpChip, useQtls) {
+  masHaplo <- data.frame(id=pop@id)
+  if (nrow(peaks) > 0) {
+    if (useQtls) {
+      masGeno <- getUniqueQtl(pop)
+    } else {
+      masGeno <- as.data.frame(pullSnpGeno(pop, snpChip))
+    }
+    
+    # Interaction size
+    LOD <- c()
+    for (r in 1:nrow(peaks)) {
+      # Interactions
+      if (useQtls) {
+        m1 <- peaks$qtl1[r]
+        m2 <- peaks$qtl2[r]
+      } else {
+        m1 <- peaks$m1[r]
+        m2 <- peaks$m2[r]
+      }
+      if (!is.na(m1) & !is.na(m2)) {
+        if (segLocus(masGeno[,m1]) & segLocus(masGeno[,m2])) {
+          haplos <- getHaplos(masGeno, m1, m2, parent1, parent2, snpChip, useQtls)
+          LOD <- c(LOD, peaks$lod.int[r])
+          masHaplo <- cbind(masHaplo, haplos)
+        }
+      }
+    }
+    # Number of QTL interactions
+    if (length(LOD) > 0) {
+      colnames(masHaplo) <- c("id", paste0("INT_", LOD))
+      # Calculate the majority haplotype between P1 and P2 in each column
+      majority_haplo <- masHaplo %>%
+        dplyr::select(starts_with("INT_")) %>%
+        dplyr::summarise(across(everything(), ~ {
+          p1_count <- sum(. == "P1", na.rm = TRUE)
+          p2_count <- sum(. == "P2", na.rm = TRUE)
+          if (p1_count >= p2_count) "P1" else "P2"
+        })) %>%
+        as.character()
+      
+      # Pull out the names of the columsn
+      int_cols <- names(masHaplo)[startsWith(names(masHaplo), "INT_")]
+      
+      # If the haplotype matches the majority haplotype, set it as a '1', otherwise as a '0'
+      masHaplo[int_cols] <- (masHaplo[int_cols] == rep(majority_haplo, each = nrow(masHaplo))) * 1
+      
+      # Ensure the columns are ordered by LOD score (descending)
+      sorted_int_cols <- int_cols[order(LOD, decreasing = TRUE)]
+      masHaplo <- masHaplo[, c("id", sorted_int_cols)]
+    }
+  }
+  
+  # Order by whether individuals have each favorable haplotype, then by 'w'
+  orderedInds <- as.data.frame(pheno(pop)) %>%
+    dplyr::mutate(id=pop@id,
+                  w=calculateBreedingFitness(Trait1, Trait2, Trait3)) %>%
+    dplyr::select(-c("Trait1", "Trait2", "Trait3")) %>%
+    dplyr::left_join(masHaplo, by="id") %>%
+    dplyr::arrange(
+      across(starts_with("INT_"), desc),
+      desc(w)
+    ) %>%
+    dplyr::slice_head(n=nInd(pop)*masSelInt) %>%
+    dplyr::pull(id)
+  return(pop[orderedInds])
 }
 
 # Run recurrent population improvement on the basePop
@@ -176,322 +247,245 @@ cycleMetrics <- function(pop, cycle, sel) {
 # Return a dataframe with n.C*2 rows (for both PS and GS)
 recurrentSelection <- function(basePop, parent1, parent2) {
   # For storing results
-  results_list <- list()
+  results_list <- list(cycleMetrics(basePop, 0, 0, "PS"),
+                       cycleMetrics(basePop, 0, 0, "PS_ieMAS"),
+                       cycleMetrics(basePop, 0, 0, "GS"),
+                       cycleMetrics(basePop, 0, 0, "ieMAS"))
+                       #cycleMetrics(basePop, 0, 0, "ieMAS_perfect"),
+                       #cycleMetrics(basePop, 0, 0, "ieMAS_low"),
+                       #cycleMetrics(basePop, 0, 0, "GS_noUpdate"),
+                       #cycleMetrics(basePop, 0, 0, "ieMAS_noUpdate"))
 
   # Set phenotypes for base population
   basePop <- setPheno(basePop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding), reps=n.rilReps)
-  results_list[[length(results_list) + 1]] <- cycleMetrics(basePop, 0, "GS")
-  results_list[[length(results_list) + 1]] <- cycleMetrics(basePop, 0, "GSnoUpdate")
-  results_list[[length(results_list) + 1]] <- cycleMetrics(basePop, 0, "PS")
-  results_list[[length(results_list) + 1]] <- cycleMetrics(basePop, 0, "lowResMAS")
-  results_list[[length(results_list) + 1]] <- cycleMetrics(basePop, 0, "ieMAS")
-  results_list[[length(results_list) + 1]] <- cycleMetrics(basePop, 0, "highResMAS")
-  results_list[[length(results_list) + 1]] <- cycleMetrics(basePop, 0, "highResMASnoUpdate")
-  results_list[[length(results_list) + 1]] <- cycleMetrics(basePop, 0, "PSieMAS")
 
-  # QTL-based haplotypes
-  masHaplo_PERFECT <- data.frame(id=basePop@id)
-  # Low resolution-based haplotypes
-  masHaplo_LOW <- data.frame(id=basePop@id)
-  # High resolution-based haplotypes
-  masHaplo_HIGH <- data.frame(id=basePop@id)
-  
   # 2D linkage mapping
   # Find all pairs of epistatic loci
   peaks <- epistaticLodPeaks(basePop, parent1, parent2, snpChip=2, trait=5)
-  if (nrow(peaks) > 0) {
-    masGeno_PERFECT <- getUniqueQtl(basePop)
-    masGeno_HIGH <- as.data.frame(pullSnpGeno(basePop, snpChip=2))
-    
-    # Number of actual interactions
-    nInt_PERFECT <- 0
-    nInt_HIGH <- 0
-    for (r in 1:nrow(peaks)) {
-      # QTL interactions
-      qtl1 <- peaks$qtl1[r]
-      qtl2 <- peaks$qtl2[r]
-      if (!is.na(qtl1) & !is.na(qtl2)) {
-        if (segLocus(masGeno_PERFECT[,qtl1]) & segLocus(masGeno_PERFECT[,qtl2])) {
-          haplos <- getHaplos(masGeno_PERFECT, qtl1, qtl2, parent1, parent2, snpChip=2, useQtls=TRUE)
-          nInt_PERFECT <- nInt_PERFECT + 1
-          masHaplo_PERFECT <- cbind(masHaplo_PERFECT, haplos)
-        }
-      }
-      
-      # High resolution
-      m1 <- peaks$m1[r]
-      m2 <- peaks$m2[r]
-      if (!is.na(m1) & !is.na(m2)) {
-        if (segLocus(masGeno_HIGH[,m1]) & segLocus(masGeno_HIGH[,m2])) {
-          haplos <- getHaplos(masGeno_HIGH, m1, m2, parent1, parent2, snpChip=2, useQtls=FALSE)
-          nInt_HIGH <- nInt_HIGH + 1
-          masHaplo_HIGH <- cbind(masHaplo_HIGH, haplos)
-        }
-      }
-    }
-    # Number of QTL interactions
-    if (nInt_PERFECT > 0) {
-      colnames(masHaplo_PERFECT) <- c("id", paste0("INT_", 1:nInt_PERFECT))
-    }
-    
-    # Number of high res marker interactions
-    if (nInt_HIGH > 0) {
-      colnames(masHaplo_HIGH) <- c("id", paste0("INT_", 1:nInt_HIGH))
-    }
-  }
-
   # Low resolution mapping
-  low_res_peaks <- epistaticLodPeaks(basePop, parent1, parent2, snpChip=3, trait=5)
-  if (nrow(low_res_peaks) > 0) {
-    masGeno_LOW <- as.data.frame(pullSnpGeno(basePop, snpChip=3))
-    nInt_LOW <- 0
-
-    for (r in 1:nrow(low_res_peaks)) {
-      # Low resolution
-      m1 <- low_res_peaks$m1[r]
-      m2 <- low_res_peaks$m2[r]
-      if (!is.na(m1) & !is.na(m2)) {
-        if (segLocus(masGeno_LOW[,m1]) & segLocus(masGeno_LOW[,m2])) {
-          haplos <- getHaplos(masGeno_LOW, m1, m2, parent1, parent2, snpChip=3, useQtls=FALSE)
-          nInt_LOW <- nInt_LOW + 1
-          masHaplo_LOW <- cbind(masHaplo_LOW, haplos)
-        }
-      }
-    }
-    # Number of low res marker interactions
-    if (nInt_LOW > 0) {
-      colnames(masHaplo_LOW) <- c("id", paste0("INT_", 1:nInt_LOW))
-    }
-  }
+  #low_res_peaks <- epistaticLodPeaks(basePop, parent1, parent2, snpChip=3, trait=5)
   
-  # Calculate sum of the favorable haplotypes and select individuals with
-  # the maxmimum number
-  masInds_PERFECT <- masHaplo_PERFECT %>%
-    dplyr::rowwise() %>%
-    dplyr::mutate(
-      favHaplos = sum(c_across(starts_with("INT_")) == "P1")
-    ) %>%
-    dplyr::ungroup() %>%
-    dplyr::pull(favHaplos)
+  # Select the first cycle based on phenotype
+  topRILs <- selectInd(basePop,
+                       nInd=n.topFamilies,
+                       trait=breedingFitness)
+  ps_S0 <- randCross(topRILs,
+                     nCrosses=n.families,
+                     nProgeny=20)
+  ps_S0 <- setPheno(ps_S0, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
+  psMAS_S0 <- ps_S0
+  gs_S0 <- randCross(topRILs,
+                     nCrosses=n.families,
+                     nProgeny=10)
+  gs_S0 <- setPheno(gs_S0, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
+  gsMAS_high_S0 <- gs_S0
+  gsMAS_perfect_S0 <- gs_S0
+  gsMAS_low_S0 <- gs_S0
+  gs_noUpdate_S0 <- gs_S0
+  gsMAS_high_noUpdate_S0 <- gs_S0
   
-  masInds_HIGH <- masHaplo_HIGH %>%
-    dplyr::rowwise() %>%
-    dplyr::mutate(
-      favHaplos = sum(c_across(starts_with("INT_")) == "P1")
-    ) %>%
-    dplyr::ungroup() %>%
-    dplyr::pull(favHaplos)
-
-  masInds_LOW <- masHaplo_LOW %>%
-    dplyr::rowwise() %>%
-    dplyr::mutate(
-      favHaplos = sum(c_across(starts_with("INT_")) == "P1")
-    ) %>%
-    dplyr::ungroup() %>%
-    dplyr::pull(favHaplos)
-
-  # Initial training population is the top n.trainPopSize lines, selected by phenotype
-  gsTrainPop <- selectInd(basePop, trait=breedingFitness, nInd=n.trainPopSize)
+  # Initial training population is the top 40 RILs, selected by phenotype, plus
+  # 360 randomly chosen RILs from the remaining 960 lines
+  randLines <- selectInd(basePop[-match(topRILs@id, basePop@id)],
+                         use="rand",
+                         nInd=n.trainPopSize-n.topFamilies)
+  gsTrainPop <- c(topRILs, randLines)
   # This will be the same training population throughout all cycles
-  gsTrainPop_noUpdate <- gsTrainPop
-
-  # Fit an RR-BLUP model to use initially for the 3 GS populations
+  gsTrainPop_HIGH <- gsTrainPop
+  #gsTrainPop_PERFECT <- gsTrainPop
+  #gsTrainPop_LOW <- gsTrainPop
+  #gsTrainPop_noUpdate <- gsTrainPop
+  #gsTrainPop_HIGH_noUpdate <- gsTrainPop
+  
+  # Fit an RR-BLUP model to use initially for the GS populations
   if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
     # Train a model on the initial base population
     gsModel <- trainRRBLUPModel(gsTrainPop)
+    gsModel_MAS_HIGH <- gsModel
+    #gsModel_MAS_PERFECT <- gsModel
+    #gsModel_MAS_LOW <- gsModel
+    #gsModel_MAS_HIGH_noUpdate <- gsModel
     # This model will not be updated throughout the recurrent selection
-    gsModel_noUpdate <- gsModel
+    #gsModel_noUpdate <- gsModel
   }
 
-  # Select the first cycle based on phenotype
-  gs_S0 <- selectCross(basePop,
-                       trait=breedingFitness,
-                       nInd=nInd(basePop)*n.selInt,
-                       nCrosses=n.recurPopSize)
-  # This population will use the initial GS model without updates
-  gs_S0_noUpdate <- gs_S0
-  # Phenotypic selection
-  ps_S0 <- gs_S0
+  # There are 3 years per phenotypic selection cycle
+  PHENO_CYCLES <- n.Y / 3
   
-  # MARKER-ASSISTED-SELECTION
-  
-  # Join the phenotypes of the base population with the counts of favorable
-  # haplotypes
-  C0_pheno <- as.data.frame(pheno(basePop)) %>%
-    dplyr::mutate(id=basePop@id,
-                  w=calculateBreedingFitness(Trait1, Trait2, Trait3),
-                  perfect=masInds_PERFECT,
-                  high=masInds_HIGH,
-                  low=masInds_LOW) %>%
-    dplyr::select(-c("Trait1", "Trait2", "Trait3"))
-  
-  # Use MAS to select individuals with the most favorable epistatic haplotypes
-  # Train a GS model on this population
-  masInds_PERFECT <- C0_pheno %>%
-    dplyr::arrange(desc(perfect), desc(w)) %>%
-    dplyr::slice_head(n=n.trainPopSize)
-  
-  gsTrainPop_PERFECT <- basePop[masInds_PERFECT$id]
-  if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
-    gsModel_MAS_PERFECT <- trainRRBLUPModel(gsTrainPop_PERFECT)
-  }
-  
-  # Select a smaller number of individuals to cross to create the S0 population
-  topMasInds_PERFECT <- masInds_PERFECT %>%
-    dplyr::slice_head(n=nInd(basePop)*n.selInt) %>%
-    dplyr::pull(id)
-  
-  mas_S0_PERFECT <- randCross(basePop[topMasInds_PERFECT],
-                              nCrosses=n.recurPopSize)
+  # PHENOTYPIC SELECTION
+  season <- 1
+  for (cycle in 1:PHENO_CYCLES) {
 
-  # Store the initial training population, filtered by haplotypes
-  masInds_HIGH <- C0_pheno %>%
-    dplyr::arrange(desc(high), desc(w)) %>%
-    dplyr::slice_head(n=n.trainPopSize)
-  
-  gsTrainPop_HIGH <- basePop[masInds_HIGH$id]
-  # This will be the same training population for use throughout all cycles
-  gsTrainPop_HIGH_noUpdate <- gsTrainPop_HIGH
-  
-  if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
-    gsModel_MAS_HIGH <- trainRRBLUPModel(gsTrainPop_HIGH)
-    gsModel_MAS_HIGH_noUpdate <- gsModel_MAS_HIGH
-  }
-  
-  topMasInds_HIGH <- masInds_HIGH %>%
-    dplyr::slice_head(n=nInd(basePop)*n.selInt) %>%
-    dplyr::pull(id)
-  mas_S0_HIGH <- randCross(basePop[topMasInds_HIGH],
-                           nCrosses=n.recurPopSize)
-  # This population will use the same GS model without updates for all cycles
-  mas_S0_HIGH_noUpdate <- mas_S0_HIGH
-  # Conduct phenotypic selection on the population that has been filtered for MAS
-  ps_mas_S0 <- mas_S0_HIGH
-
-  masInds_LOW <- C0_pheno %>%
-    dplyr::arrange(desc(low), desc(w)) %>%
-    dplyr::slice_head(n=n.trainPopSize)
-
-  gsTrainPop_LOW <- basePop[masInds_LOW$id]
-  if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
-    gsModel_MAS_LOW <- trainRRBLUPModel(gsTrainPop_LOW)
-  }
-  topMasInds_LOW <- masInds_LOW %>%
-    dplyr::slice_head(n=nInd(basePop)*n.selInt) %>%
-    dplyr::pull(id)
-  mas_S0_LOW <- randCross(basePop[topMasInds_LOW],
-                           nCrosses=n.recurPopSize)
-  # Iterate through each cycle
-  cycle <- 0
-  for (year in 1:n.Y) {
+    # --------- SEASON 1 (WINTER) ---------
     
-    #-------SUMMER NURSERY-------#
+    results_list[[length(results_list) + 1]] <- cycleMetrics(ps_S0, season, cycle, "PS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(psMAS_S0, season, cycle, "PS_ieMAS")
+    ps_S1 <- self(ps_S0)
+    psMAS_S1 <- self(psMAS_S0)
+    season <- season + 1
+    
+    # --------- SEASON 2 (SUMMER) ---------
+    
+    ps_S1 <- setPheno(ps_S1, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
+    psMAS_S1 <- setPheno(psMAS_S1, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
+    results_list[[length(results_list) + 1]] <- cycleMetrics(ps_S1, season, cycle, "PS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(psMAS_S1, season, cycle, "PS_ieMAS")
+    ps_S1 <- selectWithinFam(ps_S1, nInd=10, trait=suitability)
+    ps_S2 <- self(ps_S1)
+    # MAS
+    if (cycle == 1) {
+      psMAS_S1 <- getMasInds(pop=psMAS_S1, peaks=peaks, masSelInt=n.masSelInt, snpChip=2, useQtls=FALSE)
+    }
+    psMAS_S1 <- selectWithinFam(psMAS_S1, nInd=10, trait=suitability)
+    psMAS_S2 <- self(psMAS_S1)
+    
+    season <- season + 1
+
+    # --------- SEASON 3 (WINTER) ---------
+    
+    ps_S2 <- setPheno(ps_S2, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
+    psMAS_S2 <- setPheno(psMAS_S2, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
+    results_list[[length(results_list) + 1]] <- cycleMetrics(ps_S2, season, cycle, "PS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(psMAS_S2, season, cycle, "PS_ieMAS")
+    ps_S3 <- self(ps_S2, nProgeny=2)
+    psMAS_S3 <- self(psMAS_S2, nProgeny=2)
+    season <- season + 1
+    
+    # --------- SEASON 4 (SUMMER) ---------
+    
+    ps_S3 <- setPheno(ps_S3, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
+    psMAS_S3 <- setPheno(psMAS_S3, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
+    results_list[[length(results_list) + 1]] <- cycleMetrics(ps_S3, season, cycle, "PS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(psMAS_S3, season, cycle, "PS_ieMAS")
+    # Make selections based on realized yield
+    ps_S3 <- selectFam(ps_S3, trait=breedingFitness, nFam=n.topFamilies)
+    ps_S4 <- self(ps_S3)
+    psMAS_S3 <- selectFam(psMAS_S3, trait=breedingFitness, nFam=n.topFamilies)
+    psMAS_S4 <- self(psMAS_S3)
+    season <- season + 1
+    
+    # --------- SEASON 5 (WINTER) ---------
+    
+    ps_S4 <- setPheno(ps_S4, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
+    psMAS_S4 <- setPheno(psMAS_S4, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
+    results_list[[length(results_list) + 1]] <- cycleMetrics(ps_S4, season, cycle, "PS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(psMAS_S4, season, cycle, "PS_ieMAS")
+    ps_S5 <- self(ps_S4)
+    psMAS_S5 <- self(psMAS_S4)
+    season <- season + 1
+    
+    # --------- SEASON 6 (SUMMER) ---------
+    ps_S5 <- setPheno(ps_S5, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
+    psMAS_S5 <- setPheno(psMAS_S5, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
+    results_list[[length(results_list) + 1]] <- cycleMetrics(ps_S5, season, cycle, "PS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(psMAS_S5, season, cycle, "PS_ieMAS")
+    ps_topLines <- selectWithinFam(ps_S5, nInd=1, trait=breedingFitness)
+    psMAS_topLines <- selectWithinFam(psMAS_S5, nInd=1, trait=breedingFitness)
+    season <- season + 1
+    
+    ps_S0 <- randCross(ps_topLines,
+                       nCrosses=n.families,
+                       nProgeny=20)
+    psMAS_S0 <- randCross(psMAS_topLines,
+                           nCrosses=n.families,
+                           nProgeny=20)
+  }
+  
+  # GENOMIC SELECTION
+  season <- 1
+  for (cycle in 1:n.Y) {
+    
+    # --------- SEASON 1 (WINTER) ---------
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_S0, season, cycle, "GS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_high_S0, season, cycle, "ieMAS")
+    #results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_perfect_S0, season, cycle, "ieMAS_perfect")
+    #results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_low_S0, season, cycle, "ieMAS_low")
+    #results_list[[length(results_list) + 1]] <- cycleMetrics(gs_noUpdate_S0, season, cycle, "GS_noUpdate")
+    #results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_high_noUpdate_S0, season, cycle, "ieMAS_noUpdate")
+    
+    gs_S1 <- self(gs_S0)
+    gsMAS_high_S1 <- self(gsMAS_high_S0)
+    #gsMAS_perfect_S1 <- self(gsMAS_perfect_S0)
+    #gsMAS_low_S1 <- self(gsMAS_low_S0)
+    #gs_noUpdate_S1 <- self(gs_noUpdate_S0)
+    #gsMAS_high_noUpdate_S1 <- self(gsMAS_high_noUpdate_S0)
+    
+    season <- season + 1
+    
+    # --------- SEASON 2 (SUMMER) ---------
+
     if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
       # If the new models do not fit any values, there is no genetic variance
       # in the population
       if (any(is.na(gsModel@gv[[1]]@addEff)) |
-          any(is.na(gsModel_noUpdate@gv[[1]]@addEff)) |
-          any(is.na(gsModel_MAS_PERFECT@gv[[1]]@addEff)) |
-          any(is.na(gsModel_MAS_LOW@gv[[1]]@addEff)) |
-          any(is.na(gsModel_MAS_HIGH@gv[[1]]@addEff)) |
-          any(is.na(gsModel_MAS_HIGH_noUpdate@gv[[1]]@addEff))) {
-        return(result)
+          any(is.na(gsModel_MAS_HIGH@gv[[1]]@addEff))) {
+          #any(is.na(gsModel_MAS_PERFECT@gv[[1]]@addEff)) |
+          #any(is.na(gsModel_MAS_LOW@gv[[1]]@addEff)) |
+          #any(is.na(gsModel_noUpdate@gv[[1]]@addEff)) |
+          #any(is.na(gsModel_MAS_HIGH_noUpdate@gv[[1]]@addEff))) {
+        return(do.call(rbind, results_list))
       }
-      gs_S0 <- setEBV(gs_S0, gsModel)
-      gs_S0_noUpdate <- setEBV(gs_S0_noUpdate, gsModel_noUpdate)
-      mas_S0_PERFECT <- setEBV(mas_S0_PERFECT, gsModel_MAS_PERFECT)
-      mas_S0_LOW <- setEBV(mas_S0_LOW, gsModel_MAS_LOW)
-      mas_S0_HIGH <- setEBV(mas_S0_HIGH, gsModel_MAS_HIGH)
-      mas_S0_HIGH_noUpdate <- setEBV(mas_S0_HIGH_noUpdate, gsModel_MAS_HIGH_noUpdate)
+      gs_S1 <- setEBV(gs_S1, gsModel)
+      gsMAS_high_S1 <- setEBV(gsMAS_high_S1, gsModel_MAS_HIGH)
+      #gsMAS_perfect_S1 <- setEBV(gsMAS_perfect_S1, gsModel_MAS_PERFECT)
+      #gsMAS_low_S1 <- setEBV(gsMAS_low_S1, gsModel_MAS_LOW)
+      #gs_noUpdate_S1 <- setEBV(gs_noUpdate_S1, gsModel_noUpdate)
+      #gsMAS_high_noUpdate_S1 <- setEBV(gsMAS_high_noUpdate_S1, gsModel_noUpdate)
     } else if (GS_MODEL == "GBLUP") {
-      gs_S0 <- calculateEBV_GBLUP(trainPop=gsTrainPop, testPop=gs_S0)
-      gs_S0_noUpdate <- calculateEBV_GBLUP(trainPop=gsTrainPop_noUpdate, testPop=gs_S0_noUpdate)
-      mas_S0_PERFECT <- calculateEBV_GBLUP(trainPop=gsTrainPop_PERFECT, testPop=mas_S0_PERFECT)
-      mas_S0_LOW <- calculateEBV_GBLUP(trainPop=gsTrainPop_LOW, testPop=mas_S0_LOW)
-      mas_S0_HIGH <- calculateEBV_GBLUP(trainPop=gsTrainPop_HIGH, testPop=mas_S0_HIGH)
-      mas_S0_HIGH_noUpdate <- calculateEBV_GBLUP(trainPop=gsTrainPop_HIGH_noUpdate, testPop=mas_S0_HIGH_noUpdate)
+      gs_S1 <- calculateEBV_GBLUP(trainPop=gsTrainPop, testPop=gs_S1)
+      gsMAS_high_S1 <- calculateEBV_GBLUP(trainPop=gsTrainPop_HIGH, testPop=gsMAS_high_S1)
+      #gsMAS_perfect_S1 <- calculateEBV_GBLUP(trainPop=gsTrainPop_PERFECT, testPop=gsMAS_perfect_S1)
+      #gsMAS_low_S1 <- calculateEBV_GBLUP(trainPop=gsTrainPop_LOW, testPop=gsMAS_low_S1)
+      #gs_noUpdate_S1 <- calculateEBV_GBLUP(trainPop=gsTrainPop_noUpdate, testPop=gs_noUpdate_S1)
+      #gsMAS_high_noUpdate_S1 <- calculateEBV_GBLUP(trainPop=gsTrainPop_HIGH_noUpdate, testPop=gsMAS_high_noUpdate_S1)
     }
-
-    cycle <- cycle + 0.5
-    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_S0, cycle, "GS")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_S0_noUpdate, cycle, "GSnoUpdate")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(mas_S0_PERFECT, cycle, "ieMAS")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(mas_S0_LOW, cycle, "lowResMAS")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(mas_S0_HIGH, cycle, "highResMAS")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(mas_S0_HIGH_noUpdate, cycle, "highResMASnoUpdate")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(ps_S0, cycle, "PS")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(ps_mas_S0, cycle, "PSieMAS")
+    
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_S1, season, cycle, "GS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_high_S1, season, cycle, "ieMAS")
+    #results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_perfect_S1, season, cycle, "ieMAS_perfect")
+    #results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_low_S1, season, cycle, "ieMAS_low")
+    #results_list[[length(results_list) + 1]] <- cycleMetrics(gs_noUpdate_S1, season, cycle, "GS_noUpdate")
+    #results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_high_noUpdate_S1, season, cycle, "ieMAS_noUpdate")
 
     # Establish new training population by selecting the top lines from the populations by gebv
-    # Do this before selections and crossing because training happens after harvest
-    gsTrainPop <- createTrainPop(curPop=gs_S0, prevTrainPop=gsTrainPop)
-    gsTrainPop_PERFECT <- createTrainPop(curPop=mas_S0_PERFECT, prevTrainPop=gsTrainPop_PERFECT)
-    gsTrainPop_LOW <- createTrainPop(curPop=mas_S0_LOW, prevTrainPop=gsTrainPop_LOW)
-    gsTrainPop_HIGH <- createTrainPop(curPop=mas_S0_HIGH, prevTrainPop=gsTrainPop_HIGH)
-    
-    gs_S0 <- selectCross(gs_S0, use="ebv", nInd=nInd(gs_S0)*n.selInt, nCrosses=n.recurPopSize)
-    gs_S0_noUpdate <- selectCross(gs_S0_noUpdate, use="ebv", nInd=nInd(gs_S0_noUpdate)*n.selInt, nCrosses=n.recurPopSize)
-    mas_S0_PERFECT <- selectCross(mas_S0_PERFECT, use="ebv", nInd=nInd(mas_S0_PERFECT)*n.selInt, nCrosses=n.recurPopSize)
-    mas_S0_LOW <- selectCross(mas_S0_LOW, use="ebv", nInd=nInd(mas_S0_LOW)*n.selInt, nCrosses=n.recurPopSize)
-    mas_S0_HIGH <- selectCross(mas_S0_HIGH, use="ebv", nInd=nInd(mas_S0_HIGH)*n.selInt, nCrosses=n.recurPopSize)
-    mas_S0_HIGH_noUpdate <- selectCross(mas_S0_HIGH_noUpdate, use="ebv", nInd=nInd(mas_S0_HIGH_noUpdate)*n.selInt, nCrosses=n.recurPopSize)
-
-    ps_S0 <- setPheno(ps_S0, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
-    # Select the top individuals by phenotype
-    top_ps_S0 <- selectInd(ps_S0, trait=breedingFitness, nInd=nInd(ps_S0)*n.selInt)
-    # In the simulation, only self the top lines, so they can be easily selected in
-    # the next generation. In reality, all S1s would be planted
-    ps_S1 <- self(top_ps_S0)
-    
-    ps_mas_S0 <- setPheno(ps_mas_S0, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
-    top_ps_mas_S0 <- selectInd(ps_mas_S0, trait=breedingFitness, nInd=nInd(ps_mas_S0)*n.selInt)
-    ps_mas_S1 <- self(top_ps_mas_S0)
-    
+    gsTrainPop <- createTrainPop(curPop=gs_S1, prevTrainPop=gsTrainPop)
+    gsTrainPop_HIGH <- createTrainPop(curPop=gsMAS_high_S1, prevTrainPop=gsTrainPop_HIGH)
+    #gsTrainPop_PERFECT <- createTrainPop(curPop=gsMAS_perfect_S1, prevTrainPop=gsTrainPop_PERFECT)
+    #gsTrainPop_LOW <- createTrainPop(curPop=gsMAS_low_S1, prevTrainPop=gsTrainPop_LOW)
     # RETRAIN MODELS
     if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
       gsModel <- trainRRBLUPModel(gsTrainPop)
-      gsModel_MAS_PERFECT <- trainRRBLUPModel(gsTrainPop_PERFECT)
-      gsModel_MAS_LOW <- trainRRBLUPModel(gsTrainPop_LOW)
       gsModel_MAS_HIGH <- trainRRBLUPModel(gsTrainPop_HIGH)
-    }
- 
-    # SET GEBVS
-    if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
-      gs_S0 <- setEBV(gs_S0, gsModel)
-      gs_S0_noUpdate <- setEBV(gs_S0_noUpdate, gsModel_noUpdate)
-      mas_S0_PERFECT <- setEBV(mas_S0_PERFECT, gsModel_MAS_PERFECT)
-      mas_S0_LOW <- setEBV(mas_S0_LOW, gsModel_MAS_LOW)
-      mas_S0_HIGH <- setEBV(mas_S0_HIGH, gsModel_MAS_HIGH)
-      mas_S0_HIGH_noUpdate <- setEBV(mas_S0_HIGH_noUpdate, gsModel_MAS_HIGH_noUpdate)
-    } else if (GS_MODEL == "GBLUP") {
-      gs_S0 <- calculateEBV_GBLUP(trainPop=gsTrainPop, testPop=gs_S0)
-      gs_S0_noUpdate <- calculateEBV_GBLUP(trainPop=gsTrainPop_noUpdate, testPop=gs_S0_noUpdate)
-      mas_S0_PERFECT <- calculateEBV_GBLUP(trainPop=gsTrainPop_PERFECT, testPop=mas_S0_PERFECT)
-      mas_S0_LOW <- calculateEBV_GBLUP(trainPop=gsTrainPop_LOW, testPop=mas_S0_LOW)
-      mas_S0_HIGH <- calculateEBV_GBLUP(trainPop=gsTrainPop_HIGH, testPop=mas_S0_HIGH)
-      mas_S0_HIGH_noUpdate <- calculateEBV_GBLUP(trainPop=gsTrainPop_HIGH_noUpdate, testPop=mas_S0_HIGH_noUpdate)
+      #gsModel_MAS_PERFECT <- trainRRBLUPModel(gsTrainPop_PERFECT)
+      #gsModel_MAS_LOW <- trainRRBLUPModel(gsTrainPop_LOW)
     }
     
-    #-------WINTER NURSERY-------#
-    cycle <- cycle + 0.5
-    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_S0, cycle, "GS")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_S0_noUpdate, cycle, "GSnoUpdate")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(mas_S0_PERFECT, cycle, "ieMAS")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(mas_S0_LOW, cycle, "lowResMAS")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(mas_S0_HIGH, cycle, "highResMAS")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(mas_S0_HIGH_noUpdate, cycle, "highResMASnoUpdate")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(ps_S1, cycle, "PS")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(ps_mas_S1, cycle, "PSieMAS")
+    # MARKER-ASSISTED SELECTION
+    if (cycle == 1) {
+      gsMAS_high_S1 <- getMasInds(pop=gsMAS_high_S1, peaks=peaks, masSelInt=n.masSelInt, snpChip=2, useQtls=FALSE)
+      #gsMAS_perfect_S1 <- getMasInds(pop=gsMAS_perfect_S1, peaks=peaks, masSelInt=n.masSelInt, snpChip=2, useQtls=TRUE)
+      #gsMAS_low_S1 <- getMasInds(pop=gsMAS_low_S1, peaks=low_res_peaks, masSelInt=n.masSelInt, snpChip=3, useQtls=FALSE)
+      #gsMAS_high_noUpdate_S1 <- getMasInds(pop=gsMAS_high_noUpdate_S1, peaks=peaks, masSelInt=n.masSelInt, snpChip=2, useQtls=FALSE)
+    }
     
-    # ADVANCE LINES
-    gs_S0 <- selectCross(gs_S0, use="ebv", nInd=nInd(gs_S0)*n.selInt, nCrosses=n.recurPopSize)
-    gs_S0_noUpdate <- selectCross(gs_S0_noUpdate, use="ebv", nInd=nInd(gs_S0_noUpdate)*n.selInt, nCrosses=n.recurPopSize)
-    mas_S0_PERFECT <- selectCross(mas_S0_PERFECT, use="ebv", nInd=nInd(mas_S0_PERFECT)*n.selInt, nCrosses=n.recurPopSize)
-    mas_S0_LOW <- selectCross(mas_S0_LOW, use="ebv", nInd=nInd(mas_S0_LOW)*n.selInt, nCrosses=n.recurPopSize)
-    mas_S0_HIGH <- selectCross(mas_S0_HIGH, use="ebv", nInd=nInd(mas_S0_HIGH)*n.selInt, nCrosses=n.recurPopSize)
-    mas_S0_HIGH_noUpdate <- selectCross(mas_S0_HIGH_noUpdate, use="ebv", nInd=nInd(mas_S0_HIGH_noUpdate)*n.selInt, nCrosses=n.recurPopSize)
-    ps_S0 <- randCross(ps_S1, nCrosses=n.recurPopSize)
-    ps_mas_S0 <- randCross(ps_mas_S1, nCrosses=n.recurPopSize)
+    # Select the top families, then the top individual out of those selected families,
+    # and randomly intermate those lines
+    advanceGsPop <- function(pop) {
+      topFams <- selectFam(pop, nFam=n.topFamilies, use="ebv")
+      topLines <- selectWithinFam(topFams, nInd=1, use="ebv")
+      S0 <- randCross(topLines,
+                      nCrosses=n.families,
+                      nProgeny=10)
+      return(S0)
+    }
+    gs_S0 <- advanceGsPop(gs_S1)
+    gsMAS_high_S0 <- advanceGsPop(gsMAS_high_S1)
+    #gsMAS_perfect_S0 <- advanceGsPop(gsMAS_perfect_S1)
+    #gsMAS_low_S0 <- advanceGsPop(gsMAS_low_S1)
+    #gs_noUpdate_S0 <- advanceGsPop(gs_noUpdate_S1)
+    #gsMAS_high_noUpdate_S0 <- advanceGsPop(gsMAS_high_noUpdate_S1)
+  
+    season <- season + 1
   }
   return (do.call(rbind, results_list))
 }
