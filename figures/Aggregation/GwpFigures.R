@@ -13,15 +13,18 @@ library(patchwork)
 library(tibble)
 library(tidyr)
 
-# NEED TO ADD 330 to founder
-#setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/Current")
-#output_dir <- getwd()
+# NEED TO ADD 410 to founder
+setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/Current")
+output_dir <- getwd()
 
-#RIL.df <- rbind(read.csv("../Sim_2026-06-11_17_51/RRBLUP/ril_results.csv"),
-#                read.csv("../Sim_2026-06-12_07_58/RRBLUP/ril_results.csv"))
+write.table((RS.df %>% dplyr::filter(model == GS_MODEL)),
+            file.path(output_dir, "rs_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
 
-#RS.df <- rbind(read.csv("../Sim_2026-06-11_17_51/RRBLUP/rs_results.csv"),
-#               read.csv("../Sim_2026-06-12_07_58/RRBLUP/rs_results.csv"))
+RIL.df <- rbind(read.csv("ril_results.csv"),
+                read.csv("../Sim_{2026-06-12_TIME/RRBLUP/ril_results.csv"))
+
+RS.df <- rbind(read.csv("rs_results.csv"),
+               read.csv("../Sim_2026-06-12_TIME/RRBLUP/rs_results.csv"))
 
 theme <- theme_minimal(base_size = 10,
                        base_family="Helvetica") +
@@ -36,7 +39,7 @@ theme <- theme_minimal(base_size = 10,
     legend.direction="vertical",
     aspect.ratio=1)
 
-scale_color_gwp <- scale_color_manual(name = "Test Family",
+scale_color_gwp <- scale_color_manual(name = "Scenario",
                                 values = c("CV (Single Subpopulation)" = "steelblue2",
                                            "CV (Both Subpopulations)" = "navy",
                                            "Unadmixed" = "#7EBD4F",
@@ -139,7 +142,7 @@ for (GS_MODEL in c("RRBLUP")) {
     labs(x="Scenario", y=expression("GWP accuracy for breeding fitness (r"[MG]*")")) +
     theme +
     theme(
-      axis.text.x = element_text(angle = 45, hjust = 1))
+      axis.text.x = element_blank())
   
   ggplot2::ggsave(filename = paste0("gwp_accuracy_", GS_MODEL, ".jpg"),
                   path=output_dir,
@@ -682,7 +685,7 @@ for (GS_MODEL in c("RRBLUP")) {
       x = "Year",
       y = "Correlation (r) between\nIsoeliteness and Breeding Fitness",
     ) +
-    scale_x_continuous(breaks=seq(from=0, to=20, by=2)) +
+    scale_x_continuous(breaks=seq(from=0, to=n.Y, by=3)) +
     scale_color_sel +
     theme
   
@@ -761,7 +764,7 @@ for (GS_MODEL in c("RRBLUP")) {
       geom_line() +
       geom_point() +
       labs(
-        title = paste0(targetSel, " ", targetIe),
+        title = paste0(targetIe),
         x = "Year",
         y = "Heterozygosity"
       ) + 
@@ -779,36 +782,21 @@ for (GS_MODEL in c("RRBLUP")) {
         axis.text.y = if (!ylabel) element_blank() else element_text()
       )
   }
-  (hetPlot("GS", "Low") | hetPlot("GS", "Moderate", FALSE) | hetPlot("GS", "High", FALSE)) +
+  ((hetPlot("GS", "Low") | hetPlot("GS", "Moderate", FALSE) | hetPlot("GS", "High", FALSE)) /
+    (hetPlot("ieMAS + GS", "Low") | hetPlot("ieMAS + GS", "Moderate", FALSE) | hetPlot("ieMAS + GS", "High", FALSE))) +
     plot_layout(guides = "collect", axes = "collect")
   
-  ggplot2::ggsave(filename = paste0("Heterozygosity_GS_", GS_MODEL, ".jpg"),
+  ggplot2::ggsave(filename = paste0("Heterozygosity_", GS_MODEL, ".jpg"),
                   path=output_dir,
                   device = "jpg",
-                  width=3.5,
+                  width=6.5,
                   height=3,
                   dpi=600)
-  ggplot2::ggsave(filename = paste0("Heterozygosity_GS_", GS_MODEL, ".pdf"),
+  ggplot2::ggsave(filename = paste0("Heterozygosity_", GS_MODEL, ".pdf"),
                   path=output_dir,
                   device = "pdf",
-                  width=3.5,
+                  width=6.5,
                   height=3)
-  
-  (hetPlot("ieMAS + GS", "Low") | hetPlot("ieMAS + GS", "Moderate", FALSE) | hetPlot("ieMAS + GS", "High", FALSE)) +
-    plot_layout(guides = "collect", axes = "collect")
-  
-  ggplot2::ggsave(filename = paste0("Heterozygosity_ieMASGS_", GS_MODEL, ".jpg"),
-                  path=output_dir,
-                  device = "jpg",
-                  width=3.5,
-                  height=3,
-                  dpi=600)
-  ggplot2::ggsave(filename = paste0("Heterozygosity_ieMASGS_", GS_MODEL, ".pdf"),
-                  path=output_dir,
-                  device = "pdf",
-                  width=3.5,
-                  height=3)
-  
   
   # Plot R over cycles
   yearMean.df %>%
@@ -819,7 +807,7 @@ for (GS_MODEL in c("RRBLUP")) {
     geom_point() +
     labs(
       x = "Year",
-      y = "GWP accuracy for breeding fitness (r)"
+      y = expression("GWP accuracy for breeding fitness (r"[MG]*")")
     ) +
     theme
   
@@ -849,9 +837,8 @@ sig.df <- geneticGain.df %>%
   dplyr::filter(type=="Admixed",
                 sel %in% c("GS", "ieMAS (High Density) + GS"))
 
-
 # Test whether there is more variance in GS than MAS
-var.test(gain ~ sel, data=sig.df %>% filter(cycles==5,
+var.test(gain ~ sel, data=sig.df %>% filter(year==3,
                                             ie_cat=="Low"))
 var.test(gain ~ sel, data=sig.df %>% filter(cycles==5,
                                             ie_cat=="Moderate"))
@@ -859,7 +846,7 @@ var.test(gain ~ sel, data=sig.df %>% filter(cycles==5,
                                             ie_cat=="High"))
 
 # SIGNIFICANT
-anova(lm(gain ~ sel, data=sig.df %>% filter(cycles==5,
+anova(lm(gain ~ sel, data=sig.df %>% filter(year==3,
                                             ie_cat == "Low")))
 anova(lm(gain ~ sel, data=sig.df %>% filter(cycles==10,
                                             ie_cat == "Low")))
