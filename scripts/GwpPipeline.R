@@ -50,7 +50,7 @@ source("functions/TraitArchitecture.R")
 source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
-n.popResets <- 200
+n.popResets <- 500
 # Number of adaptive walk replications per pair of subpopulations
 n.reps <- 1
 
@@ -69,7 +69,7 @@ RIL.list <- list()
 RS.list <- list()
 
 # All the parameter combinations to iterate through
-model_vec <- c("RRBLUP")
+model_vec <- c("RRBLUP", "GBLUP")
 
 output_dir <- file.path(base_dir, paste0("Sim_", format(Sys.time(), "%F_%H_%M")))
 if (!dir.exists(output_dir)) dir.create(output_dir)

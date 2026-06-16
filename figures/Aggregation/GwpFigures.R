@@ -14,17 +14,17 @@ library(tibble)
 library(tidyr)
 
 # NEED TO ADD 410 to founder
-setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/Current")
-output_dir <- getwd()
+#setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/Current")
+#output_dir <- getwd()
 
-write.table((RS.df %>% dplyr::filter(model == GS_MODEL)),
-            file.path(output_dir, "rs_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
+#write.table((RS.df %>% dplyr::filter(model == GS_MODEL)),
+#            file.path(output_dir, "rs_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
 
-RIL.df <- rbind(read.csv("ril_results.csv"),
-                read.csv("../Sim_{2026-06-12_TIME/RRBLUP/ril_results.csv"))
+#RIL.df <- rbind(read.csv("ril_results.csv"),
+#                read.csv("../Sim_{2026-06-12_TIME/RRBLUP/ril_results.csv"))
 
-RS.df <- rbind(read.csv("rs_results.csv"),
-               read.csv("../Sim_2026-06-12_TIME/RRBLUP/rs_results.csv"))
+#RS.df <- rbind(read.csv("rs_results.csv"),
+#               read.csv("../Sim_2026-06-12_TIME/RRBLUP/rs_results.csv"))
 
 theme <- theme_minimal(base_size = 10,
                        base_family="Helvetica") +
@@ -113,7 +113,7 @@ gwp.df %>%
   dplyr::summarize(meanR=mean(r)) %>%
   write.csv(file.path(output_dir, "gwp_accuracy.csv"), quote=FALSE)
 
-for (GS_MODEL in c("RRBLUP")) {
+for (GS_MODEL in c("RRBLUP", "GBLUP")) {
   # Plot the GWP results by test scenario type
   gwp.df %>% dplyr::filter(model == GS_MODEL) %>%
     ggplot(aes(x=type, y=r, color=type)) +
@@ -235,19 +235,20 @@ for (GS_MODEL in c("RRBLUP")) {
       legend.position = "none",
     )
   
-  (ie_des | att_des)
+  (ie_des | att_des) + plot_annotation(tag_levels='a',
+                                     theme = theme(plot.tag = element_text(family = "Helvetica", size = 6)))
   
   ggplot2::ggsave(filename = paste0("gwp_ieDes_", GS_MODEL, ".jpg"),
                   path=output_dir,
                   device = "jpg",
-                  width=6.5,
-                  height=3,
+                  width=8,
+                  height=4,
                   dpi=600)
   ggplot2::ggsave(filename = paste0("gwp_ieDes_", GS_MODEL, ".pdf"),
                   path=output_dir,
                   device = "pdf",
-                  width=6.5,
-                  height=3)
+                  width=8,
+                  height=4)
   highIe <- 0.95 # quantile(gs.df$isoElite[gs.df$type == "Admixed"], 0.8)
   lowIe <- 0.8 #quantile(gs.df$isoElite[gs.df$type == "Admixed"], 0.25)
   
@@ -282,7 +283,7 @@ for (GS_MODEL in c("RRBLUP")) {
     dplyr::mutate(
       pt_fill = color_scheme[sel]
     ) %>%
-    dplyr::filter(sel %in% c("GS", "PS", "ieMAS + PS", "ieMAS + GS")) %>%
+    #dplyr::filter(sel %in% c("GS", "PS", "ieMAS + PS", "ieMAS + GS")) %>%
     dplyr::mutate(pop=paste0(type, " ", sel)) %>%
     dplyr::mutate(
       type=factor(type, levels=c("Admixed",
@@ -470,7 +471,10 @@ for (GS_MODEL in c("RRBLUP")) {
   
   ((plotAllCurvesW("GS") | plotAllCurvesW("ieMAS + GS", FALSE)) /
       (plotAllCurvesW("PS")  | plotAllCurvesW("ieMAS + PS", FALSE))) +
-    plot_layout(guides = "collect", axes = "collect")
+    plot_layout(guides = "collect", axes = "collect") +
+    plot_annotation(tag_levels='a',
+                    theme = theme(plot.tag = element_text(family = "Helvetica", size = 6)))
+  
   
   ggplot2::ggsave(filename = paste0("GS_vs_MAS_Curves_W_", GS_MODEL, ".jpg"),
                   path=output_dir,
@@ -510,7 +514,11 @@ for (GS_MODEL in c("RRBLUP")) {
       )
   }
   
-  (plotWByIe("Low") | plotWByIe("Moderate", FALSE) | plotWByIe("High", FALSE)) + plot_layout(guides = "collect", axes = "collect")
+  (plotWByIe("Low") | plotWByIe("Moderate", FALSE) | plotWByIe("High", FALSE)) +
+    plot_layout(guides = "collect", axes = "collect") +
+    plot_annotation(tag_levels='a',
+                    theme = theme(plot.tag = element_text(family = "Helvetica", size = 6)))
+    
   
   ggplot2::ggsave(filename = paste0("Methods_Curves_W_", GS_MODEL, ".jpg"),
                   path=output_dir,
@@ -790,13 +798,13 @@ for (GS_MODEL in c("RRBLUP")) {
                   path=output_dir,
                   device = "jpg",
                   width=6.5,
-                  height=3,
+                  height=4,
                   dpi=600)
   ggplot2::ggsave(filename = paste0("Heterozygosity_", GS_MODEL, ".pdf"),
                   path=output_dir,
                   device = "pdf",
                   width=6.5,
-                  height=3)
+                  height=4)
   
   # Plot R over cycles
   yearMean.df %>%

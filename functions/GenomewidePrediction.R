@@ -250,11 +250,11 @@ recurrentSelection <- function(basePop, parent1, parent2) {
   results_list <- list(cycleMetrics(basePop, 0, 0, "PS"),
                        cycleMetrics(basePop, 0, 0, "PS_ieMAS"),
                        cycleMetrics(basePop, 0, 0, "GS"),
-                       cycleMetrics(basePop, 0, 0, "ieMAS"))
-                       #cycleMetrics(basePop, 0, 0, "ieMAS_perfect"),
-                       #cycleMetrics(basePop, 0, 0, "ieMAS_low"),
-                       #cycleMetrics(basePop, 0, 0, "GS_noUpdate"),
-                       #cycleMetrics(basePop, 0, 0, "ieMAS_noUpdate"))
+                       cycleMetrics(basePop, 0, 0, "ieMAS"),
+                       cycleMetrics(basePop, 0, 0, "ieMAS_perfect"),
+                       cycleMetrics(basePop, 0, 0, "ieMAS_low"),
+                       cycleMetrics(basePop, 0, 0, "GS_noUpdate"),
+                       cycleMetrics(basePop, 0, 0, "ieMAS_noUpdate"))
 
   # Set phenotypes for base population
   basePop <- setPheno(basePop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding), reps=n.rilReps)
@@ -263,7 +263,7 @@ recurrentSelection <- function(basePop, parent1, parent2) {
   # Find all pairs of epistatic loci
   peaks <- epistaticLodPeaks(basePop, parent1, parent2, snpChip=2, trait=5)
   # Low resolution mapping
-  #low_res_peaks <- epistaticLodPeaks(basePop, parent1, parent2, snpChip=3, trait=5)
+  low_res_peaks <- epistaticLodPeaks(basePop, parent1, parent2, snpChip=3, trait=5)
   
   # Select the first cycle based on phenotype
   topRILs <- selectInd(basePop,
@@ -292,21 +292,21 @@ recurrentSelection <- function(basePop, parent1, parent2) {
   gsTrainPop <- c(topRILs, randLines)
   # This will be the same training population throughout all cycles
   gsTrainPop_HIGH <- gsTrainPop
-  #gsTrainPop_PERFECT <- gsTrainPop
-  #gsTrainPop_LOW <- gsTrainPop
-  #gsTrainPop_noUpdate <- gsTrainPop
-  #gsTrainPop_HIGH_noUpdate <- gsTrainPop
+  gsTrainPop_PERFECT <- gsTrainPop
+  gsTrainPop_LOW <- gsTrainPop
+  gsTrainPop_noUpdate <- gsTrainPop
+  gsTrainPop_HIGH_noUpdate <- gsTrainPop
   
   # Fit an RR-BLUP model to use initially for the GS populations
   if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
     # Train a model on the initial base population
     gsModel <- trainRRBLUPModel(gsTrainPop)
     gsModel_MAS_HIGH <- gsModel
-    #gsModel_MAS_PERFECT <- gsModel
-    #gsModel_MAS_LOW <- gsModel
-    #gsModel_MAS_HIGH_noUpdate <- gsModel
+    gsModel_MAS_PERFECT <- gsModel
+    gsModel_MAS_LOW <- gsModel
+    gsModel_MAS_HIGH_noUpdate <- gsModel
     # This model will not be updated throughout the recurrent selection
-    #gsModel_noUpdate <- gsModel
+    gsModel_noUpdate <- gsModel
   }
 
   # There are 3 years per phenotypic selection cycle
@@ -398,17 +398,17 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     # --------- SEASON 1 (WINTER) ---------
     results_list[[length(results_list) + 1]] <- cycleMetrics(gs_S0, season, cycle, "GS")
     results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_high_S0, season, cycle, "ieMAS")
-    #results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_perfect_S0, season, cycle, "ieMAS_perfect")
-    #results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_low_S0, season, cycle, "ieMAS_low")
-    #results_list[[length(results_list) + 1]] <- cycleMetrics(gs_noUpdate_S0, season, cycle, "GS_noUpdate")
-    #results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_high_noUpdate_S0, season, cycle, "ieMAS_noUpdate")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_perfect_S0, season, cycle, "ieMAS_perfect")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_low_S0, season, cycle, "ieMAS_low")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_noUpdate_S0, season, cycle, "GS_noUpdate")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_high_noUpdate_S0, season, cycle, "ieMAS_noUpdate")
     
     gs_S1 <- self(gs_S0)
     gsMAS_high_S1 <- self(gsMAS_high_S0)
-    #gsMAS_perfect_S1 <- self(gsMAS_perfect_S0)
-    #gsMAS_low_S1 <- self(gsMAS_low_S0)
-    #gs_noUpdate_S1 <- self(gs_noUpdate_S0)
-    #gsMAS_high_noUpdate_S1 <- self(gsMAS_high_noUpdate_S0)
+    gsMAS_perfect_S1 <- self(gsMAS_perfect_S0)
+    gsMAS_low_S1 <- self(gsMAS_low_S0)
+    gs_noUpdate_S1 <- self(gs_noUpdate_S0)
+    gsMAS_high_noUpdate_S1 <- self(gsMAS_high_noUpdate_S0)
     
     season <- season + 1
     
@@ -418,54 +418,54 @@ recurrentSelection <- function(basePop, parent1, parent2) {
       # If the new models do not fit any values, there is no genetic variance
       # in the population
       if (any(is.na(gsModel@gv[[1]]@addEff)) |
-          any(is.na(gsModel_MAS_HIGH@gv[[1]]@addEff))) {
-          #any(is.na(gsModel_MAS_PERFECT@gv[[1]]@addEff)) |
-          #any(is.na(gsModel_MAS_LOW@gv[[1]]@addEff)) |
-          #any(is.na(gsModel_noUpdate@gv[[1]]@addEff)) |
-          #any(is.na(gsModel_MAS_HIGH_noUpdate@gv[[1]]@addEff))) {
+          any(is.na(gsModel_MAS_HIGH@gv[[1]]@addEff)) |
+          any(is.na(gsModel_MAS_PERFECT@gv[[1]]@addEff)) |
+          any(is.na(gsModel_MAS_LOW@gv[[1]]@addEff)) |
+          any(is.na(gsModel_noUpdate@gv[[1]]@addEff)) |
+          any(is.na(gsModel_MAS_HIGH_noUpdate@gv[[1]]@addEff))) {
         return(do.call(rbind, results_list))
       }
       gs_S1 <- setEBV(gs_S1, gsModel)
       gsMAS_high_S1 <- setEBV(gsMAS_high_S1, gsModel_MAS_HIGH)
-      #gsMAS_perfect_S1 <- setEBV(gsMAS_perfect_S1, gsModel_MAS_PERFECT)
-      #gsMAS_low_S1 <- setEBV(gsMAS_low_S1, gsModel_MAS_LOW)
-      #gs_noUpdate_S1 <- setEBV(gs_noUpdate_S1, gsModel_noUpdate)
-      #gsMAS_high_noUpdate_S1 <- setEBV(gsMAS_high_noUpdate_S1, gsModel_noUpdate)
+      gsMAS_perfect_S1 <- setEBV(gsMAS_perfect_S1, gsModel_MAS_PERFECT)
+      gsMAS_low_S1 <- setEBV(gsMAS_low_S1, gsModel_MAS_LOW)
+      gs_noUpdate_S1 <- setEBV(gs_noUpdate_S1, gsModel_noUpdate)
+      gsMAS_high_noUpdate_S1 <- setEBV(gsMAS_high_noUpdate_S1, gsModel_noUpdate)
     } else if (GS_MODEL == "GBLUP") {
       gs_S1 <- calculateEBV_GBLUP(trainPop=gsTrainPop, testPop=gs_S1)
       gsMAS_high_S1 <- calculateEBV_GBLUP(trainPop=gsTrainPop_HIGH, testPop=gsMAS_high_S1)
-      #gsMAS_perfect_S1 <- calculateEBV_GBLUP(trainPop=gsTrainPop_PERFECT, testPop=gsMAS_perfect_S1)
-      #gsMAS_low_S1 <- calculateEBV_GBLUP(trainPop=gsTrainPop_LOW, testPop=gsMAS_low_S1)
-      #gs_noUpdate_S1 <- calculateEBV_GBLUP(trainPop=gsTrainPop_noUpdate, testPop=gs_noUpdate_S1)
-      #gsMAS_high_noUpdate_S1 <- calculateEBV_GBLUP(trainPop=gsTrainPop_HIGH_noUpdate, testPop=gsMAS_high_noUpdate_S1)
+      gsMAS_perfect_S1 <- calculateEBV_GBLUP(trainPop=gsTrainPop_PERFECT, testPop=gsMAS_perfect_S1)
+      gsMAS_low_S1 <- calculateEBV_GBLUP(trainPop=gsTrainPop_LOW, testPop=gsMAS_low_S1)
+      gs_noUpdate_S1 <- calculateEBV_GBLUP(trainPop=gsTrainPop_noUpdate, testPop=gs_noUpdate_S1)
+      gsMAS_high_noUpdate_S1 <- calculateEBV_GBLUP(trainPop=gsTrainPop_HIGH_noUpdate, testPop=gsMAS_high_noUpdate_S1)
     }
     
     results_list[[length(results_list) + 1]] <- cycleMetrics(gs_S1, season, cycle, "GS")
     results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_high_S1, season, cycle, "ieMAS")
-    #results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_perfect_S1, season, cycle, "ieMAS_perfect")
-    #results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_low_S1, season, cycle, "ieMAS_low")
-    #results_list[[length(results_list) + 1]] <- cycleMetrics(gs_noUpdate_S1, season, cycle, "GS_noUpdate")
-    #results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_high_noUpdate_S1, season, cycle, "ieMAS_noUpdate")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_perfect_S1, season, cycle, "ieMAS_perfect")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_low_S1, season, cycle, "ieMAS_low")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_noUpdate_S1, season, cycle, "GS_noUpdate")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_high_noUpdate_S1, season, cycle, "ieMAS_noUpdate")
 
     # Establish new training population by selecting the top lines from the populations by gebv
     gsTrainPop <- createTrainPop(curPop=gs_S1, prevTrainPop=gsTrainPop)
     gsTrainPop_HIGH <- createTrainPop(curPop=gsMAS_high_S1, prevTrainPop=gsTrainPop_HIGH)
-    #gsTrainPop_PERFECT <- createTrainPop(curPop=gsMAS_perfect_S1, prevTrainPop=gsTrainPop_PERFECT)
-    #gsTrainPop_LOW <- createTrainPop(curPop=gsMAS_low_S1, prevTrainPop=gsTrainPop_LOW)
+    gsTrainPop_PERFECT <- createTrainPop(curPop=gsMAS_perfect_S1, prevTrainPop=gsTrainPop_PERFECT)
+    gsTrainPop_LOW <- createTrainPop(curPop=gsMAS_low_S1, prevTrainPop=gsTrainPop_LOW)
     # RETRAIN MODELS
     if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
       gsModel <- trainRRBLUPModel(gsTrainPop)
       gsModel_MAS_HIGH <- trainRRBLUPModel(gsTrainPop_HIGH)
-      #gsModel_MAS_PERFECT <- trainRRBLUPModel(gsTrainPop_PERFECT)
-      #gsModel_MAS_LOW <- trainRRBLUPModel(gsTrainPop_LOW)
+      gsModel_MAS_PERFECT <- trainRRBLUPModel(gsTrainPop_PERFECT)
+      gsModel_MAS_LOW <- trainRRBLUPModel(gsTrainPop_LOW)
     }
     
     # MARKER-ASSISTED SELECTION
     if (cycle == 1) {
       gsMAS_high_S1 <- getMasInds(pop=gsMAS_high_S1, peaks=peaks, masSelInt=n.masSelInt, snpChip=2, useQtls=FALSE)
-      #gsMAS_perfect_S1 <- getMasInds(pop=gsMAS_perfect_S1, peaks=peaks, masSelInt=n.masSelInt, snpChip=2, useQtls=TRUE)
-      #gsMAS_low_S1 <- getMasInds(pop=gsMAS_low_S1, peaks=low_res_peaks, masSelInt=n.masSelInt, snpChip=3, useQtls=FALSE)
-      #gsMAS_high_noUpdate_S1 <- getMasInds(pop=gsMAS_high_noUpdate_S1, peaks=peaks, masSelInt=n.masSelInt, snpChip=2, useQtls=FALSE)
+      gsMAS_perfect_S1 <- getMasInds(pop=gsMAS_perfect_S1, peaks=peaks, masSelInt=n.masSelInt, snpChip=2, useQtls=TRUE)
+      gsMAS_low_S1 <- getMasInds(pop=gsMAS_low_S1, peaks=low_res_peaks, masSelInt=n.masSelInt, snpChip=3, useQtls=FALSE)
+      gsMAS_high_noUpdate_S1 <- getMasInds(pop=gsMAS_high_noUpdate_S1, peaks=peaks, masSelInt=n.masSelInt, snpChip=2, useQtls=FALSE)
     }
     
     # Select the top families, then the top individual out of those selected families,
@@ -480,10 +480,10 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     }
     gs_S0 <- advanceGsPop(gs_S1)
     gsMAS_high_S0 <- advanceGsPop(gsMAS_high_S1)
-    #gsMAS_perfect_S0 <- advanceGsPop(gsMAS_perfect_S1)
-    #gsMAS_low_S0 <- advanceGsPop(gsMAS_low_S1)
-    #gs_noUpdate_S0 <- advanceGsPop(gs_noUpdate_S1)
-    #gsMAS_high_noUpdate_S0 <- advanceGsPop(gsMAS_high_noUpdate_S1)
+    gsMAS_perfect_S0 <- advanceGsPop(gsMAS_perfect_S1)
+    gsMAS_low_S0 <- advanceGsPop(gsMAS_low_S1)
+    gs_noUpdate_S0 <- advanceGsPop(gs_noUpdate_S1)
+    gsMAS_high_noUpdate_S0 <- advanceGsPop(gsMAS_high_noUpdate_S1)
   
     season <- season + 1
   }
