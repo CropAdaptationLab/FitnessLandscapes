@@ -50,17 +50,21 @@ source("functions/TraitArchitecture.R")
 source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
-n.popResets <- 500
+n.popResets <- 1000
 # Number of adaptive walk replications per pair of subpopulations
 n.reps <- 1
 
 # Recurrent selection years
-n.Y <- 15
+n.Y <- 18
 
 # Phenotype to use for genomic selection
 GS_PHENO <- "pheno" # gv
 
 n.trainPopSize <- 400
+
+MIN_W <- 144
+
+MAX_W <- 148
 
 # Store the results of GWP from landrace into the RIL family
 RIL.list <- list()
@@ -69,7 +73,7 @@ RIL.list <- list()
 RS.list <- list()
 
 # All the parameter combinations to iterate through
-model_vec <- c("RRBLUP", "GBLUP")
+model_vec <- c("RRBLUP")
 
 output_dir <- file.path(base_dir, paste0("Sim_", format(Sys.time(), "%F_%H_%M")))
 if (!dir.exists(output_dir)) dir.create(output_dir)
@@ -139,6 +143,8 @@ for (GS_MODEL in model_vec) {
       isoElite_T2 <- isoEliteness(parent1, parent2, founderPop, 2)
       isoEliteAtt <- mean(c(isoElite_T1, isoElite_T2))
       isoElite_T3 <- isoEliteness(parent1, parent2, founderPop, 3)
+      
+      
 
       # Store admixed, within, and cross-population prediction accuracies
       RIL.list[[length(RIL.list) + 1]] <- data.frame(
@@ -157,18 +163,21 @@ for (GS_MODEL in model_vec) {
                         rCvP1=rCvP1,
                         rCvP2=rCvP2
                       )
-
-      # Run recurrent selection to improve the admixed RIL
-      RS.list[[length(RS.list) + 1]] <- recurrentSelection(RIL_admixed, parent1, parent2) %>%
-        dplyr::mutate(qtl=n.L,
-                      founder=f,
-                      rep=rep,
-                      model=GS_MODEL,
-                      type="Admixed",
-                      isoElite=isoEliteAtt,
-                      isoEliteDes=isoElite_T3,
-                      .before=1)
       
+      # Run recurrent selection to improve the admixed RIL
+      rs_result <- recurrentSelection(RIL_admixed, parent1, parent2)
+      if (length(rs_result) > 0) {
+        RS.list[[length(RS.list) + 1]] <- rs_result %>%
+          dplyr::mutate(qtl=n.L,
+                        founder=f,
+                        rep=rep,
+                        model=GS_MODEL,
+                        type="Admixed",
+                        isoElite=isoEliteAtt,
+                        isoEliteDes=isoElite_T3,
+                        .before=1)
+      }
+
       # Just calculate isoeliteness for the P1 unadmixed family
       isoElite_T1 <- isoEliteness(res_pop1[1], res_pop1[2], founderPop, 1)
       isoElite_T2 <- isoEliteness(res_pop1[1], res_pop1[2], founderPop, 2)
@@ -178,8 +187,10 @@ for (GS_MODEL in model_vec) {
       # Run recurrent selection to improve the unadmixed RIL
       # Only do this in even pop resets (because it's only being used as a negative control)
       # Only use P1
-      if (f %% 2 == 0) {
-        RS.list[[length(RS.list) + 1]] <- recurrentSelection(RIL_pop1, res_pop1[1], res_pop1[2]) %>%
+      #if (f %% 2 == 0) {
+      rs_result <- recurrentSelection(RIL_pop1, res_pop1[1], res_pop1[2])
+      if (length(rs_result) > 0) {
+        RS.list[[length(RS.list) + 1]] <- rs_result %>%
           dplyr::mutate(qtl=n.L,
                         founder=f,
                         rep=rep,

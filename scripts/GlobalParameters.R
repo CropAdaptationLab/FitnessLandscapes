@@ -60,6 +60,8 @@ n.families <- 200 # families per cycle
 n.topFamilies <- 40 # number of families to advance each cycle
 GS_PHENO <- "pheno" # Set to 'gv' or 'pheno'. For training the GWP model
 GS_MODEL <- "GBLUP" # Set to RRBLUP or GBLUP
+n.minW <- 144 # Minimum mean w for the top RILs to evaluate recurrent selection 
+n.maxW <- 148 # Maximum mean w for the top RILs to evaluate recurrent selection
 
 # PLOTTING
 saveQtlPlots <- FALSE # Save linkage map plots
@@ -150,7 +152,9 @@ getParams <- function() {
     families=n.families,
     topFamilies=n.topFamilies,
     GS_PHENO=GS_PHENO,
-    GS_MODEL=GS_MODEL
+    GS_MODEL=GS_MODEL,
+    minW=n.minW,
+    maxW=n.maxW
   )
   return (t(n.df))
 }
