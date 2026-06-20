@@ -13,17 +13,19 @@ library(patchwork)
 library(tibble)
 library(tidyr)
 
-setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/18_years_filtered")
-output_dir <- getwd()
+#setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/6_19_cycle2drop_179reps_withcontrols")
+#output_dir <- getwd()
 
 #write.table(RS.df, file.path(output_dir, "RRBLUP/rs_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
 #write.table(RIL.df, file.path(output_dir, "RRBLUP/ril_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
 
-RIL.df <- rbind(read.csv("../400_sims_21_years_unfiltered/RRBLUP/ril_results.csv"),
-                read.csv("../18_years_filtered/RRBLUP/ril_results.csv"))
+RIL.df <- rbind(read.csv("../6_19_cycle2drop_179reps_withcontrols/RRBLUP/ril_results.csv"))#,
+                #read.csv("..//RRBLUP/ril_results.csv"))
 
-RS.df <- rbind(read.csv("../400_sims_21_years_unfiltered/RRBLUP/rs_results.csv"),
-               read.csv("../18_years_filtered/RRBLUP/rs_results.csv"))
+RS.df <- rbind(read.csv("../6_19_cycle2drop_179reps_withcontrols/RRBLUP/rs_results.csv"))
+              # read.csv("../172sims_RRBLUP_postAllan_cycle2drop/RRBLUP/rs_results.csv"))
+
+
 
 theme <- theme_minimal(base_size = 10,
                        base_family="Helvetica") +

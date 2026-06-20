@@ -62,10 +62,6 @@ GS_PHENO <- "pheno" # gv
 
 n.trainPopSize <- 400
 
-MIN_W <- 144
-
-MAX_W <- 148
-
 # Store the results of GWP from landrace into the RIL family
 RIL.list <- list()
 
