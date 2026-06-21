@@ -13,19 +13,17 @@ library(patchwork)
 library(tibble)
 library(tidyr)
 
-#setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/6_19_cycle2drop_179reps_withcontrols")
+#setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/cycle1_noupdate_merged_6_21_772reps")
 #output_dir <- getwd()
 
 #write.table(RS.df, file.path(output_dir, "RRBLUP/rs_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
 #write.table(RIL.df, file.path(output_dir, "RRBLUP/ril_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
 
-RIL.df <- rbind(read.csv("../6_19_cycle2drop_179reps_withcontrols/RRBLUP/ril_results.csv"))#,
-                #read.csv("..//RRBLUP/ril_results.csv"))
+#RIL.df <- rbind(read.csv("../cycle1_noupdate_merged_6_21_772reps/RRBLUP/ril_results.csv"))
+#                read.csv("../NEW_DIR/RRBLUP/ril_results.csv"))
 
-RS.df <- rbind(read.csv("../6_19_cycle2drop_179reps_withcontrols/RRBLUP/rs_results.csv"))
-              # read.csv("../172sims_RRBLUP_postAllan_cycle2drop/RRBLUP/rs_results.csv"))
-
-
+#RS.df <- rbind(read.csv("../cycle1_noupdate_merged_6_21_772reps/RRBLUP/rs_results.csv"))
+#               read.csv("../NEW_DIR/RRBLUP/rs_results.csv"))
 
 theme <- theme_minimal(base_size = 10,
                        base_family="Helvetica") +
@@ -274,7 +272,7 @@ for (GS_MODEL in c("RRBLUP")) {
     dplyr::mutate(year = season/2) %>%
     dplyr::filter(year <= 18) %>%
     dplyr::group_by(founder, rep, type, sel) %>%
-    dplyr::filter(wGV[1] >= 144 & wGV[1] <= 148) %>%
+    dplyr::filter(wGV[1] >= n.minW & wGV[1] <= n.maxW) %>%
     dplyr::mutate(gain = wGV - wGV[1]) %>%
     dplyr::mutate(sel = case_when(
       sel == "ieMAS" ~ "ieMAS-GS",
@@ -295,7 +293,6 @@ for (GS_MODEL in c("RRBLUP")) {
     dplyr::mutate(
       pt_fill = color_scheme[sel]
     ) %>%
-    #dplyr::filter(sel %in% c("GS", "PS", "ieMAS-PS", "ieMAS-GS")) %>%
     dplyr::mutate(pop=paste0(type, " ", sel)) %>%
     dplyr::mutate(
       type=factor(type, levels=c("Admixed",
@@ -325,15 +322,16 @@ for (GS_MODEL in c("RRBLUP")) {
                                "Unadmixed GS (No Update)",
                                "Unadmixed ieMAS-GS (No Update)")))
   
-  table(gs.df[gs.df$type == "Admixed", "ie_cat"])
+  gs.df %>% 
+    filter(type == "Admixed") %>% 
+    group_by(founder) %>%
+    summarize(unique_founders = n_distinct(founder)) %>%
+    nrow()
   
   gs.df %>%
-    dplyr::filter(pop == "Admixed GS") %>%
-    dplyr::filter(c == 0) %>%
-    dplyr::ungroup() %>% 
-    dplyr::group_by(ie_cat) %>%
-    dplyr::summarize(wGV=mean(wGV))
-  
+    filter(type == "Admixed") %>%
+    group_by(ie_cat) %>%
+    summarize(unique_founders = n_distinct(founder))
   
   # Show the relationship between mean isoeliteness and breeding fitness in RIL family
   gs.df %>%
@@ -377,8 +375,9 @@ for (GS_MODEL in c("RRBLUP")) {
                      genHt = mean(genome_het),
                      attHt = mean(attained_het),
                      desHt = mean(desired_het),
-                     r = mean(r),
-                     gvar = mean(gvar))
+                     r_CI = 1.96*(sd(r) / sqrt(n())),
+                     r = mean(r, na.rm=TRUE),
+                     gvar = mean(gvar, na.rm=TRUE))
   
   minYearGain <- min(yearMean.df$gain-yearMean.df$gain_CI, na.rm=TRUE)
   maxYearGain <- max(yearMean.df$gain+yearMean.df$gain_CI, na.rm=TRUE)
@@ -483,7 +482,7 @@ for (GS_MODEL in c("RRBLUP")) {
         title = selType
       ) +
       scale_x_continuous(breaks=seq(from=0, to=n.Y, by=3)) +
-      scale_y_continuous(limits = c(minYearGain, maxYearGain)) +
+      scale_y_continuous(limits = c(-3, maxYearGain)) +
       theme +
       theme(
         axis.title.y = if (!ylabel) element_blank() else element_text(),
@@ -510,8 +509,11 @@ for (GS_MODEL in c("RRBLUP")) {
                   width=7,
                   height=5)
   
-  plotGainByIe <- function(ie, ylabel=TRUE) {
-    yearMean.df %>%
+  plotGainByIe <- function(df, ie, withControls=FALSE, ylabel=TRUE) {
+    if (!withControls) {
+      df <- df %>% dplyr::filter(sel %in% c("GS", "PS", "ieMAS-PS", "ieMAS-GS"))
+    }
+    df %>%
       dplyr::filter(type == "Admixed") %>%
       dplyr::filter(ie_cat == ie) %>%
       ggplot(aes(x = year, y = gain, group = sel, color=sel)) +
@@ -527,7 +529,7 @@ for (GS_MODEL in c("RRBLUP")) {
         title = paste0(ie, " ieMAS Founders"),
       ) +
       scale_x_continuous(breaks=seq(from=0, to=n.Y, by=3)) +
-      scale_y_continuous(limits = c(minYearGain, maxYearGain)) +
+      scale_y_continuous(limits = c(-3, maxYearGain)) +
       scale_color_sel +
       theme +
       theme(
@@ -536,12 +538,13 @@ for (GS_MODEL in c("RRBLUP")) {
       )
   }
   
-  (plotGainByIe("Low") | plotGainByIe("Moderate", FALSE) | plotGainByIe("High", FALSE)) +
+  (plotGainByIe(yearMean.df, "Low") |
+   plotGainByIe(yearMean.df, "Moderate", ylabel=FALSE) |
+   plotGainByIe(yearMean.df, "High", ylabel=FALSE)) +
     plot_layout(guides = "collect", axes = "collect") +
     plot_annotation(tag_levels='a',
                     theme = theme(plot.tag = element_text(family = "Helvetica", size = 6)))
     
-  
   ggplot2::ggsave(filename = paste0("Methods_Curves_Gain_", GS_MODEL, ".jpg"),
                   path=output_dir,
                   device = "jpg",
@@ -554,8 +557,27 @@ for (GS_MODEL in c("RRBLUP")) {
                   width=10,
                   height=4)
   
+  (plotGainByIe(yearMean.df, "Low", withControls=TRUE) |
+      plotGainByIe(yearMean.df, "Moderate", withControls=TRUE, ylabel=FALSE) |
+      plotGainByIe(yearMean.df, "High", withControls=TRUE, ylabel=FALSE)) +
+    plot_layout(guides = "collect", axes = "collect") +
+    plot_annotation(tag_levels='a',
+                    theme = theme(plot.tag = element_text(family = "Helvetica", size = 6)))
+  
+  ggplot2::ggsave(filename = paste0("Methods_Curves_Gain_Controls_", GS_MODEL, ".jpg"),
+                  path=output_dir,
+                  device = "jpg",
+                  width=10,
+                  height=4,
+                  dpi=600)
+  ggplot2::ggsave(filename = paste0("Methods_Curves_Gain_Controls_", GS_MODEL, ".pdf"),
+                  path=output_dir,
+                  device = "pdf",
+                  width=10,
+                  height=4)
+  
   geneticGain.df <- gs.df %>%
-    dplyr::filter(type == "Admixed", year %in% c(6, 12, 18)) %>% 
+    dplyr::filter(type == "Admixed", year %in% c(3, 9, 18)) %>% 
     dplyr::group_by(founder, rep, type, sel, ie_cat, year) %>%
     dplyr::summarize(
       gain = mean(gain, na.rm = TRUE),
@@ -563,7 +585,7 @@ for (GS_MODEL in c("RRBLUP")) {
       ie   = mean(isoElite, na.rm = TRUE),
       .groups = "drop"
     ) %>%
-    dplyr::mutate(year = factor(year, levels = c("6", "12", "18")))
+    dplyr::mutate(year = factor(year, levels = c("3", "9", "18")))
   
   global_bounds <- geneticGain.df %>%
     dplyr::group_by(ie_cat, year, sel) %>%
@@ -611,11 +633,13 @@ for (GS_MODEL in c("RRBLUP")) {
       )
   }
   
-  w6 <- plotGainByYear(geneticGain.df, "6")
-  w12 <- plotGainByYear(geneticGain.df, "12", FALSE)
+  w3 <- plotGainByYear(geneticGain.df, "3")
+  w9 <- plotGainByYear(geneticGain.df, "9", FALSE)
   w18 <- plotGainByYear(geneticGain.df, "18", FALSE)
   
-  (w6 | w12 | w18) + plot_layout(guides = "collect", axes = "collect")
+  (w3 | w9 | w18) + plot_layout(guides = "collect", axes = "collect") +
+    plot_annotation(tag_levels='a',
+                    theme = theme(plot.tag = element_text(family = "Helvetica", size = 6)))
   ggplot2::ggsave(filename = paste0("Methods_Discrete_Cycles_Gain_", GS_MODEL, ".jpg"),
                   path=output_dir,
                   device = "jpg",
@@ -677,11 +701,11 @@ for (GS_MODEL in c("RRBLUP")) {
       )
   }
   
-  w6_MAS <- plotGainByIe(geneticGain.df, "6")
-  w12_MAS <- plotGainByIe(geneticGain.df, "12", ylabel=FALSE)
+  w3_MAS <- plotGainByIe(geneticGain.df, "3")
+  w9_MAS <- plotGainByIe(geneticGain.df, "9", ylabel=FALSE)
   w18_MAS <- plotGainByIe(geneticGain.df, "18", ylabel=FALSE)
   
-  (w6_MAS | w12_MAS | w18_MAS) + plot_layout(guides = "collect", axes = "collect")
+  (w3_MAS | w9_MAS | w18_MAS) + plot_layout(guides = "collect", axes = "collect")
   ggplot2::ggsave(filename = paste0("DiscreteCycles_Gain_", GS_MODEL, ".jpg"),
                   path=output_dir,
                   device = "jpg",
@@ -795,12 +819,17 @@ for (GS_MODEL in c("RRBLUP")) {
       ggplot(aes(x = year, y = r, color = sel, group = sel)) +
       geom_line(na.rm = TRUE) +
       geom_point(na.rm = TRUE) +
+      geom_errorbar(aes(ymin = r - r_CI,
+                        ymax = r + r_CI),
+                    width = 0.2,
+                    linewidth = 0.2,
+                    alpha = 0.6) +
       labs(
         title = paste0(ie, " ieMAS Founders"),
         x = "Year",
         y = expression("GWP accuracy for breeding fitness (r"[MG]*")"),
       ) +
-      coord_cartesian(ylim = c(-0.05, 0.5)) +
+      coord_cartesian(ylim = c(-0.15, 0.55)) +
       scale_color_sel +
       theme +
       theme(
@@ -810,7 +839,9 @@ for (GS_MODEL in c("RRBLUP")) {
   }
   
   (plotRPerCycle("Low") | plotRPerCycle("Moderate", FALSE) | plotRPerCycle("High", FALSE)) +
-  plot_layout(guides = "collect", axes = "collect")
+  plot_layout(guides = "collect", axes = "collect") +
+    plot_annotation(tag_levels='a',
+                    theme = theme(plot.tag = element_text(family = "Helvetica", size = 6)))
   ggplot2::ggsave(filename = paste0("r_per_cycle_", GS_MODEL, ".jpg"),
                   path=output_dir,
                   device = "jpg",
