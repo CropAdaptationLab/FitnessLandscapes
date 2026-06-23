@@ -13,17 +13,25 @@ library(patchwork)
 library(tibble)
 library(tidyr)
 
-#setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/cycle1_noupdate_merged_6_21_772reps")
-#output_dir <- getwd()
+
+setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/cycle1_noupdate_merged_6_22_1237reps")
+output_dir <- getwd()
 
 #write.table(RS.df, file.path(output_dir, "RRBLUP/rs_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
 #write.table(RIL.df, file.path(output_dir, "RRBLUP/ril_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
 
-#RIL.df <- rbind(read.csv("../cycle1_noupdate_merged_6_21_772reps/RRBLUP/ril_results.csv"))
-#                read.csv("../NEW_DIR/RRBLUP/ril_results.csv"))
+RIL.df <- rbind(read.csv("RRBLUP/ril_results.csv"))
+#                read.csv("../cycle1_noupdate_6_21_465reps/RRBLUP/ril_results.csv"))
 
-#RS.df <- rbind(read.csv("../cycle1_noupdate_merged_6_21_772reps/RRBLUP/rs_results.csv"))
-#               read.csv("../NEW_DIR/RRBLUP/rs_results.csv"))
+RS.df <- rbind(read.csv("RRBLUP/rs_results.csv"))
+#               read.csv("../cycle1_noupdate_6_21_465reps/RRBLUP/rs_results.csv"))
+
+costs.df <- read.csv("gwp_costs.csv", check.names=FALSE) %>%
+  pivot_longer(
+    cols = -c(season, year),
+    names_to = "sel",
+    values_to = "cost_value"
+  )
 
 theme <- theme_minimal(base_size = 10,
                        base_family="Helvetica") +
@@ -64,7 +72,8 @@ scale_fill_sel <- scale_fill_manual(name = "Selection",
                                       values = color_scheme)
 
 scale_color_sel <- scale_color_manual(name = "Selection",
-                                    values = color_scheme)
+                                    values = color_scheme,
+                                    limits = c("GS", "ieMAS-GS", "ieMAS-PS", "PS"))
 
 # Determine a string representation of the correlation and significance
 sig_cor <- stat_cor(method="pearson",
@@ -377,7 +386,10 @@ for (GS_MODEL in c("RRBLUP")) {
                      desHt = mean(desired_het),
                      r_CI = 1.96*(sd(r) / sqrt(n())),
                      r = mean(r, na.rm=TRUE),
-                     gvar = mean(gvar, na.rm=TRUE))
+                     gvar = mean(gvar, na.rm=TRUE)) %>%
+    dplyr::left_join(costs.df, by = c("year", "sel")) %>%
+    dplyr::mutate(cost = cost_value / gain / 1000)
+    
   
   minYearGain <- min(yearMean.df$gain-yearMean.df$gain_CI, na.rm=TRUE)
   maxYearGain <- max(yearMean.df$gain+yearMean.df$gain_CI, na.rm=TRUE)
@@ -482,7 +494,7 @@ for (GS_MODEL in c("RRBLUP")) {
         title = selType
       ) +
       scale_x_continuous(breaks=seq(from=0, to=n.Y, by=3)) +
-      scale_y_continuous(limits = c(-3, maxYearGain)) +
+      scale_y_continuous(limits = c(-2, maxYearGain)) +
       theme +
       theme(
         axis.title.y = if (!ylabel) element_blank() else element_text(),
@@ -529,7 +541,7 @@ for (GS_MODEL in c("RRBLUP")) {
         title = paste0(ie, " ieMAS Founders"),
       ) +
       scale_x_continuous(breaks=seq(from=0, to=n.Y, by=3)) +
-      scale_y_continuous(limits = c(-3, maxYearGain)) +
+      scale_y_continuous(limits = c(-2, maxYearGain)) +
       scale_color_sel +
       theme +
       theme(
@@ -537,25 +549,7 @@ for (GS_MODEL in c("RRBLUP")) {
         axis.text.y = if (!ylabel) element_blank() else element_text()
       )
   }
-  
-  (plotGainByIe(yearMean.df, "Low") |
-   plotGainByIe(yearMean.df, "Moderate", ylabel=FALSE) |
-   plotGainByIe(yearMean.df, "High", ylabel=FALSE)) +
-    plot_layout(guides = "collect", axes = "collect") +
-    plot_annotation(tag_levels='a',
-                    theme = theme(plot.tag = element_text(family = "Helvetica", size = 6)))
-    
-  ggplot2::ggsave(filename = paste0("Methods_Curves_Gain_", GS_MODEL, ".jpg"),
-                  path=output_dir,
-                  device = "jpg",
-                  width=10,
-                  height=4,
-                  dpi=600)
-  ggplot2::ggsave(filename = paste0("Methods_Curves_Gain_", GS_MODEL, ".pdf"),
-                  path=output_dir,
-                  device = "pdf",
-                  width=10,
-                  height=4)
+
   
   (plotGainByIe(yearMean.df, "Low", withControls=TRUE) |
       plotGainByIe(yearMean.df, "Moderate", withControls=TRUE, ylabel=FALSE) |
@@ -575,6 +569,52 @@ for (GS_MODEL in c("RRBLUP")) {
                   device = "pdf",
                   width=10,
                   height=4)
+
+  plotCostByIe <- function(df, ie, withControls=FALSE, ylabel=TRUE) {
+    df %>% dplyr::filter(sel %in% c("GS", "PS", "ieMAS-PS", "ieMAS-GS")) %>%
+      dplyr::filter(year > 0) %>%
+      dplyr::filter(type == "Admixed") %>%
+      dplyr::filter(ie_cat == ie) %>%
+      ggplot(aes(x = year, y = cost, group = sel, color=sel)) +
+      geom_line(linewidth = 0.5) +
+      labs(
+        x = "Year",
+        y = "Cost / Units Gain\n(In $1000s of USD)",
+        title = paste0(ie, " ieMAS Founders"),
+      ) +
+      scale_x_continuous(breaks=seq(from=0, to=n.Y, by=3)) +
+      scale_y_continuous(limits = c(10, 60)) +
+      scale_color_sel +
+      theme +
+      theme(
+        axis.title.y = if (!ylabel) element_blank() else element_text(),
+        axis.text.y = if (!ylabel) element_blank() else element_text()
+      )
+  }
+  top_row <- (plotGainByIe(yearMean.df, "Low") |
+                plotGainByIe(yearMean.df, "Moderate", ylabel=FALSE) |
+                plotGainByIe(yearMean.df, "High", ylabel=FALSE))
+  
+  bottom_row <- (plotCostByIe(yearMean.df, "Low") |
+                   plotCostByIe(yearMean.df, "Moderate", ylabel=FALSE) |
+                   plotCostByIe(yearMean.df, "High", ylabel=FALSE)) & 
+    theme(legend.position = "none")
+  (top_row / bottom_row) +
+    plot_layout(guides = "collect", axes = "collect") +
+    plot_annotation(tag_levels='a',
+                    theme = theme(plot.tag = element_text(family = "Helvetica", size = 6)))
+  
+  ggplot2::ggsave(filename = paste0("Methods_Curves_Gain_", GS_MODEL, ".jpg"),
+                  path=output_dir,
+                  device = "jpg",
+                  width=8,
+                  height=6,
+                  dpi=600)
+  ggplot2::ggsave(filename = paste0("Methods_Curves_Gain_", GS_MODEL, ".pdf"),
+                  path=output_dir,
+                  device = "pdf",
+                  width=8,
+                  height=6)
   
   geneticGain.df <- gs.df %>%
     dplyr::filter(type == "Admixed", year %in% c(3, 9, 18)) %>% 
@@ -643,14 +683,14 @@ for (GS_MODEL in c("RRBLUP")) {
   ggplot2::ggsave(filename = paste0("Methods_Discrete_Cycles_Gain_", GS_MODEL, ".jpg"),
                   path=output_dir,
                   device = "jpg",
-                  width=10,
-                  height=4,
+                  width=8,
+                  height=3,
                   dpi=600)
   ggplot2::ggsave(filename = paste0("Methods_Discrete_Cycles_Gain_", GS_MODEL, ".pdf"),
                   path=output_dir,
                   device = "pdf",
-                  width=10,
-                  height=4)
+                  width=8,
+                  height=3)
   
   # Plot the breeding fitness per replicate as a boxplot
   plotGainByIe <- function(df, years, ylabel=TRUE) {

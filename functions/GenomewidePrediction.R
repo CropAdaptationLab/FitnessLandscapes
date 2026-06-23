@@ -389,6 +389,8 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     psMAS_S5 <- setPheno(psMAS_S5, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding), reps=4)
     results_list[[length(results_list) + 1]] <- cycleMetrics(ps_S5, season, cycle, "PS")
     results_list[[length(results_list) + 1]] <- cycleMetrics(psMAS_S5, season, cycle, "PS_ieMAS")
+    
+    # TODO IS THIS TOO EFFECTIVE? SHOULD SELECT RANDOMLY?
     ps_topLines <- selectWithinFam(ps_S5, nInd=1, trait=breedingFitness)
     psMAS_topLines <- selectWithinFam(psMAS_S5, nInd=1, trait=breedingFitness)
     
