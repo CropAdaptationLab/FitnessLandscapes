@@ -54,9 +54,6 @@ n.popResets <- 2000
 # Number of adaptive walk replications per pair of subpopulations
 n.reps <- 1
 
-# Recurrent selection years
-n.Y <- 18
-
 # Phenotype to use for genomic selection
 GS_PHENO <- "pheno" # gv
 

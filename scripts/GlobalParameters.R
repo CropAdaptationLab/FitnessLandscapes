@@ -49,7 +49,7 @@ n.RILs <- 250 # number of RILs to create
 n.indPerRIL <- 4 # number of replicates in each RIL
 
 # GENOMIC SELECTION
-n.Y <- 15 # Years of recurrent selection
+n.Y <- 18 # Years of recurrent selection
 n.recurPopSize <- 1000 # Size of the recurrently improved population
 n.GSmarkers <- 100 # Markers per chromosome to use for GWP
 n.LRmarkers <- 20 # Low-resolution SNP array
