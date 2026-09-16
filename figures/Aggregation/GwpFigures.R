@@ -624,11 +624,11 @@ for (GS_MODEL in c("RRBLUP")) {
 
   plotCostByIe <- function(df, ie, withControls=FALSE, cost_var="unit_cost_low_high", ylabel=TRUE) {
     if (cost_var == "unit_cost_low_high") {
-      yrange <- c(0,16)
+      yrange <- c(1,16)
     } else if (cost_var == "unit_cost_low_low") {
-      yrange <- c(0, 16)
+      yrange <- c(1, 5)
     } else if (cost_var == "unit_cost_high_high") {
-      yrange <- c(7, 31)
+      yrange <- c(10, 32)
     } else if (cost_var == "unit_cost_high_low") {
       yrange <- c(7, 31)
     }
@@ -650,18 +650,13 @@ for (GS_MODEL in c("RRBLUP")) {
       theme +
       theme(
         axis.title.y = if (!ylabel) element_blank() else element_text(),
+        plot.title = element_blank()
         #axis.text.y = if (!ylabel) element_blank() else element_text()
       )
   }
-  top_row <- (plotGainByIe(yearMean.df, "Low") |
-                plotGainByIe(yearMean.df, "Moderate", ylabel=FALSE) |
-                plotGainByIe(yearMean.df, "High", ylabel=FALSE))
-  
-  bottom_row <- (plotCostByIe(yearMean.df, "Low") |
-                   plotCostByIe(yearMean.df, "Moderate", ylabel=FALSE) |
-                   plotCostByIe(yearMean.df, "High", ylabel=FALSE)) & 
-    theme(legend.position = "none")
-  (top_row / bottom_row) +
+  (plotGainByIe(yearMean.df, "Low") |
+    plotGainByIe(yearMean.df, "Moderate", ylabel=FALSE) |
+    plotGainByIe(yearMean.df, "High", ylabel=FALSE)) +
     plot_layout(guides = "collect", axes = "collect") +
     plot_annotation(tag_levels='a',
                     theme = theme(plot.tag = element_text(family = "Helvetica", size = 6)))
@@ -669,36 +664,42 @@ for (GS_MODEL in c("RRBLUP")) {
   ggplot2::ggsave(filename = paste0("Methods_Curves_Gain_", GS_MODEL, ".jpg"),
                   path=output_dir,
                   device = "jpg",
-                  width=9,
-                  height=7,
+                  width=10,
+                  height=4,
                   dpi=600)
   ggplot2::ggsave(filename = paste0("Methods_Curves_Gain_", GS_MODEL, ".pdf"),
                   path=output_dir,
                   device = "pdf",
-                  width=9,
-                  height=7)
+                  width=10,
+                  height=4)
   
-  cost_low_high <- (plotCostByIe(yearMean.df, "Low", cost_var="unit_cost_low_high") |
-                   plotCostByIe(yearMean.df, "Moderate", cost_var="unit_cost_low_high", ylabel=FALSE) |
-                   plotCostByIe(yearMean.df, "High", cost_var="unit_cost_low_high", ylabel=FALSE)) & 
-    theme(legend.position = "none")
+  col_label <- function(label) {
+    wrap_elements(full = textGrob(label, gp = gpar(fontsize = 8, fontface = "bold", fontfamily = "Helvetica")))
+  }
   
-  cost_low_low <- (plotCostByIe(yearMean.df, "Low", cost_var="unit_cost_low_low") |
-                       plotCostByIe(yearMean.df, "Moderate", cost_var="unit_cost_low_low", ylabel=FALSE) |
-                       plotCostByIe(yearMean.df, "High", cost_var="unit_cost_low_low", ylabel=FALSE)) & 
+  row_label <- function(label) {
+    wrap_elements(full = textGrob(label, rot = 90, gp = gpar(fontsize = 8, fontface = "bold", fontfamily = "Helvetica")))
+  }
+  
+  plot_spacer() + col_label("Low Founders isoMAS") + col_label("Moderate Founders isoMAS") + col_label("High Founders isoMAS") +
+    row_label("Low Labor,\nHigh Sequencing") +
+       plotCostByIe(yearMean.df, "Low", cost_var="unit_cost_low_high", ylabel=TRUE) +
+       plotCostByIe(yearMean.df, "Moderate", cost_var="unit_cost_low_high", ylabel=FALSE) +
+       plotCostByIe(yearMean.df, "High", cost_var="unit_cost_low_high", ylabel=FALSE) +
+    row_label("Low Labor,\nLow Sequencing") +
+      plotCostByIe(yearMean.df, "Low", cost_var="unit_cost_low_low", ylabel=TRUE) +
+      plotCostByIe(yearMean.df, "Moderate", cost_var="unit_cost_low_low", ylabel=FALSE) +
+      plotCostByIe(yearMean.df, "High", cost_var="unit_cost_low_low", ylabel=FALSE) +
+    row_label("High Labor,\nHigh Sequencing") +
+       plotCostByIe(yearMean.df, "Low", cost_var="unit_cost_high_high", ylabel=TRUE) +
+       plotCostByIe(yearMean.df, "Moderate", cost_var="unit_cost_high_high", ylabel=FALSE) +
+       plotCostByIe(yearMean.df, "High", cost_var="unit_cost_high_high", ylabel=FALSE) +
+    row_label("High Labor,\nLow Sequencing") +
+      plotCostByIe(yearMean.df, "Low", cost_var="unit_cost_high_low", ylabel=TRUE) +
+      plotCostByIe(yearMean.df, "Moderate", cost_var="unit_cost_high_low", ylabel=FALSE) +
+      plotCostByIe(yearMean.df, "High", cost_var="unit_cost_high_low", ylabel=FALSE) +
+    plot_layout(nrow=5, ncol= 4, heights=c(0.2, 1, 1, 1, 1), widths=c(0.2, 1, 1, 1), guides = "collect", axes = "collect") &
     theme(legend.position = "none")
-  cost_high_high <- (plotCostByIe(yearMean.df, "Low", cost_var="unit_cost_high_high") |
-                       plotCostByIe(yearMean.df, "Moderate", cost_var="unit_cost_high_high", ylabel=FALSE) |
-                       plotCostByIe(yearMean.df, "High", cost_var="unit_cost_high_high", ylabel=FALSE)) & 
-    theme(legend.position = "none")
-  cost_high_low <- (plotCostByIe(yearMean.df, "Low", cost_var="unit_cost_high_low") |
-                       plotCostByIe(yearMean.df, "Moderate", cost_var="unit_cost_high_low", ylabel=FALSE) |
-                       plotCostByIe(yearMean.df, "High", cost_var="unit_cost_high_low", ylabel=FALSE)) & 
-    theme(legend.position = "none")
-  (cost_low_high / cost_low_low / cost_high_high / cost_high_low) +
-    plot_layout(guides = "collect", axes = "collect") +
-    plot_annotation(tag_levels='a',
-                    theme = theme(plot.tag = element_text(family = "Helvetica", size = 6)))
   
   ggplot2::ggsave(filename = paste0("Costs_", GS_MODEL, ".jpg"),
                   path=output_dir,

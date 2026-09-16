@@ -50,14 +50,13 @@ source("functions/TraitArchitecture.R")
 source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
-n.popResets <- 2000
+# !!UNCOMMENT LINES 282!!
+n.popResets <- 10
 # Number of adaptive walk replications per pair of subpopulations
 n.reps <- 1
 
 # Phenotype to use for genomic selection
 GS_PHENO <- "pheno" # gv
-
-n.trainPopSize <- 400
 
 # Store the results of GWP from landrace into the RIL family
 RIL.list <- list()
@@ -79,7 +78,7 @@ for (GS_MODEL in model_vec) {
   if (!dir.exists(sim_dir)) dir.create(sim_dir)
   
   # Reset the founder population n.popResets times
-  for (f in 1238:n.popResets) {
+  for (f in 1:n.popResets) {
     pop_dir <- file.path(sim_dir, paste0("FounderPopulation", f))
     if (!dir.exists(pop_dir)) dir.create(pop_dir)
     print(paste0("Founder Reset ", f))
