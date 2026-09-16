@@ -141,14 +141,17 @@ createTrainPop <- function(curPop,
 }
 
 # Calculates metrics for a population at a particular cycle
-# pop: An AlphaSimR population
+# founders: The founder lines of the next cycle
+# season: The season number
+# cycle: The cycle number
 # sel: The selection type (e.g. "GS", "PS", etc.)
+# pop: The initial population for that cycle
 # Returns: a dataframe tabulating all metrics
-cycleMetrics <- function(pop, season, cycle, sel) {
+cycleMetrics <- function(founders, pop, season, cycle, sel) {
   # Calulate accuracy of predictions
   r <- NA
   if (!(sel %in% c("PS", "PSieMAS"))) {
-    r <- cor(calculateW_GWP(gv(pop)), ebv(pop))[1]
+    suppressWarnings(r <- cor(calculateW_GWP(gv(founders)), ebv(founders))[1])
   }
   
   # Genome-wide heterozygosity
@@ -159,13 +162,13 @@ cycleMetrics <- function(pop, season, cycle, sel) {
   desired_het <- meanHetLocus(pullQtlGeno(pop, trait=3))
   
   # Calculate mean breeding fitness of GS population
-  w <- as.data.frame(pheno(pop)) %>%
+  w <- as.data.frame(pheno(founders)) %>%
     dplyr::mutate(w=calculateBreedingFitness(Trait1, Trait2, Trait3)) %>%
     dplyr::summarize(meanW=mean(w)) %>%
     pull(meanW)
   
   # Calculate w based on genetic values
-  wGV <- as.data.frame(gv(pop)) %>%
+  wGV <- as.data.frame(gv(founders)) %>%
     dplyr::mutate(w=calculateBreedingFitness(Trait1, Trait2, Trait3)) %>%
     dplyr::summarize(meanW=mean(w)) %>%
     pull(meanW)
@@ -180,7 +183,7 @@ cycleMetrics <- function(pop, season, cycle, sel) {
     genome_het=genome_het,
     attained_het=attained_het,
     desired_het=desired_het,
-    gvar=varG(pop)[3,3]))
+    gvar=varG(founders)[3,3]))
 }
 
 # Carry out marker-assisted selection
@@ -279,9 +282,9 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     dplyr::summarize(meanW=mean(w)) %>%
     pull(meanW)
   
-  if (wGV < n.minW | wGV > n.maxW) {
-    return (list())
-  }
+  #if (wGV < n.minW | wGV > n.maxW) {
+  #  return (list())
+  #}
 
   # 2D linkage mapping
   # Find all pairs of epistatic loci
@@ -290,23 +293,23 @@ recurrentSelection <- function(basePop, parent1, parent2) {
   low_res_peaks <- epistaticLodPeaks(basePop, parent1, parent2, snpChip=3, trait=5)
 
   # For storing results
-  results_list <- list(cycleMetrics(topRILs, 0, 0, "PS"),
-                       cycleMetrics(topRILs, 0, 0, "PS_ieMAS"),
-                       cycleMetrics(topRILs, 0, 0, "GS"),
-                       cycleMetrics(topRILs, 0, 0, "ieMAS"),
-                       cycleMetrics(topRILs, 0, 0, "ieMAS_perfect"),
-                       cycleMetrics(topRILs, 0, 0, "ieMAS_low"),
-                       cycleMetrics(topRILs, 0, 0, "GS_noUpdate"),
-                       cycleMetrics(topRILs, 0, 0, "ieMAS_noUpdate"))
+  results_list <- list(cycleMetrics(topRILs, basePop, 0, 0, "PS"),
+                       cycleMetrics(topRILs, basePop, 0, 0, "isoMAS-PS"),
+                       cycleMetrics(topRILs, basePop, 0, 0, "GS"),
+                       cycleMetrics(topRILs, basePop, 0, 0, "isoMAS-GS"),
+                       cycleMetrics(topRILs, basePop, 0, 0, "isoMAS-GS_perfect"),
+                       cycleMetrics(topRILs, basePop, 0, 0, "isoMAS-GS_low"),
+                       cycleMetrics(topRILs, basePop, 0, 0, "GS_noUpdate"),
+                       cycleMetrics(topRILs, basePop, 0, 0, "isoMAS-GS_noUpdate"))
 
   ps_S0 <- randCross(topRILs,
                      nCrosses=n.families,
-                     nProgeny=10)
+                     nProgeny=20)
   ps_S0 <- setPheno(ps_S0, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
   psMAS_S0 <- ps_S0
   gs_S0 <- randCross(topRILs,
                      nCrosses=n.families,
-                     nProgeny=10)
+                     nProgeny=5)
   gs_S0 <- setPheno(gs_S0, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
   gsMAS_S0 <- gs_S0
   gsMAS_PERFECT_S0 <- gs_S0
@@ -315,7 +318,7 @@ recurrentSelection <- function(basePop, parent1, parent2) {
   gsMAS_noUpdate_S0 <- gs_S0
   
   # Initial training population is the top 40 RILs, selected by phenotype, plus
-  # 360 randomly chosen RILs from the remaining 960 lines
+  # n-40 randomly chosen RILs from the remaining 960 lines
   randLines <- selectInd(basePop[-match(topRILs@id, basePop@id)],
                          use="rand",
                          nInd=n.trainPopSize-n.topFamilies)
@@ -340,68 +343,65 @@ recurrentSelection <- function(basePop, parent1, parent2) {
   }
 
   # There are 3 years per phenotypic selection cycle
-  PHENO_CYCLES <- n.Y / 3
+  PHENO_CYCLES <- n.Y / 4
   
   # PHENOTYPIC SELECTION
-  season <- 1
-  for (cycle in 1:PHENO_CYCLES) {
+  psCycle <- function(ps_S0, isoMAS, results_list) {
+    
     # --------- SEASON 1 (WINTER) ---------
     ps_S1 <- self(ps_S0)
-    psMAS_S1 <- self(psMAS_S0)
-    season <- season + 1
     
     # --------- SEASON 2 (SUMMER) ---------
     ps_S1 <- removeOffTypes(ps_S1)
-    ps_S2 <- self(ps_S1)
-    # MAS
-    psMAS_S1 <- removeOffTypes(psMAS_S1)
-    if (cycle == 1) {
-      psMAS_S1 <- getMasInds(pop=psMAS_S1, peaks=peaks, parent1=parent1, parent2=parent2, masSelInt=n.masSelInt, snpChip=2, useQtls=FALSE)
+    # isoMAS
+    if (isoMAS & cycle == 1) {
+      ps_S1 <- getMasInds(pop=ps_S1,
+                          peaks=peaks,
+                          parent1=parent1,
+                          parent2=parent2,
+                          masSelInt=n.masSelInt,
+                          snpChip=2,
+                          useQtls=FALSE)
     }
-    psMAS_S2 <- self(psMAS_S1, nProgeny=4)
+    ps_S2 <- self(ps_S1)
     
-    season <- season + 1
-
     # --------- SEASON 3 (WINTER) ---------
-    ps_S3 <- self(ps_S2, keepParents=FALSE, nProgeny=10)
-    psMAS_S3 <- self(psMAS_S2, keepParents=FALSE, nProgeny=10)
-    season <- season + 1
+    ps_S3 <- self(ps_S2)
     
     # --------- SEASON 4 (SUMMER) ---------
-    ps_S3 <- setPheno(ps_S3, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
-    psMAS_S3 <- setPheno(psMAS_S3, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
-    # Make selections based on realized yield
-    ps_S3 <- selectFam(ps_S3, trait=breedingFitness, nFam=n.topFamilies)
-    ps_S3 <- selectWithinFam(ps_S3, nInd=1, trait=breedingFitness)
-    ps_S4 <- self(ps_S3)
-    psMAS_S3 <- selectFam(psMAS_S3, trait=breedingFitness, nFam=n.topFamilies)
-    psMAS_S3 <- selectWithinFam(psMAS_S3, nInd=1, trait=breedingFitness)
-    psMAS_S4 <- self(psMAS_S3)
-    season <- season + 1
+    ps_S3 <- selectWithinFam(ps_S3, nInd=2, trait=suitability)
+    ps_S3 <- self(ps_S3, nProgeny=20, keepParents=FALSE)
     
     # --------- SEASON 5 (WINTER) ---------
-    ps_S5 <- self(ps_S4, nProgeny=10)
-    psMAS_S5 <- self(psMAS_S4, nProgeny=10)
-    season <- season + 1
+    ps_S4 <- self(ps_S3, nProgeny=3)
     
     # --------- SEASON 6 (SUMMER) ---------
-    ps_S5 <- setPheno(ps_S5, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding), reps=4)
-    psMAS_S5 <- setPheno(psMAS_S5, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding), reps=4)
-    results_list[[length(results_list) + 1]] <- cycleMetrics(ps_S5, season, cycle, "PS")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(psMAS_S5, season, cycle, "PS_ieMAS")
+    ps_S4 <- selectFam(ps_S4, nFam=n.topFamilies, trait=breedingFitness)
+    ps_S4 <- selectWithinFam(ps_S4, nInd=1, use="rand")
+    ps_S5 <- self(ps_S4, nProgeny=20)
     
-    # TODO IS THIS TOO EFFECTIVE? SHOULD SELECT RANDOMLY?
-    ps_topLines <- selectWithinFam(ps_S5, nInd=1, trait=breedingFitness)
-    psMAS_topLines <- selectWithinFam(psMAS_S5, nInd=1, trait=breedingFitness)
+    # --------- SEASON 7 (WINTER) ---------
+    ps_S6 <- self(ps_S5)
     
+    # --------- SEASON 7 (SUMMER) ---------
+    ps_topLines <- selectWithinFam(ps_S6, nInd=1, use="rand")
+    return (ps_topLines)
+  }
+  for (cycle in 1:PHENO_CYCLES) {
+    ps_topLines <- psCycle(ps_S0, FALSE, results_list)
+    results_list[[length(results_list) + 1]] <- cycleMetrics(ps_topLines, cycle*8, cycle, "PS")
     ps_S0 <- randCross(ps_topLines,
                        nCrosses=n.families,
-                       nProgeny=10)
+                       nProgeny=20)
+    
+    
+    psMAS_topLines <- psCycle(psMAS_S0, FALSE, results_list)
+    results_list[[length(results_list) + 1]] <- cycleMetrics(psMAS_topLines, ps_S0, cycle*8, cycle, "isoMAS-PS")
     psMAS_S0 <- randCross(psMAS_topLines,
-                           nCrosses=n.families,
-                           nProgeny=10)
-    season <- season + 1
+                       nCrosses=n.families,
+                       nProgeny=20)
   }
+    
   
   # GENOMIC SELECTION
   season <- 1
@@ -416,10 +416,10 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     gsMAS_noUpdate_S1 <- self(gsMAS_noUpdate_S0)
   
     if (cycle > 1) {
-      gs_YT <- self(gs_S2, nProgeny=10)
-      gsMAS_YT <- self(gsMAS_S2, nProgeny=10)
-      gsMAS_PERFECT_YT <- self(gsMAS_PERFECT_S2, nProgeny=10)
-      gsMAS_LOW_YT <- self(gsMAS_LOW_S2, nProgeny=10)
+      gs_YT <- self(gs_S2, nProgeny=3)
+      gsMAS_YT <- self(gsMAS_S2, nProgeny=3)
+      gsMAS_PERFECT_YT <- self(gsMAS_PERFECT_S2, nProgeny=3)
+      gsMAS_LOW_YT <- self(gsMAS_LOW_S2, nProgeny=3)
     }
 
     season <- season + 1
@@ -469,58 +469,55 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     }
     
     # Select the top 2 individuals out of the selected families
-    selectTopLinesFams <- function(pop) {
+    selectTopLines <- function(pop) {
       # Filter to just the families with at least 2 individuals
       candidates <- data.frame(id=as.vector(pop@id),
                             mother=as.vector(pop@mother),
                             father=as.vector(pop@father)) %>%
         dplyr::mutate(fam=paste(mother,father,sep="_")) %>%
         dplyr::add_count(fam, name="fam_size") %>%
-        dplyr::filter(fam_size >= 3) %>%
+        dplyr::filter(fam_size >= 2) %>%
         dplyr::pull(id)
 
       topFams <- selectFam(pop, nFam=n.topFamilies, candidates=candidates, use="ebv")
-      topLines <- selectWithinFam(topFams, nInd=1, use="ebv")
-      topFams <- topFams[-match(topLines@id, topFams@id)]
-      return(list(topLines, topFams))
+      topLines <- selectWithinFam(topFams, nInd=2, use="ebv")
+      recycledLines <- selectWithinFam(topLines, nInd=1, use="ebv")
+      ytLines <- topLines[-match(recycledLines@id, topLines@id)]
+      return(list(recycledLines, ytLines))
     }
     
-    gs_S1_topLinesFams <- selectTopLinesFams(gs_S1)
-    gsMAS_S1_topLinesFams <- selectTopLinesFams(gsMAS_S1)
-    gsMAS_PERFECT_S1_topLinesFams <- selectTopLinesFams(gsMAS_PERFECT_S1)
-    gsMAS_LOW_S1_topLinesFams <- selectTopLinesFams(gsMAS_LOW_S1)
-    gs_noUpdate_S1_topLinesFams <- selectTopLinesFams(gs_noUpdate_S1)
-    gsMAS_noUpdate_S1_topLinesFams <- selectTopLinesFams(gsMAS_noUpdate_S1)
+    gs_S1_topLines <- selectTopLines(gs_S1)
+    gsMAS_S1_topLines <- selectTopLines(gsMAS_S1)
+    gsMAS_PERFECT_S1_topLines <- selectTopLines(gsMAS_PERFECT_S1)
+    gsMAS_LOW_S1_topLines <- selectTopLines(gsMAS_LOW_S1)
+    gs_noUpdate_S1_topLines <- selectTopLines(gs_noUpdate_S1)
+    gsMAS_noUpdate_S1_topLines <- selectTopLines(gsMAS_noUpdate_S1)
 
-    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_S1_topLinesFams[[1]], season, cycle, "GS")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_S1_topLinesFams[[1]], season, cycle, "ieMAS")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_PERFECT_S1_topLinesFams[[1]], season, cycle, "ieMAS_perfect")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_LOW_S1_topLinesFams[[1]], season, cycle, "ieMAS_low")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_noUpdate_S1_topLinesFams[[1]], season, cycle, "GS_noUpdate")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_noUpdate_S1_topLinesFams[[1]], season, cycle, "ieMAS_noUpdate")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_S1_topLines[[1]], gs_S0, season, cycle, "GS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_S1_topLines[[1]], gsMAS_S0, season, cycle, "isoMAS-GS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_PERFECT_S1_topLines[[1]], gsMAS_PERFECT_S0, season, cycle, "isoMAS-GS_perfect")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_LOW_S1_topLines[[1]], gsMAS_LOW_S0, season, cycle, "isoMAS-GS_low")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_noUpdate_S1_topLines[[1]], gs_noUpdate_S0, season, cycle, "GS_noUpdate")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_noUpdate_S1_topLines[[1]], gsMAS_noUpdate_S0, season, cycle, "isoMAS-GS_noUpdate")
     
     # Close the cycle, and advance the selected founders for a yield trial
     
-    # The top individual from each family is used for intermating, and two random
-    # others are used for yield trials
-    gs_S0 <- randCross(gs_S1_topLinesFams[[1]], nCrosses=n.families, nProgeny=10)
-    gs_S2 <- selectWithinFam(gs_S1_topLinesFams[[2]], nInd=2, use="rand")
-    gs_S2 <- self(gs_S2, keepParents=FALSE, nProgeny=1)
+    # The top individual from each family is used for intermating, and the second
+    # best is used for yield trials
+    gs_S0 <- randCross(gs_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
+    gs_S2 <- self(gs_S1_topLines[[2]], keepParents=FALSE, nProgeny=20)
   
-    gsMAS_S0 <- randCross(gsMAS_S1_topLinesFams[[1]], nCrosses=n.families, nProgeny=10)
-    gsMAS_S2 <- selectWithinFam(gsMAS_S1_topLinesFams[[2]], nInd=2, use="rand")
-    gsMAS_S2 <- self(gsMAS_S2, keepParents=FALSE, nProgeny=1)
+    gsMAS_S0 <- randCross(gsMAS_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
+    gsMAS_S2 <- self(gsMAS_S1_topLines[[2]], keepParents=FALSE, nProgeny=20)
     
-    gsMAS_PERFECT_S0 <- randCross(gsMAS_PERFECT_S1_topLinesFams[[1]], nCrosses=n.families, nProgeny=10)
-    gsMAS_PERFECT_S2 <- selectWithinFam(gsMAS_PERFECT_S1_topLinesFams[[2]], nInd=2, use="rand")
-    gsMAS_PERFECT_S2 <- self(gsMAS_PERFECT_S2, keepParents=FALSE, nProgeny=1)
+    gsMAS_PERFECT_S0 <- randCross(gsMAS_PERFECT_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
+    gsMAS_PERFECT_S2 <- self(gsMAS_PERFECT_S1_topLines[[2]], keepParents=FALSE, nProgeny=20)
     
-    gsMAS_LOW_S0 <- randCross(gsMAS_LOW_S1_topLinesFams[[1]], nCrosses=n.families, nProgeny=10)
-    gsMAS_LOW_S2 <- selectWithinFam(gsMAS_LOW_S1_topLinesFams[[2]], nInd=2, use="rand")
-    gsMAS_LOW_S2 <- self(gsMAS_LOW_S2, keepParents=FALSE, nProgeny=1)
+    gsMAS_LOW_S0 <- randCross(gsMAS_LOW_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
+    gsMAS_LOW_S2 <- self(gsMAS_LOW_S1_topLines[[2]], keepParents=FALSE, nProgeny=20)
     
-    gs_noUpdate_S0 <- randCross(gs_noUpdate_S1_topLinesFams[[1]], nCrosses=n.families, nProgeny=10)
-    gsMAS_noUpdate_S0 <- randCross(gsMAS_noUpdate_S1_topLinesFams[[1]], nCrosses=n.families, nProgeny=10)
+    gs_noUpdate_S0 <- randCross(gs_noUpdate_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
+    gsMAS_noUpdate_S0 <- randCross(gsMAS_noUpdate_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
 
     # Establish new training population based on a yield trial
     # In cycle 1, this is just based on the S1 families
