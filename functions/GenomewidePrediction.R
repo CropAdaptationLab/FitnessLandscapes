@@ -282,9 +282,9 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     dplyr::summarize(meanW=mean(w)) %>%
     pull(meanW)
   
-  #if (wGV < n.minW | wGV > n.maxW) {
-  #  return (list())
-  #}
+  if (wGV < n.minW | wGV > n.maxW) {
+    return (list())
+  }
 
   # 2D linkage mapping
   # Find all pairs of epistatic loci
@@ -389,14 +389,14 @@ recurrentSelection <- function(basePop, parent1, parent2) {
   }
   for (cycle in 1:PHENO_CYCLES) {
     ps_topLines <- psCycle(ps_S0, FALSE, results_list)
-    results_list[[length(results_list) + 1]] <- cycleMetrics(ps_topLines, cycle*8, cycle, "PS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(ps_topLines, ps_S0, cycle*8, cycle, "PS")
     ps_S0 <- randCross(ps_topLines,
                        nCrosses=n.families,
                        nProgeny=20)
     
     
     psMAS_topLines <- psCycle(psMAS_S0, FALSE, results_list)
-    results_list[[length(results_list) + 1]] <- cycleMetrics(psMAS_topLines, ps_S0, cycle*8, cycle, "isoMAS-PS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(psMAS_topLines, psMAS_S0, cycle*8, cycle, "isoMAS-PS")
     psMAS_S0 <- randCross(psMAS_topLines,
                        nCrosses=n.families,
                        nProgeny=20)

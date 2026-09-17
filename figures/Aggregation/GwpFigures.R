@@ -14,7 +14,6 @@ library(purrr)
 library(tibble)
 library(tidyr)
 
-
 setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/cycle1_noupdate_merged_6_22_1237reps")
 #setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/cycle1_update_6_17_400reps")
 output_dir <- getwd()
@@ -307,22 +306,22 @@ for (GS_MODEL in c("RRBLUP")) {
     dplyr::filter(model == GS_MODEL) %>%
     dplyr::filter(
       case_when(
-        sel %in% c("PS", "PS_ieMAS") ~ season %% 6 == 0,
+        sel %in% c("PS", "isoMAS-PS") ~ season %% 8 == 0,
         TRUE ~ season %% 2 == 0
       )
     ) %>%
     dplyr::mutate(year = season/2) %>%
-    dplyr::filter(year <= 18) %>%
+    #dplyr::filter(year <= 16) %>%
     dplyr::group_by(founder, rep, type, sel) %>%
     dplyr::filter(wGV[1] >= n.minW & wGV[1] <= n.maxW) %>%
     dplyr::mutate(gain = wGV - wGV[1]) %>%
     dplyr::mutate(sel = case_when(
-      sel == "ieMAS" ~ "isoMAS-GS",
-      sel == "ieMAS_low" ~ "isoMAS-GS (Low Density)",
-      sel == "ieMAS_perfect" ~ "isoMAS-GS (Perfect Markers)",
+      sel == "isoMAS-GS" ~ "isoMAS-GS",
+      sel == "isoMAS-GS_low" ~ "isoMAS-GS (Low Density)",
+      sel == "isoMAS-GS_perfect" ~ "isoMAS-GS (Perfect Markers)",
       sel == "GS_noUpdate" ~ "GS (No Update)",
-      sel == "PS_ieMAS" ~ "isoMAS-PS",
-      sel == "ieMAS_noUpdate" ~ "isoMAS-GS (No Update)",
+      sel == "isoMAS-PS" ~ "isoMAS-PS",
+      sel == "isoMAS-GS_noUpdate" ~ "isoMAS-GS (No Update)",
       TRUE ~ sel
     )) %>%
     dplyr::mutate(
@@ -482,7 +481,7 @@ for (GS_MODEL in c("RRBLUP")) {
       ) +
       scale_fill_identity() +
       scale_color_identity() +
-      scale_x_continuous(breaks=seq(from=0, to=n.Y, by=3)) +
+      scale_x_continuous(breaks=seq(from=0, to=n.Y, by=4)) +
       #scale_y_continuous(limits = c(minYearW, maxYearW)) +
       labs(
         title = paste0(ie, " Founder isoMAS"),
@@ -529,7 +528,7 @@ for (GS_MODEL in c("RRBLUP")) {
         y = "Genetic Gain\n(Realized Yield Units)",
         title = selType
       ) +
-      scale_x_continuous(breaks=seq(from=0, to=n.Y, by=3)) +
+      scale_x_continuous(breaks=seq(from=0, to=n.Y, by=4)) +
       scale_y_continuous(limits = c(-2, maxYearGain)) +
       theme +
       theme(
@@ -644,7 +643,7 @@ for (GS_MODEL in c("RRBLUP")) {
         y = "Cost / Units Gain\n(In $1000s of USD)",
         title = paste0(ie, " Founder isoMAS"),
       ) +
-      scale_x_continuous(breaks=seq(from=0, to=n.Y, by=3)) +
+      scale_x_continuous(breaks=seq(from=0, to=n.Y, by=4)) +
       scale_y_continuous(limits = yrange) +
       scale_color_sel +
       theme +
@@ -714,7 +713,7 @@ for (GS_MODEL in c("RRBLUP")) {
                   height=12)
   
   geneticGainAll.df <- gs.df %>%
-    dplyr::filter(year %in% c(3, 9, 18)) %>% 
+    dplyr::filter(year %in% c(4, 8, 16)) %>% 
     dplyr::group_by(founder, rep, type, sel, ie_cat, year) %>%
     dplyr::summarize(
       gain = mean(gain, na.rm = TRUE),
@@ -722,7 +721,7 @@ for (GS_MODEL in c("RRBLUP")) {
       ie   = mean(isoElite, na.rm = TRUE),
       .groups = "drop"
     ) %>%
-    dplyr::mutate(year = factor(year, levels = c("3", "9", "18")))
+    dplyr::mutate(year = factor(year, levels = c("4", "8", "16")))
   
   geneticGain.df <- geneticGainAll.df %>%
     dplyr::filter(type == "Admixed")
@@ -773,11 +772,11 @@ for (GS_MODEL in c("RRBLUP")) {
       )
   }
   
-  w3 <- plotGainByYear(geneticGain.df, "3")
-  w9 <- plotGainByYear(geneticGain.df, "9", FALSE)
-  w18 <- plotGainByYear(geneticGain.df, "18", FALSE)
+  w4 <- plotGainByYear(geneticGain.df, "4")
+  w8 <- plotGainByYear(geneticGain.df, "8", FALSE)
+  w16 <- plotGainByYear(geneticGain.df, "16", FALSE)
   
-  (w3 | w9 | w18) + plot_layout(guides = "collect", axes = "collect") +
+  (w4 | w8 | w16) + plot_layout(guides = "collect", axes = "collect") +
     plot_annotation(tag_levels='a',
                     theme = theme(plot.tag = element_text(family = "Helvetica", size = 6)))
   ggplot2::ggsave(filename = paste0("Methods_Discrete_Cycles_Gain_", GS_MODEL, ".jpg"),
@@ -841,11 +840,11 @@ for (GS_MODEL in c("RRBLUP")) {
       )
   }
   
-  w3_MAS <- plotGainByIe(geneticGain.df, "3")
-  w9_MAS <- plotGainByIe(geneticGain.df, "9", ylabel=FALSE)
-  w18_MAS <- plotGainByIe(geneticGain.df, "18", ylabel=FALSE)
+  w4_MAS <- plotGainByIe(geneticGain.df, "4")
+  w8_MAS <- plotGainByIe(geneticGain.df, "8", ylabel=FALSE)
+  w16_MAS <- plotGainByIe(geneticGain.df, "16", ylabel=FALSE)
   
-  (w3_MAS | w9_MAS | w18_MAS) + plot_layout(guides = "collect", axes = "collect")
+  (w4_MAS | w8_MAS | w16_MAS) + plot_layout(guides = "collect", axes = "collect")
   ggplot2::ggsave(filename = paste0("DiscreteCycles_Gain_", GS_MODEL, ".jpg"),
                   path=output_dir,
                   device = "jpg",
@@ -879,7 +878,7 @@ for (GS_MODEL in c("RRBLUP")) {
       x = "Year",
       y = "Correlation (r) between\nIsoeliteness and Genetic Gain",
     ) +
-    scale_x_continuous(breaks=seq(from=0, to=n.Y, by=3)) +
+    scale_x_continuous(breaks=seq(from=0, to=n.Y, by=4)) +
     scale_color_sel +
     theme
   
@@ -926,7 +925,7 @@ for (GS_MODEL in c("RRBLUP")) {
                          labels = c("genHt" = "Genomewide",
                                     "attHt" = "Attained Trait",
                                     "desHt" = "Desired Trait")) +
-      coord_cartesian(ylim = c(0, 0.08)) +
+      coord_cartesian(ylim = c(0, 0.15)) +
       theme +
       theme(
         axis.title.y = if (!ylabel) element_blank() else element_text(),

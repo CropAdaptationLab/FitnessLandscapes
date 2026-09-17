@@ -51,7 +51,7 @@ source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
 # !!UNCOMMENT LINES 282!!
-n.popResets <- 10
+n.popResets <- 2000
 # Number of adaptive walk replications per pair of subpopulations
 n.reps <- 1
 
