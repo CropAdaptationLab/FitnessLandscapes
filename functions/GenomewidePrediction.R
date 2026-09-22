@@ -296,11 +296,15 @@ recurrentSelection <- function(basePop, parent1, parent2) {
   results_list <- list(cycleMetrics(topRILs, basePop, 0, 0, "PS"),
                        cycleMetrics(topRILs, basePop, 0, 0, "isoMAS-PS"),
                        cycleMetrics(topRILs, basePop, 0, 0, "GS"),
-                       cycleMetrics(topRILs, basePop, 0, 0, "isoMAS-GS"),
-                       cycleMetrics(topRILs, basePop, 0, 0, "isoMAS-GS_perfect"),
-                       cycleMetrics(topRILs, basePop, 0, 0, "isoMAS-GS_low"),
-                       cycleMetrics(topRILs, basePop, 0, 0, "GS_noUpdate"),
-                       cycleMetrics(topRILs, basePop, 0, 0, "isoMAS-GS_noUpdate"))
+                       cycleMetrics(topRILs, basePop, 0, 0, "isoMAS-GS"))
+  
+  if (TEST_CONTROLS) {
+    results_list[[length(results_list) + 1]] <- cycleMetrics(topRILs, basePop, 0, 0, "isoMAS-GS_perfect")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(topRILs, basePop, 0, 0, "isoMAS-GS_low")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(topRILs, basePop, 0, 0, "GS_noUpdate")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(topRILs, basePop, 0, 0, "isoMAS-GS_noUpdate")
+    
+  }
 
   ps_S0 <- randCross(topRILs,
                      nCrosses=n.families,
@@ -312,10 +316,6 @@ recurrentSelection <- function(basePop, parent1, parent2) {
                      nProgeny=5)
   gs_S0 <- setPheno(gs_S0, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
   gsMAS_S0 <- gs_S0
-  gsMAS_PERFECT_S0 <- gs_S0
-  gsMAS_LOW_S0 <- gs_S0
-  gs_noUpdate_S0 <- gs_S0
-  gsMAS_noUpdate_S0 <- gs_S0
   
   # Initial training population is the top 40 RILs, selected by phenotype, plus
   # n-40 randomly chosen RILs from the remaining 960 lines
@@ -325,21 +325,32 @@ recurrentSelection <- function(basePop, parent1, parent2) {
   gs_TP <- c(topRILs, randLines)
   # This will be the same training population throughout all cycles
   gsMAS_TP <- gs_TP
-  gsMAS_PERFECT_TP <- gs_TP
-  gsMAS_LOW_TP <- gs_TP
-  gs_noUpdate_TP <- gs_TP
-  gsMAS_noUpdate_TP <- gs_TP
+  
+  if (TEST_CONTROLS) {
+    gsMAS_PERFECT_S0 <- gs_S0
+    gsMAS_LOW_S0 <- gs_S0
+    gs_noUpdate_S0 <- gs_S0
+    gsMAS_noUpdate_S0 <- gs_S0
+    
+    gsMAS_PERFECT_TP <- gs_TP
+    gsMAS_LOW_TP <- gs_TP
+    gs_noUpdate_TP <- gs_TP
+    gsMAS_noUpdate_TP <- gs_TP
+  }
   
   # Fit an RR-BLUP model to use initially for the GS populations
   if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
     # Train a model on the initial base population
     gsModel <- trainRRBLUPModel(gs_TP)
     gsModel_MAS <- gsModel
-    gsModel_MAS_PERFECT <- gsModel
-    gsModel_MAS_LOW <- gsModel
-    gsModel_MAS_noUpdate <- gsModel
-    # This model will not be updated throughout the recurrent selection
-    gsModel_noUpdate <- gsModel
+    
+    if (TEST_CONTROLS) {
+      gsModel_MAS_PERFECT <- gsModel
+      gsModel_MAS_LOW <- gsModel
+      gsModel_MAS_noUpdate <- gsModel
+      # This model will not be updated throughout the recurrent selection
+      gsModel_noUpdate <- gsModel
+    }
   }
 
   # There are 3 years per phenotypic selection cycle
@@ -395,7 +406,7 @@ recurrentSelection <- function(basePop, parent1, parent2) {
                        nProgeny=20)
     
     
-    psMAS_topLines <- psCycle(psMAS_S0, FALSE, results_list)
+    psMAS_topLines <- psCycle(psMAS_S0, TRUE, results_list)
     results_list[[length(results_list) + 1]] <- cycleMetrics(psMAS_topLines, psMAS_S0, cycle*8, cycle, "isoMAS-PS")
     psMAS_S0 <- randCross(psMAS_topLines,
                        nCrosses=n.families,
@@ -410,16 +421,22 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     # --------- SEASON 1 (WINTER) ---------
     gs_S1 <- self(gs_S0)
     gsMAS_S1 <- self(gsMAS_S0)
-    gsMAS_PERFECT_S1 <- self(gsMAS_PERFECT_S0)
-    gsMAS_LOW_S1 <- self(gsMAS_LOW_S0)
-    gs_noUpdate_S1 <- self(gs_noUpdate_S0)
-    gsMAS_noUpdate_S1 <- self(gsMAS_noUpdate_S0)
+    
+    if (TEST_CONTROLS) {
+      gsMAS_PERFECT_S1 <- self(gsMAS_PERFECT_S0)
+      gsMAS_LOW_S1 <- self(gsMAS_LOW_S0)
+      gs_noUpdate_S1 <- self(gs_noUpdate_S0)
+      gsMAS_noUpdate_S1 <- self(gsMAS_noUpdate_S0)
+    }
   
     if (cycle > 1) {
       gs_YT <- self(gs_S2, nProgeny=3)
       gsMAS_YT <- self(gsMAS_S2, nProgeny=3)
-      gsMAS_PERFECT_YT <- self(gsMAS_PERFECT_S2, nProgeny=3)
-      gsMAS_LOW_YT <- self(gsMAS_LOW_S2, nProgeny=3)
+      
+      if (TEST_CONTROLS) {
+        gsMAS_PERFECT_YT <- self(gsMAS_PERFECT_S2, nProgeny=3)
+        gsMAS_LOW_YT <- self(gsMAS_LOW_S2, nProgeny=3)
+      }
     }
 
     season <- season + 1
@@ -430,42 +447,58 @@ recurrentSelection <- function(basePop, parent1, parent2) {
       # If the new models do not fit any values, there is no genetic variance
       # in the population
       if (any(is.na(gsModel@gv[[1]]@addEff)) |
-          any(is.na(gsModel_MAS@gv[[1]]@addEff)) |
-          any(is.na(gsModel_MAS_PERFECT@gv[[1]]@addEff)) |
-          any(is.na(gsModel_MAS_LOW@gv[[1]]@addEff)) |
-          any(is.na(gsModel_noUpdate@gv[[1]]@addEff)) |
-          any(is.na(gsModel_MAS_noUpdate@gv[[1]]@addEff))) {
+          any(is.na(gsModel_MAS@gv[[1]]@addEff))) {
         return(do.call(rbind, results_list))
+      }
+      if (TEST_CONTROLS) {
+        if (any(is.na(gsModel_MAS_PERFECT@gv[[1]]@addEff)) |
+            any(is.na(gsModel_MAS_LOW@gv[[1]]@addEff)) |
+            any(is.na(gsModel_noUpdate@gv[[1]]@addEff)) |
+            any(is.na(gsModel_MAS_noUpdate@gv[[1]]@addEff))) {
+            return(do.call(rbind, results_list))
+        }
       }
       gs_S1 <- setEBV(gs_S1, gsModel)
       gsMAS_S1 <- setEBV(gsMAS_S1, gsModel_MAS)
-      gsMAS_PERFECT_S1 <- setEBV(gsMAS_PERFECT_S1, gsModel_MAS_PERFECT)
-      gsMAS_LOW_S1 <- setEBV(gsMAS_LOW_S1, gsModel_MAS_LOW)
-      gs_noUpdate_S1 <- setEBV(gs_noUpdate_S1, gsModel_noUpdate)
-      gsMAS_noUpdate_S1 <- setEBV(gsMAS_noUpdate_S1, gsModel_MAS_noUpdate)
+      
+      if (TEST_CONTROLS) {
+        gsMAS_PERFECT_S1 <- setEBV(gsMAS_PERFECT_S1, gsModel_MAS_PERFECT)
+        gsMAS_LOW_S1 <- setEBV(gsMAS_LOW_S1, gsModel_MAS_LOW)
+        gs_noUpdate_S1 <- setEBV(gs_noUpdate_S1, gsModel_noUpdate)
+        gsMAS_noUpdate_S1 <- setEBV(gsMAS_noUpdate_S1, gsModel_MAS_noUpdate)
+      }
     } else if (GS_MODEL == "GBLUP") {
       gs_S1 <- calculateEBV_GBLUP(trainPop=gs_TP, testPop=gs_S1)
       gsMAS_S1 <- calculateEBV_GBLUP(trainPop=gsMAS_TP, testPop=gsMAS_S1)
-      gsMAS_PERFECT_S1 <- calculateEBV_GBLUP(trainPop=gsMAS_PERFECT_TP, testPop=gsMAS_PERFECT_S1)
-      gsMAS_LOW_S1 <- calculateEBV_GBLUP(trainPop=gsMAS_LOW_TP, testPop=gsMAS_LOW_S1)
-      gs_noUpdate_S1 <- calculateEBV_GBLUP(trainPop=gs_noUpdate_TP, testPop=gs_noUpdate_S1)
-      gsMAS_noUpdate_S1 <- calculateEBV_GBLUP(trainPop=gsMAS_noUpdate_TP, testPop=gsMAS_noUpdate_S1)
+
+      if (TEST_CONTROLS) {
+        gsMAS_PERFECT_S1 <- calculateEBV_GBLUP(trainPop=gsMAS_PERFECT_TP, testPop=gsMAS_PERFECT_S1)
+        gsMAS_LOW_S1 <- calculateEBV_GBLUP(trainPop=gsMAS_LOW_TP, testPop=gsMAS_LOW_S1)
+        gs_noUpdate_S1 <- calculateEBV_GBLUP(trainPop=gs_noUpdate_TP, testPop=gs_noUpdate_S1)
+        gsMAS_noUpdate_S1 <- calculateEBV_GBLUP(trainPop=gsMAS_noUpdate_TP, testPop=gsMAS_noUpdate_S1)
+      }
     }
     
     # Remove off-types
     gs_S1 <- removeOffTypes(gs_S1)
     gsMAS_S1 <- removeOffTypes(gsMAS_S1)
-    gsMAS_PERFECT_S1 <- removeOffTypes(gsMAS_PERFECT_S1)
-    gsMAS_LOW_S1 <- removeOffTypes(gsMAS_LOW_S1)
-    gs_noUpdate_S1 <- removeOffTypes(gs_noUpdate_S1)
-    gsMAS_noUpdate_S1 <- removeOffTypes(gsMAS_noUpdate_S1)
+    
+    if (TEST_CONTROLS) {
+      gsMAS_PERFECT_S1 <- removeOffTypes(gsMAS_PERFECT_S1)
+      gsMAS_LOW_S1 <- removeOffTypes(gsMAS_LOW_S1)
+      gs_noUpdate_S1 <- removeOffTypes(gs_noUpdate_S1)
+      gsMAS_noUpdate_S1 <- removeOffTypes(gsMAS_noUpdate_S1)
+    }
     
     # MARKER-ASSISTED SELECTION
     if (cycle == 1) {
       gsMAS_S1 <- getMasInds(pop=gsMAS_S1, peaks=peaks, parent1=parent1, parent2=parent2, masSelInt=n.masSelInt, snpChip=2, useQtls=FALSE)
-      gsMAS_PERFECT_S1 <- getMasInds(pop=gsMAS_PERFECT_S1, peaks=peaks, parent1=parent1, parent2=parent2, masSelInt=n.masSelInt, snpChip=2, useQtls=TRUE)
-      gsMAS_LOW_S1 <- getMasInds(pop=gsMAS_LOW_S1, peaks=low_res_peaks, parent1=parent1, parent2=parent2, masSelInt=n.masSelInt, snpChip=3, useQtls=FALSE)
-      gsMAS_noUpdate_S1 <- getMasInds(pop=gsMAS_noUpdate_S1, peaks=peaks, parent1=parent1, parent2=parent2, masSelInt=n.masSelInt, snpChip=2, useQtls=FALSE)
+      
+      if (TEST_CONTROLS) {
+        gsMAS_PERFECT_S1 <- getMasInds(pop=gsMAS_PERFECT_S1, peaks=peaks, parent1=parent1, parent2=parent2, masSelInt=n.masSelInt, snpChip=2, useQtls=TRUE)
+        gsMAS_LOW_S1 <- getMasInds(pop=gsMAS_LOW_S1, peaks=low_res_peaks, parent1=parent1, parent2=parent2, masSelInt=n.masSelInt, snpChip=3, useQtls=FALSE)
+        gsMAS_noUpdate_S1 <- getMasInds(pop=gsMAS_noUpdate_S1, peaks=peaks, parent1=parent1, parent2=parent2, masSelInt=n.masSelInt, snpChip=2, useQtls=FALSE)
+      }
     }
     
     # Select the top 2 individuals out of the selected families
@@ -488,17 +521,23 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     
     gs_S1_topLines <- selectTopLines(gs_S1)
     gsMAS_S1_topLines <- selectTopLines(gsMAS_S1)
-    gsMAS_PERFECT_S1_topLines <- selectTopLines(gsMAS_PERFECT_S1)
-    gsMAS_LOW_S1_topLines <- selectTopLines(gsMAS_LOW_S1)
-    gs_noUpdate_S1_topLines <- selectTopLines(gs_noUpdate_S1)
-    gsMAS_noUpdate_S1_topLines <- selectTopLines(gsMAS_noUpdate_S1)
+    
+    if (TEST_CONTROLS) {
+      gsMAS_PERFECT_S1_topLines <- selectTopLines(gsMAS_PERFECT_S1)
+      gsMAS_LOW_S1_topLines <- selectTopLines(gsMAS_LOW_S1)
+      gs_noUpdate_S1_topLines <- selectTopLines(gs_noUpdate_S1)
+      gsMAS_noUpdate_S1_topLines <- selectTopLines(gsMAS_noUpdate_S1)
+    }
 
     results_list[[length(results_list) + 1]] <- cycleMetrics(gs_S1_topLines[[1]], gs_S0, season, cycle, "GS")
     results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_S1_topLines[[1]], gsMAS_S0, season, cycle, "isoMAS-GS")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_PERFECT_S1_topLines[[1]], gsMAS_PERFECT_S0, season, cycle, "isoMAS-GS_perfect")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_LOW_S1_topLines[[1]], gsMAS_LOW_S0, season, cycle, "isoMAS-GS_low")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_noUpdate_S1_topLines[[1]], gs_noUpdate_S0, season, cycle, "GS_noUpdate")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_noUpdate_S1_topLines[[1]], gsMAS_noUpdate_S0, season, cycle, "isoMAS-GS_noUpdate")
+    
+    if (TEST_CONTROLS) {
+      results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_PERFECT_S1_topLines[[1]], gsMAS_PERFECT_S0, season, cycle, "isoMAS-GS_perfect")
+      results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_LOW_S1_topLines[[1]], gsMAS_LOW_S0, season, cycle, "isoMAS-GS_low")
+      results_list[[length(results_list) + 1]] <- cycleMetrics(gs_noUpdate_S1_topLines[[1]], gs_noUpdate_S0, season, cycle, "GS_noUpdate")
+      results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_noUpdate_S1_topLines[[1]], gsMAS_noUpdate_S0, season, cycle, "isoMAS-GS_noUpdate")
+    }
     
     # Close the cycle, and advance the selected founders for a yield trial
     
@@ -510,36 +549,36 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     gsMAS_S0 <- randCross(gsMAS_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
     gsMAS_S2 <- self(gsMAS_S1_topLines[[2]], keepParents=FALSE, nProgeny=20)
     
-    gsMAS_PERFECT_S0 <- randCross(gsMAS_PERFECT_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
-    gsMAS_PERFECT_S2 <- self(gsMAS_PERFECT_S1_topLines[[2]], keepParents=FALSE, nProgeny=20)
-    
-    gsMAS_LOW_S0 <- randCross(gsMAS_LOW_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
-    gsMAS_LOW_S2 <- self(gsMAS_LOW_S1_topLines[[2]], keepParents=FALSE, nProgeny=20)
-    
-    gs_noUpdate_S0 <- randCross(gs_noUpdate_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
-    gsMAS_noUpdate_S0 <- randCross(gsMAS_noUpdate_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
+    if (TEST_CONTROLS) {
+      gsMAS_PERFECT_S0 <- randCross(gsMAS_PERFECT_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
+      gsMAS_PERFECT_S2 <- self(gsMAS_PERFECT_S1_topLines[[2]], keepParents=FALSE, nProgeny=20)
+      
+      gsMAS_LOW_S0 <- randCross(gsMAS_LOW_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
+      gsMAS_LOW_S2 <- self(gsMAS_LOW_S1_topLines[[2]], keepParents=FALSE, nProgeny=20)
+      
+      gs_noUpdate_S0 <- randCross(gs_noUpdate_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
+      gsMAS_noUpdate_S0 <- randCross(gsMAS_noUpdate_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
+    }
 
     # Establish new training population based on a yield trial
-    # In cycle 1, this is just based on the S1 families
-    #if (cycle == 1) {
-    #  gs_TP <- createTrainPop(curPop=gs_S1_topFams, prevTrainPop=gs_TP)
-    #  gsMAS_TP <- createTrainPop(curPop=gsMAS_S1_topFams, prevTrainPop=gsMAS_TP)
-    #  gsMAS_PERFECT_TP <- createTrainPop(curPop=gsMAS_PERFECT_S1_topFams, prevTrainPop=gsMAS_PERFECT_TP)
-    #  gsMAS_LOW_TP <- createTrainPop(curPop=gsMAS_LOW_S1_topFams, prevTrainPop=gsMAS_LOW_TP)
-    #} else {
     if (cycle > 1) {
       gs_TP <- createTrainPop(curPop=gs_YT, prevTrainPop=gs_TP)
       gsMAS_TP <- createTrainPop(curPop=gsMAS_YT, prevTrainPop=gsMAS_TP)
-      gsMAS_PERFECT_TP <- createTrainPop(curPop=gsMAS_PERFECT_YT, prevTrainPop=gsMAS_PERFECT_TP)
-      gsMAS_LOW_TP <- createTrainPop(curPop=gsMAS_LOW_YT, prevTrainPop=gsMAS_LOW_TP)
-
+      
+      if (TEST_CONTROLS) {
+        gsMAS_PERFECT_TP <- createTrainPop(curPop=gsMAS_PERFECT_YT, prevTrainPop=gsMAS_PERFECT_TP)
+        gsMAS_LOW_TP <- createTrainPop(curPop=gsMAS_LOW_YT, prevTrainPop=gsMAS_LOW_TP)
+      }
       # MOVE THIS OUT OF THIS IF BLOCK IF UNCOMMENTING ABOVE
       # RETRAIN MODELS
       if (GS_MODEL %in% c("RRBLUP", "fastRRBLUP")) {
         gsModel <- trainRRBLUPModel(gs_TP)
         gsModel_MAS <- trainRRBLUPModel(gsMAS_TP)
-        gsModel_MAS_PERFECT <- trainRRBLUPModel(gsMAS_PERFECT_TP)
-        gsModel_MAS_LOW <- trainRRBLUPModel(gsMAS_LOW_TP)
+        
+        if (TEST_CONTROLS) {
+          gsModel_MAS_PERFECT <- trainRRBLUPModel(gsMAS_PERFECT_TP)
+          gsModel_MAS_LOW <- trainRRBLUPModel(gsMAS_LOW_TP)
+        }
       }
     }
     season <- season + 1

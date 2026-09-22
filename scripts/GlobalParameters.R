@@ -52,7 +52,7 @@ n.indPerRIL <- 4 # number of replicates in each RIL
 n.Y <- 20 # Years of recurrent selection
 n.recurPopSize <- 1000 # Size of the recurrently improved population
 n.GSmarkers <- 100 # Markers per chromosome to use for GWP
-n.LRmarkers <- 20 # Low-resolution SNP array
+n.LRmarkers <- 10 # Low-resolution SNP array
 n.masSelInt <- 0.25 # Selection intensity for MAS
 n.trainPopSize <- 200 # Number of individuals in the training population for the GWP model
 n.rilReps <- 3 # replications per RIL
@@ -62,6 +62,7 @@ GS_PHENO <- "pheno" # Set to 'gv' or 'pheno'. For training the GWP model
 GS_MODEL <- "RRBLUP" # Set to RRBLUP or GBLUP
 n.minW <- 144 # Minimum mean w for the top RILs to evaluate recurrent selection 
 n.maxW <- 148 # Maximum mean w for the top RILs to evaluate recurrent selection
+TEST_CONTROLS <- TRUE # Whether to include the GS controls (no update, perfect markers, etc.)
 
 # PLOTTING
 saveQtlPlots <- FALSE # Save linkage map plots
@@ -154,7 +155,8 @@ getParams <- function() {
     GS_PHENO=GS_PHENO,
     GS_MODEL=GS_MODEL,
     minW=n.minW,
-    maxW=n.maxW
+    maxW=n.maxW,
+    TEST_CONTROLS=TEST_CONTROLS
   )
   return (t(n.df))
 }

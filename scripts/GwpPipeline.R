@@ -23,9 +23,9 @@ library(reshape2)
 library(tibble)
 library(tidyr)
 
-rm(list = ls())
+#rm(list = ls())
 
-set.seed(123)
+#set.seed(123)
 
 # Set to false if running on Alpine
 runLocal = TRUE
@@ -50,10 +50,11 @@ source("functions/TraitArchitecture.R")
 source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
-# !!UNCOMMENT LINES 282!!
-n.popResets <- 2000
+n.popResets <- 1
 # Number of adaptive walk replications per pair of subpopulations
 n.reps <- 1
+
+TEST_CONTROLS <- FALSE
 
 # Phenotype to use for genomic selection
 GS_PHENO <- "pheno" # gv
@@ -136,8 +137,16 @@ for (GS_MODEL in model_vec) {
       isoEliteAtt <- mean(c(isoElite_T1, isoElite_T2))
       isoElite_T3 <- isoEliteness(parent1, parent2, founderPop, 3)
       
-      
-
+      # Calculate the phenotypic variance for w
+      RILvar <- as.data.frame(pheno(setPheno(RIL_admixed,
+                                             h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding),
+                                             reps=n.rilReps))) %>%
+        dplyr::mutate(w=calculateBreedingFitness(Trait1, Trait2, Trait3)) %>%
+        dplyr::summarize(T1=var(Trait1),
+                         T2=var(Trait2),
+                         T3=var(Trait3),
+                         w=var(w))
+  
       # Store admixed, within, and cross-population prediction accuracies
       RIL.list[[length(RIL.list) + 1]] <- data.frame(
                         qtl=n.L,
@@ -153,7 +162,11 @@ for (GS_MODEL in model_vec) {
                         rP2P1=rP2P1,
                         rCvP1P2=rCvP1P2,
                         rCvP1=rCvP1,
-                        rCvP2=rCvP2
+                        rCvP2=rCvP2,
+                        varT1=RILvar$T1,
+                        varT2=RILvar$T2,
+                        varT3=RILvar$T3,
+                        varW=RILvar$w
                       )
       
       # Run recurrent selection to improve the admixed RIL
@@ -179,20 +192,20 @@ for (GS_MODEL in model_vec) {
       # Run recurrent selection to improve the unadmixed RIL
       # Only do this in even pop resets (because it's only being used as a negative control)
       # Only use P1
-      #if (f %% 2 == 0) {
-      rs_result <- recurrentSelection(RIL_pop1, res_pop1[1], res_pop1[2])
-      if (length(rs_result) > 0) {
-        RS.list[[length(RS.list) + 1]] <- rs_result %>%
-          dplyr::mutate(qtl=n.L,
-                        founder=f,
-                        rep=rep,
-                        model=GS_MODEL,
-                        type="Unadmixed",
-                        isoElite=isoEliteAtt,
-                        isoEliteDes=isoElite_T3,
-                        .before=1)
+      if (f %% 2 == 0) {
+        rs_result <- recurrentSelection(RIL_pop1, res_pop1[1], res_pop1[2])
+        if (length(rs_result) > 0) {
+          RS.list[[length(RS.list) + 1]] <- rs_result %>%
+            dplyr::mutate(qtl=n.L,
+                          founder=f,
+                          rep=rep,
+                          model=GS_MODEL,
+                          type="Unadmixed",
+                          isoElite=isoEliteAtt,
+                          isoEliteDes=isoElite_T3,
+                          .before=1)
+        }
       }
-      
     } # end n.reps
   } # end n.popResets
   RIL.df <- do.call(rbind, RIL.list)

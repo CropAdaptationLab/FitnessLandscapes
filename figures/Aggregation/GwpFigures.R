@@ -14,18 +14,21 @@ library(purrr)
 library(tibble)
 library(tidyr)
 
-setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/cycle1_noupdate_merged_6_22_1237reps")
+#setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/cycle1_noupdate_merged_6_22_1237reps")
 #setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/cycle1_update_6_17_400reps")
+setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/9_22_2572reps")
+
+RIL.df <- rbind(read.csv("../postGSC_418reps/RRBLUP/ril_results.csv"),
+                read.csv("../Sim_2026-09-18_18_57/RRBLUP/ril_results.csv"))
+
+RS.df <- rbind(read.csv("../postGSC_418reps/RRBLUP/rs_results.csv"),
+               read.csv("../Sim_2026-09-18_18_57/RRBLUP/rs_results.csv"))
+
 output_dir <- getwd()
 
 #write.table(RS.df, file.path(output_dir, "RRBLUP/rs_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
 #write.table(RIL.df, file.path(output_dir, "RRBLUP/ril_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
 
-RIL.df <- rbind(read.csv("RRBLUP/ril_results.csv"))
-#                read.csv("../cycle1_noupdate_6_21_465reps/RRBLUP/ril_results.csv"))
-
-RS.df <- rbind(read.csv("RRBLUP/rs_results.csv"))
-#               read.csv("../cycle1_noupdate_6_21_465reps/RRBLUP/rs_results.csv"))
 
 read_costs <- function(fname) {
   costs.df <- read.csv(fname, check.names=FALSE) %>%
@@ -37,13 +40,13 @@ read_costs <- function(fname) {
   return (costs.df)
 }
 
-costs_high_labor_high_seq <- read_costs("../../../data/costs_high_labor_high_seq.csv") %>%
+costs_high_labor_high_seq <- read_costs("../../../data/costs_KSU.csv") %>%
   dplyr::rename(cost_high_high = cost)
-costs_high_labor_low_seq <- read_costs("../../../data/costs_high_labor_low_seq.csv") %>%
+costs_high_labor_low_seq <- read_costs("../../../data/costs_KSU_future.csv") %>%
   dplyr::rename(cost_high_low = cost)
-costs_low_labor_high_seq <- read_costs("../../../data/costs_low_labor_high_seq.csv") %>%
+costs_low_labor_high_seq <- read_costs("../../../data/costs_SARI.csv") %>%
   dplyr::rename(cost_low_high = cost)
-costs_low_labor_low_seq <- read_costs("../../../data/costs_low_labor_low_seq.csv") %>%
+costs_low_labor_low_seq <- read_costs("../../../data/costs_SARI_future.csv") %>%
   dplyr::rename(cost_low_low = cost)
 
 # The first columns should be retained
@@ -623,13 +626,13 @@ for (GS_MODEL in c("RRBLUP")) {
 
   plotCostByIe <- function(df, ie, withControls=FALSE, cost_var="unit_cost_low_high", ylabel=TRUE) {
     if (cost_var == "unit_cost_low_high") {
-      yrange <- c(1,16)
+      yrange <- c(1,10.5)
     } else if (cost_var == "unit_cost_low_low") {
-      yrange <- c(1, 5)
+      yrange <- c(1.5, 5)
     } else if (cost_var == "unit_cost_high_high") {
-      yrange <- c(10, 32)
+      yrange <- c(4, 15)
     } else if (cost_var == "unit_cost_high_low") {
-      yrange <- c(7, 31)
+      yrange <- c(3, 6)
     }
     
     df %>% dplyr::filter(sel %in% c("GS", "PS", "isoMAS-PS", "isoMAS-GS")) %>%
