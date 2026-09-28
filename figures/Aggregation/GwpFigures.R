@@ -16,19 +16,17 @@ library(tidyr)
 
 #setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/cycle1_noupdate_merged_6_22_1237reps")
 #setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/cycle1_update_6_17_400reps")
-setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/9_22_2572reps")
+#setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/9_22_2572reps")
 
-RIL.df <- rbind(read.csv("../postGSC_418reps/RRBLUP/ril_results.csv"),
-                read.csv("../Sim_2026-09-18_18_57/RRBLUP/ril_results.csv"))
+#RIL.df <- rbind(read.csv("../postGSC_418reps/RRBLUP/ril_results.csv"),
+#                read.csv("../Sim_2026-09-18_18_57/RRBLUP/ril_results.csv"))
 
-RS.df <- rbind(read.csv("../postGSC_418reps/RRBLUP/rs_results.csv"),
-               read.csv("../Sim_2026-09-18_18_57/RRBLUP/rs_results.csv"))
-
-output_dir <- getwd()
-
+#RS.df <- rbind(read.csv("../postGSC_418reps/RRBLUP/rs_results.csv"),
+#              read.csv("../Sim_2026-09-18_18_57/RRBLUP/rs_results.csv"))
 #write.table(RS.df, file.path(output_dir, "RRBLUP/rs_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
 #write.table(RIL.df, file.path(output_dir, "RRBLUP/ril_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
 
+output_dir <- getwd()
 
 read_costs <- function(fname) {
   costs.df <- read.csv(fname, check.names=FALSE) %>%
@@ -928,7 +926,7 @@ for (GS_MODEL in c("RRBLUP")) {
                          labels = c("genHt" = "Genomewide",
                                     "attHt" = "Attained Trait",
                                     "desHt" = "Desired Trait")) +
-      coord_cartesian(ylim = c(0, 0.15)) +
+      coord_cartesian(ylim = c(0, 0.16)) +
       theme +
       theme(
         axis.title.y = if (!ylabel) element_blank() else element_text(),
