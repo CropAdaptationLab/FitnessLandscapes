@@ -193,6 +193,14 @@ if (saveFitnessPlots) {
   fig <- plot3dPopulationFitnessTwoPops(pops[[1]], pops[[2]], suitFunc)
   fname <- file.path(rep_dir, "3DFitness.html")
   htmlwidgets::saveWidget(as_widget(fig), fname)
+  
+  # Plot the trait-to-breeding fitness landscapes
+  t1_4D <- plot4DFitnessLandscape(fit_dfs[[1]], fit_dfs[[2]], 1)
+  t2_4D <- plot4DFitnessLandscape(fit_dfs[[1]], fit_dfs[[2]], 2)
+  fname <- file.path(rep_dir, "4DFitness_t1.html")
+  htmlwidgets::saveWidget(as_widget(t1_4D), fname)
+  fname <- file.path(rep_dir, "4DFitness_t2.html")
+  htmlwidgets::saveWidget(as_widget(t2_4D), fname)
 }
 
 # Plot the adaptive walks on a G > F landscape

@@ -259,6 +259,82 @@ plotFitnessLandscape <- function(traitMin=-n.initTraitVal-1,
   return (p) 
 }
 
+# Plots a fitness landscape between an attained trait (specified by x_trait) and
+# the desired trait, holding the other trait constant. Enables the plotting
+# of breeding fitness, not just suitability
+plot4DFitnessLandscape <- function(pop1_df,
+                                   pop2_df,
+                                   x_trait,
+                                   popId_1="Subpopulation 1",
+                                   popId_2="Subpopulation 2") {
+  fitness_x = seq(-2.2, 2.2, by=0.1)
+  fitness_y = seq(40, 150, by=1)
+  fitness_z = t(outer(fitness_x, fitness_y, calculate4DBreedingFitness, fixed_trait=2-x_trait))
+  
+  if (x_trait == 1) {
+    subpop1_xTraitVals <- pop1_df$traitVal1
+    subpop2_xTraitVals <- pop2_df$traitVal1
+  } else {
+    subpop1_xTraitVals <- pop1_df$traitVal2
+    subpop2_xTraitVals <- pop2_df$traitVal2
+  }
+  
+  f <- list(family="Helvetica", size=20)
+  fig <- plot_ly()
+  fig <- plot_ly() %>%
+    layout(font=list(
+      family="Helvetica",
+      size=24,
+      color="black"),
+      legend = list(title=list(text="Subpopulation")),
+      xaxis = list(title = paste0("Attained Trait ", x_trait)),
+      yaxis = list(title = "Desired Trait")) %>%
+    add_trace(
+      fig,
+      x=fitness_x,
+      y=fitness_y,
+      z=fitness_z,
+      type='contour',
+      colors = 'Greys', # viridis(n=10)
+      reversescale=TRUE,
+      colorbar=list(title = "Breeding Fitness"),
+      
+      contours = list(
+        x = list(show = TRUE, start = min(fitness_x), 
+                 end = max(fitness_x), size = 0.1, usecolormap = FALSE,
+                 color = "black", width = 0.5),
+        y = list(show = TRUE, start = min(fitness_y), 
+                 end = max(fitness_y), size = 0.1, usecolormap = FALSE,
+                 color = "black", width = 0.5)
+      ),
+      #contours = list(coloring="heatmap"),
+      line = list(color = 'black', width = 0.5),
+      opacity=1) %>%
+    add_trace(
+      fig,
+      df,
+      name = popId_1,
+      x = subpop1_xTraitVals,
+      y = pop1_df$yieldPotential,
+      type = 'scatter',
+      mode = 'lines',
+      line = list(color = '#CC0000', width = 7, dash = 'solid'),
+      opacity = 1
+    ) %>%
+    add_trace(
+      fig,
+      df,
+      name = popId_2,
+      x = subpop2_xTraitVals,
+      y = pop2_df$yieldPotential,
+      type = 'scatter',
+      mode = 'lines',
+      line = list(color = '#3C78D8', width = 7, dash = 'solid'),
+      opacity = 1
+    )
+  return (fig)
+}
+
 # Plots an adaptive walk of a single population, along with a sampling of the
 # most representative individuals from that population
 # Run this on data generated from AdaptiveWalk.R

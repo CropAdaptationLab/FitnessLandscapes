@@ -35,6 +35,16 @@ suitabilityGaussian <- function(t1, t2) {
   return (res)
 }
 
+# Calculates breeding fitness based on the value of 1 attained trait and the 
+# desired trait. Assumes the other attained trait is fixed at 0
+calculate4DBreedingFitness <- function(att, des, fixed_trait) {
+  if (fixed_trait == 1) {
+    return (calculateBreedingFitness(0, att, des))
+  } else  {
+    return (calculateBreedingFitness(att, 0, des))
+  }
+}
+
 # Calculate breeding fitness based on the suitability of the two attained traits (t1 and t2)
 # And the yield potential (t3)
 calculateBreedingFitness <- function(t1, t2, t3, suitFunc=suitabilityGaussian) {
