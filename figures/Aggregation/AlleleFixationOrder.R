@@ -9,6 +9,8 @@ library(ggpubr)
 library(grid)
 library(patchwork)
 
+fixedAlleles.df <- read.csv("fixationorder.csv")
+
 # Designate the type as 'fixation'
 fixedAlleles.df <- fixedAlleles.df %>%
   dplyr::mutate(type="fixation") %>%
@@ -25,11 +27,16 @@ init_df <- init_df %>%
 merged <- rbind(fixedAlleles.df, init_df)
 merged$type <- factor(merged$type, levels=c("initial", "fixation"))
 
+merged <- merged %>%
+  dplyr::mutate(qtl = qtl*10) %>%
+  dplyr::mutate(qtl = as.factor(qtl))
+
 # Get the mean effect size at each rank
 df_summary <- merged %>%
+  dplyr::filter(type == "fixation") %>%
   dplyr::group_by(qtl, type, rank) %>%
   dplyr::summarize(mean_eff_size = mean(eff_size), n = n(), .groups = "drop") %>%
-  dplyr::filter((type=="fixation" & n > 100) | type=="initial")
+  dplyr::filter(n > 500)
 
 df_summary$rank <- as.numeric(df_summary$rank)
 
@@ -45,32 +52,17 @@ geometric_theme <- theme_minimal(base_size=7,
     legend.position = "bottom",
     legend.direction="horizontal")
 
-# Geometric series line of best fit for the initial trait architecture
-init_equation <- stat_fit_tidy(method="nls",
-                          method.args=list(formula=y ~ (a * rho^(x-1)),
-                                           start=c(a=1,rho=0.9),
-                                           algorithm="port"),
-                          data = ~filter(.x, type == "initial"),
-                          label.x=0.95,
-                          label.y=0.95,
-                          aes(label=sprintf("alpha[k]~`=`~%.2g~`*`~%.2g^{k-1}",
-                                            after_stat(a_estimate),
-                                            after_stat(rho_estimate))),
-                          parse=TRUE,
-                          size=2.5,
-                          family="Helvetica")
-
 # Geometric series line of best fit for the fixation order of alleles
 fixation_equation <- stat_fit_tidy(method="nls",
-                               method.args=list(formula=y ~ (a * rho^(x-1)),
-                                                start=c(a=1,rho=0.9),
+                               method.args=list(formula=y ~ (a * rho^(x-1)) + b,
+                                                start=c(a=1,rho=0.9, b=0),
                                                 algorithm="port"),
                                data = ~filter(.x, type == "fixation"),
                                label.x=0.95,
-                               label.y=0.8,
-                               aes(label=sprintf("alpha[k]~`=`~%.2g~`*`~%.2g^{k-1}",
+                               aes(label=sprintf("alpha[k]~`=`~%.2g~`*`~%.2g^{k-1} ~`+`~%.2g",
                                                  after_stat(a_estimate),
-                                                 after_stat(rho_estimate))),
+                                                 after_stat(rho_estimate),
+                                                 after_stat(b_estimate))),
                                parse=TRUE,
                                size=2.5,
                                family="Helvetica")
@@ -78,72 +70,58 @@ max_x <- max(df_summary$rank)
 max_y <- max(df_summary$mean_eff_size)
 
 # Generates an overlaid plot of the two geometric series
-# Filters by nQtl
-plot_series <- function(nQtl) {
-  # Fit the NLS model to fixation data
-  fit <- nls(mean_eff_size ~ a * rho^(rank-1),
-             data = filter(df_summary, type == "fixation", qtl==nQtl),
-             start = c(a=1, rho=0.9),
-             algorithm = "port")
-  
-  a_hat   <- coef(fit)["a"]
-  rho_hat <- coef(fit)["rho"]
+# Fit the NLS model to fixation data
+fit <- nls(mean_eff_size ~ a * rho^(rank-1) + b,
+           data = filter(df_summary, type == "fixation", qtl==10),
+           start = c(a=1, rho=0.9, b=0),
+           algorithm = "port")
 
-  df_summary %>%
-    dplyr::filter(qtl==nQtl) %>%
-    ggplot(aes(x = rank, y = mean_eff_size, color = type)) +
-    stat_function(fun = function(x) a_hat * rho_hat^(x-1),
-                  color = "black", linewidth = 0.3, linetype = "dotted") +
-    geom_point() +
-    init_equation +
-    fixation_equation +
-    scale_color_manual(values = c("initial" = "#808080", "fixation" = "black"),
-                       labels = c("initial" = "Initial Architecture", "fixation" = "Fixation Order"),
-                       name=NULL) +
-    guides(color = guide_legend(override.aes = list(shape = 16, linetype = 0, size=2))) +
-    labs(x="Rank", y="Mean Allele\nSubstitution Effect") +
-    xlim(0,max_x) +
-    ylim(0,max_y) +
-    geometric_theme
-}
+a_hat_10   <- coef(fit)["a"]
+rho_hat_10 <- coef(fit)["rho"]
+b_hat_10 <- coef(fit)["b"]
 
-qtl1_plot <- plot_series(1)
-qtl2_plot <- plot_series(2)
-qtl5_plot <- plot_series(5)
+fit <- nls(mean_eff_size ~ a * rho^(rank-1) + b,
+           data = filter(df_summary, type == "fixation", qtl==20),
+           start = c(a=1, rho=0.9, b=0),
+           algorithm = "port")
 
-labelfont <- gpar(fontsize=8,
-                  fontfamily="Helvetica")
+a_hat_20   <- coef(fit)["a"]
+rho_hat_20 <- coef(fit)["rho"]
+b_hat_20 <- coef(fit)["b"]
 
-qtl1_label <- wrap_elements(panel = textGrob('10 QTL per Attained Trait',
-                                             rot=0,
-                                             gp=labelfont),
-                            ignore_tag = TRUE)
-qtl2_label <- wrap_elements(panel = textGrob('20 QTL per Attained Trait',
-                                             rot=0,
-                                             gp=labelfont),
-                            ignore_tag = TRUE)
-qtl5_label <- wrap_elements(panel = textGrob('50 QTL per Attained Trait',
-                                             rot=0,
-                                             gp=labelfont),
-                            ignore_tag = TRUE)
+fit <- nls(mean_eff_size ~ a * rho^(rank-1) + b,
+           data = filter(df_summary, type == "fixation", qtl==50),
+           start = c(a=1, rho=0.9, b=0),
+           algorithm = "port")
 
-p <- qtl1_label + qtl2_label + qtl5_label +
-  qtl1_plot + qtl2_plot + qtl5_plot +
-  plot_layout(guides='collect',
-              nrow=2,
-              ncol=3,
-              heights=c(0.5,3),
-              widths=c(3,3,3)) +
-  plot_annotation(tag_levels=list(c('c', 'd', 'e'))) & theme(plot.tag = element_text(size = 14), legend.position="bottom")
+a_hat_50   <- coef(fit)["a"]
+rho_hat_50 <- coef(fit)["rho"]
+b_hat_50 <- coef(fit)["b"]
 
-p
+df_summary %>%
+  dplyr::filter(type=="fixation") %>%
+  ggplot(aes(x = rank, y = mean_eff_size, color = qtl)) +
+  stat_function(fun = function(x) (a_hat_10 * rho_hat_10^(x-1)) + b_hat_10,
+                color = "black", linewidth = 0.3, linetype = "dotted") +
+  stat_function(fun = function(x) (a_hat_20 * rho_hat_20^(x-1)) + b_hat_20,
+                color = "grey40", linewidth = 0.3, linetype = "dotted") +
+  stat_function(fun = function(x) (a_hat_50 * rho_hat_50^(x-1)) + b_hat_50,
+                color = "grey70", linewidth = 0.3, linetype = "dotted") +
+  geom_point() +
+  fixation_equation +
+  scale_color +
+  guides(color = guide_legend(override.aes = list(shape = 16, linetype = 0, size=2))) +
+  labs(x="Order of Fixation", y="Mean Allele\nSubstitution Effect") +
+  xlim(0,max_x) +
+  ylim(0.1,max_y) +
+  geometric_theme
 
 ggplot2::ggsave(filename = file.path(output_dir, "fixation_order.jpg"),
                 device = "jpg",
                 height=2.5,
-                width=6.5,
+                width=3,
                 dpi=600)
 ggplot2::ggsave(filename = file.path(output_dir, "fixation_order.pdf"),
                 device = "pdf",
                 height=2.5,
-                width=6.5)
+                width=3)

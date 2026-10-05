@@ -9,8 +9,11 @@ library(ggpubr)
 library(grid)
 library(patchwork)
 
+effectSizes.df <- read.csv("emergentarchitecture.csv")
+
 # Designate the type as 'ril'
 effectSizes.df <- effectSizes.df %>%
+  dplyr::filter(var==0.4) %>%
   dplyr::mutate(type="ril") %>%
   dplyr::select(rank, eff_size, qtl, type)
 
@@ -18,10 +21,11 @@ init_df <- read.csv("~/Documents/CSU/FitnessLandscapes/output/TraitArchitecture/
 
 # Designate the type as 'initial'
 init_df <- init_df %>% 
+  dplyr::filter(var==0.4) %>%
   dplyr::mutate(type="initial") %>%
   dplyr::select(rank, eff_size, qtl, type)
 
-# Join the RIL and Iniital dataframes
+# Join the RIL and Inital dataframes
 merged <- rbind(effectSizes.df, init_df)
 merged$type <- factor(merged$type, levels=c("initial", "ril"))
 
@@ -30,7 +34,7 @@ merged$type <- factor(merged$type, levels=c("initial", "ril"))
 df_summary <- merged %>%
   dplyr::group_by(qtl, type, rank) %>%
   dplyr::summarize(mean_eff_size = mean(eff_size), n = n(), .groups = "drop") %>%
-  dplyr::filter(n>1) # Increase filter with more data?
+  dplyr::filter((type=="fixation" & n > 100) | type=="initial" | type == "ril")
 
 df_summary$rank <- as.numeric(df_summary$rank)
 
@@ -59,6 +63,7 @@ init_equation <- stat_fit_tidy(method="nls",
                                                  after_stat(rho_estimate))),
                                parse=TRUE,
                                size=2.5,
+                               color="black",
                                family="Helvetica")
 
 # This is the line of best fit for the RIL trait architecture
@@ -77,6 +82,7 @@ ril_equation <- stat_fit_tidy(method="nls",
                                                      after_stat(b_estimate))),
                                    parse=TRUE,
                                    size=2.5,
+                                   color="gold3",
                                    family="Helvetica")
 
 # Get the axis ranges
@@ -105,7 +111,7 @@ plot_series <- function(nQtl) {
 
   df_summary %>%
     dplyr::filter(qtl==nQtl) %>%
-    ggplot(aes(x = rank, y = mean_eff_size, color = type)) +
+    ggplot(aes(x = rank, y = mean_eff_size, fill=type)) +
     annotate("rect", xmin=-Inf, xmax=Inf, ymin=ril_max, ymax=Inf,
              fill="lightblue", alpha=0.2) +
     annotate("rect", xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=ril_max,
@@ -119,15 +125,17 @@ plot_series <- function(nQtl) {
              size=2, color="black", family="Helvetica") +
     stat_function(fun = function(x) (a_hat * rho_hat^(x-1)) + b_hat,
                   color = "black", linewidth = 0.3, linetype = "dotted") +
-    geom_point() +
+    geom_point(shape=21, color="black", stroke=0.2, size=1) +
     init_equation +
     ril_equation +
-    scale_color_manual(values = c("initial" = "#808080", "ril" = "black"),
-                       labels = c("initial" = "Initial Architecture", "ril" = "RIL Architecture"),
+    scale_fill_manual(values = c("initial" = "black", "ril" = "gold"),
+                       labels = c("initial" = "Initial Architecture",
+                                  "ril" = "RIL Architecture",
+                                  "fixation" = "Fixation Order"),
                        name=NULL) +
     guides(color = guide_legend(override.aes = list(shape = 16, linetype = 0, size=2))) +
-    labs(x="Rank", y="Mean Allelic\nSubstitution Effect") +
-    xlim(0,max_x) +
+    labs(x="QTL Rank", y="Allele Substitution Effect") +
+    scale_x_continuous(limits = c(0, max_x), breaks=c(1,10,20,30,40,50)) +
     scale_y_continuous(limits = c(0, max_y), expand = c(0, 0.05)) +
     geometric_theme
 }
@@ -139,15 +147,15 @@ qtl5_plot <- plot_series(5)
 labelfont <- gpar(fontsize=8,
                   fontfamily="Helvetica")
 
-qtl1_label <- wrap_elements(panel = textGrob('10 QTL per Attained Trait',
+qtl1_label <- wrap_elements(panel = textGrob('L = 10',
                                              rot=0,
                                              gp=labelfont),
                             ignore_tag = TRUE)
-qtl2_label <- wrap_elements(panel = textGrob('20 QTL per Attained Trait',
+qtl2_label <- wrap_elements(panel = textGrob('L = 20',
                                              rot=0,
                                              gp=labelfont),
                             ignore_tag = TRUE)
-qtl5_label <- wrap_elements(panel = textGrob('50 QTL per Attained Trait',
+qtl5_label <- wrap_elements(panel = textGrob('L = 50',
                                              rot=0,
                                              gp=labelfont),
                             ignore_tag = TRUE)
