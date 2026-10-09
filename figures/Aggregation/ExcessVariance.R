@@ -80,7 +80,7 @@ plot_params <- list(
   list(y = "ev_T2", x = "isoElite_T2", x_lab = "Attained Trait 2\nIsoeliteness", title = "Attained Trait 2"),
   list(y = "ev_Suit", x = "isoElite_Att", x_lab = "Mean\nIsoeliteness", title = "Suitability"),
   list(y = "ev_T3", x = "isoElite_Att", x_lab = "Mean\nIsoeliteness", title = "Desired Trait"),
-  list(y = "ev_W", x = "isoElite_Att", x_lab = "Mean\nIsoeliteness", title = "Breeding Fitness")
+  list(y = "ev_W", x = "isoElite_Att", x_lab = "Mean\nIsoeliteness", title = "Fitness")
 )
 
 box_plots <- lapply(plot_params, function(p) make_ev_box(p$y, p$title))

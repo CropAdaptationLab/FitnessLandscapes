@@ -297,7 +297,7 @@ plot4DFitnessLandscape <- function(pop1_df,
       type='contour',
       colors = 'Greys', # viridis(n=10)
       reversescale=TRUE,
-      colorbar=list(title = "Breeding Fitness"),
+      colorbar=list(title = "Fitness"),
       
       contours = list(
         x = list(show = TRUE, start = min(fitness_x), 

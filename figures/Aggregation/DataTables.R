@@ -18,25 +18,27 @@ theme <- theme_minimal(base_size = 12,
 
 col_order <- c("Mean IE",
                "EV: Attained Traits",
-               "EV: Breeding Fitness",
-               "LOD Peaks: Attained Traits",
-               "LOD Peaks: Breeding Fitness",
-               "LOD Peaks: Desired Trait",
+               "EV: Fitness",
+               "Detected QTL: Attained Traits",
+               "Detected QTL: Fitness",
+               "Detected QTL: Desired Trait",
+               "Detected Fitness Interactions",
                "FST")
 
 cor.df <- res.df %>%
   dplyr::filter(type == "Admixed") %>%
   dplyr::select(qtl, isoElite_Att, fst,
                 ev_T1, ev_W,
-                nLod_T1, nLod_T3, nLod_W) %>%
+                nLod_T1, nLod_T3, nLod_W, nLod_Int) %>%
   dplyr::rename(
     "Mean IE" = isoElite_Att,
     "FST" = fst,
     "EV: Attained Traits"= ev_T1,
-    "EV: Breeding Fitness"= ev_W,
-    "LOD Peaks: Attained Traits" = nLod_T1,
-    "LOD Peaks: Desired Trait" = nLod_T3,
-    "LOD Peaks: Breeding Fitness"= nLod_W
+    "EV: Fitness"= ev_W,
+    "Detected QTL: Attained Traits" = nLod_T1,
+    "Detected QTL: Desired Trait" = nLod_T3,
+    "Detected QTL: Fitness"= nLod_W,
+    "Detected Fitness Interactions"= nLod_Int
   ) %>%
   dplyr::select(qtl, all_of(col_order))
 

@@ -139,7 +139,7 @@ intW <- res.df %>%
     limits=c(0,9),
     breaks=seq(0,8, by=2)) +
   scale_fill +
-  labs(x="QTL per Attained Trait", y="Breeding Fitness Interactions") +
+  labs(x="QTL per Attained Trait", y="Fitness Interactions") +
   theme
 
 intW
@@ -162,7 +162,7 @@ intW_ie <- res.df %>%
   sig_cor +
   guides(color = guide_legend(override.aes = list(size = 2))) +
   scale_color +
-  labs(x="Mean Isoeliteness", y="Breeding Fitness Interactions") +
+  labs(x="Mean Isoeliteness", y="Fitness Interactions") +
   theme
 
 intW_ie

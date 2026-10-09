@@ -115,7 +115,7 @@ plotReactionNorm <- function(pop, qtl1, qtl2, parent1, parent2, suitFunc, snpChi
                      expand = c(0.1, 0.1)) +
     labs(
       x = paste0(qtl2, " Genotype"),
-      y = "Breeding Fitness",
+      y = "Fitness",
       color = paste0(qtl1, " Genotype")
     ) +
     theme_minimal(base_size = 10,
