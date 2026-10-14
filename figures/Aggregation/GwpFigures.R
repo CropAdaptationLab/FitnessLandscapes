@@ -14,15 +14,13 @@ library(purrr)
 library(tibble)
 library(tidyr)
 
-#setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/cycle1_noupdate_merged_6_22_1237reps")
-#setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/cycle1_update_6_17_400reps")
-#setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/9_22_2572reps")
+#setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/9_27_3000reps_nocontrols")
 
-#RIL.df <- rbind(read.csv("../postGSC_418reps/RRBLUP/ril_results.csv"),
-#                read.csv("../Sim_2026-09-18_18_57/RRBLUP/ril_results.csv"))
+#RIL.df <- rbind(read.csv("../9_27_3000reps_nocontrols/RRBLUP/ril_results.csv"))
+#RIL.df <- rbind(read.csv("../9_22_2572reps_isoMAS-PS_bug/RRBLUP/ril_results.csv"))
 
-#RS.df <- rbind(read.csv("../postGSC_418reps/RRBLUP/rs_results.csv"),
-#              read.csv("../Sim_2026-09-18_18_57/RRBLUP/rs_results.csv"))
+#RS.df <- rbind(read.csv("../9_27_3000reps_nocontrols/RRBLUP/rs_results.csv"))
+#RS.df <- rbind(read.csv("../9_22_2572reps_isoMAS-PS_bug/RRBLUP/rs_results.csv"))
 #write.table(RS.df, file.path(output_dir, "RRBLUP/rs_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
 #write.table(RIL.df, file.path(output_dir, "RRBLUP/ril_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
 
@@ -197,6 +195,9 @@ for (GS_MODEL in c("RRBLUP")) {
                   width=5,
                   height=4)
   
+  #model <- lm(r ~ isoElite + varT3, data=gwp.df %>% dplyr::filter(type == "Admixed", model == GS_MODEL))
+  #summary(model)
+  
   # Plot isoeliteness against GWP accuracy for QTL = 10
   gwp.df %>%
     dplyr::filter(type == "Admixed", model == GS_MODEL) %>%
@@ -228,7 +229,6 @@ for (GS_MODEL in c("RRBLUP")) {
     ) +
     theme +
     theme(legend.position = "none")
-  
   
   ggplot2::ggsave(filename = paste0("gwp_ie_scatterheat_", GS_MODEL, ".jpg"),
                   path=output_dir,
@@ -624,13 +624,13 @@ for (GS_MODEL in c("RRBLUP")) {
 
   plotCostByIe <- function(df, ie, withControls=FALSE, cost_var="unit_cost_low_high", ylabel=TRUE) {
     if (cost_var == "unit_cost_low_high") {
-      yrange <- c(1,10.5)
+      yrange <- c(0, 10.5)
     } else if (cost_var == "unit_cost_low_low") {
-      yrange <- c(1.5, 5)
+      yrange <- c(0.8, 3.6)
     } else if (cost_var == "unit_cost_high_high") {
-      yrange <- c(4, 15)
+      yrange <- c(2.5, 17)
     } else if (cost_var == "unit_cost_high_low") {
-      yrange <- c(3, 6)
+      yrange <- c(2.5, 17)
     }
     
     df %>% dplyr::filter(sel %in% c("GS", "PS", "isoMAS-PS", "isoMAS-GS")) %>%
@@ -998,9 +998,6 @@ for (GS_MODEL in c("RRBLUP")) {
     dplyr::summarize(meanGain=mean(gain),
                      varGain=var(gain))%>%
     write.csv(file.path(output_dir, "genetic_gain.csv"), quote=FALSE)
-  
-  
-  
 }
 
 # ANOVA

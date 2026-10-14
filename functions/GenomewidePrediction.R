@@ -254,9 +254,9 @@ getMasInds <- function(pop, peaks, parent1, parent2, masSelInt, snpChip, useQtls
   return(pop[orderedInds])
 }
 
-removeOffTypes <- function(pop) {
+removeOffTypes <- function(pop, selProp=0.8) {
   pop <- setPheno(pop, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
-  pop <- selectInd(pop, nInd=nInd(pop)*0.8, trait=suitability)
+  pop <- selectInd(pop, nInd=nInd(pop)*selProp, trait=suitability)
   return(pop)
 }
 
@@ -308,12 +308,12 @@ recurrentSelection <- function(basePop, parent1, parent2) {
 
   ps_S0 <- randCross(topRILs,
                      nCrosses=n.families,
-                     nProgeny=20)
+                     nProgeny=n.PSprogeny)
   ps_S0 <- setPheno(ps_S0, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
   psMAS_S0 <- ps_S0
   gs_S0 <- randCross(topRILs,
                      nCrosses=n.families,
-                     nProgeny=5)
+                     nProgeny=n.GSprogeny)
   gs_S0 <- setPheno(gs_S0, h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding))
   gsMAS_S0 <- gs_S0
   
@@ -353,19 +353,19 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     }
   }
 
-  # There are 3 years per phenotypic selection cycle
+  # There are 4 years per phenotypic selection cycle
   PHENO_CYCLES <- n.Y / 4
   
   # PHENOTYPIC SELECTION
-  psCycle <- function(ps_S0, isoMAS, results_list) {
+  psCycle <- function(S0, isoMAS, cycle, results_list) {
     
     # --------- SEASON 1 (WINTER) ---------
-    ps_S1 <- self(ps_S0)
+    ps_S1 <- self(S0)
     
     # --------- SEASON 2 (SUMMER) ---------
     ps_S1 <- removeOffTypes(ps_S1)
     # isoMAS
-    if (isoMAS & cycle == 1) {
+    if (isoMAS == TRUE && cycle == 1) {
       ps_S1 <- getMasInds(pop=ps_S1,
                           peaks=peaks,
                           parent1=parent1,
@@ -373,14 +373,17 @@ recurrentSelection <- function(basePop, parent1, parent2) {
                           masSelInt=n.masSelInt,
                           snpChip=2,
                           useQtls=FALSE)
+    } else {
+      ps_S1 <- removeOffTypes(ps_S1, selProp=n.masSelInt)
     }
-    ps_S2 <- self(ps_S1)
+    ps_S2 <- self(ps_S1, keepParents=FALSE)
     
     # --------- SEASON 3 (WINTER) ---------
     ps_S3 <- self(ps_S2)
     
     # --------- SEASON 4 (SUMMER) ---------
-    ps_S3 <- selectWithinFam(ps_S3, nInd=2, trait=suitability)
+    # NEED TO GET RID OF THIS LINE?
+    #ps_S3 <- selectWithinFam(ps_S3, nInd=2, trait=suitability)
     ps_S3 <- self(ps_S3, nProgeny=20, keepParents=FALSE)
     
     # --------- SEASON 5 (WINTER) ---------
@@ -399,18 +402,18 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     return (ps_topLines)
   }
   for (cycle in 1:PHENO_CYCLES) {
-    ps_topLines <- psCycle(ps_S0, FALSE, results_list)
+    ps_topLines <- psCycle(ps_S0, FALSE, cycle, results_list)
     results_list[[length(results_list) + 1]] <- cycleMetrics(ps_topLines, ps_S0, cycle*8, cycle, "PS")
     ps_S0 <- randCross(ps_topLines,
                        nCrosses=n.families,
-                       nProgeny=20)
+                       nProgeny=n.PSprogeny)
     
     
-    psMAS_topLines <- psCycle(psMAS_S0, TRUE, results_list)
+    psMAS_topLines <- psCycle(psMAS_S0, TRUE, cycle, results_list)
     results_list[[length(results_list) + 1]] <- cycleMetrics(psMAS_topLines, psMAS_S0, cycle*8, cycle, "isoMAS-PS")
     psMAS_S0 <- randCross(psMAS_topLines,
                        nCrosses=n.families,
-                       nProgeny=20)
+                       nProgeny=n.PSprogeny)
   }
     
   
@@ -543,21 +546,21 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     
     # The top individual from each family is used for intermating, and the second
     # best is used for yield trials
-    gs_S0 <- randCross(gs_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
+    gs_S0 <- randCross(gs_S1_topLines[[1]], nCrosses=n.families, nProgeny=n.GSprogeny)
     gs_S2 <- self(gs_S1_topLines[[2]], keepParents=FALSE, nProgeny=20)
   
-    gsMAS_S0 <- randCross(gsMAS_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
+    gsMAS_S0 <- randCross(gsMAS_S1_topLines[[1]], nCrosses=n.families, nProgeny=n.GSprogeny)
     gsMAS_S2 <- self(gsMAS_S1_topLines[[2]], keepParents=FALSE, nProgeny=20)
     
     if (TEST_CONTROLS) {
-      gsMAS_PERFECT_S0 <- randCross(gsMAS_PERFECT_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
+      gsMAS_PERFECT_S0 <- randCross(gsMAS_PERFECT_S1_topLines[[1]], nCrosses=n.families, nProgeny=n.GSprogeny)
       gsMAS_PERFECT_S2 <- self(gsMAS_PERFECT_S1_topLines[[2]], keepParents=FALSE, nProgeny=20)
       
-      gsMAS_LOW_S0 <- randCross(gsMAS_LOW_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
+      gsMAS_LOW_S0 <- randCross(gsMAS_LOW_S1_topLines[[1]], nCrosses=n.families, nProgeny=n.GSprogeny)
       gsMAS_LOW_S2 <- self(gsMAS_LOW_S1_topLines[[2]], keepParents=FALSE, nProgeny=20)
       
-      gs_noUpdate_S0 <- randCross(gs_noUpdate_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
-      gsMAS_noUpdate_S0 <- randCross(gsMAS_noUpdate_S1_topLines[[1]], nCrosses=n.families, nProgeny=5)
+      gs_noUpdate_S0 <- randCross(gs_noUpdate_S1_topLines[[1]], nCrosses=n.families, nProgeny=n.GSprogeny)
+      gsMAS_noUpdate_S0 <- randCross(gsMAS_noUpdate_S1_topLines[[1]], nCrosses=n.families, nProgeny=n.GSprogeny)
     }
 
     # Establish new training population based on a yield trial

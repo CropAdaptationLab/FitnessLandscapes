@@ -63,6 +63,8 @@ GS_MODEL <- "RRBLUP" # Set to RRBLUP or GBLUP
 n.minW <- 144 # Minimum mean w for the top RILs to evaluate recurrent selection 
 n.maxW <- 148 # Maximum mean w for the top RILs to evaluate recurrent selection
 TEST_CONTROLS <- TRUE # Whether to include the GS controls (no update, perfect markers, etc.)
+n.GSprogeny <- 5 # Number of GS seeds produced per cross
+n.PSprogeny <- 10 # Number of PS seeds produced per cross
 
 # PLOTTING
 saveQtlPlots <- FALSE # Save linkage map plots

@@ -54,7 +54,11 @@ n.popResets <- 3000
 # Number of adaptive walk replications per pair of subpopulations
 n.reps <- 1
 
-TEST_CONTROLS <- FALSE
+# Whether to test the no-update and different marker density scenarios
+TEST_CONTROLS <- TRUE
+
+# Whether to evaluate GWP prediction on the RIL families
+STORE_RIL_DATA <- FALSE
 
 # Phenotype to use for genomic selection
 GS_PHENO <- "pheno" # gv
@@ -122,52 +126,54 @@ for (GS_MODEL in model_vec) {
       res_pop2 <- createRIL(purelines2[[1]], purelines2[[2]])
       RIL_pop2 <- res_pop2[-(1:2)]
       
-      rAdmixed=evaluateGwpModel(trainPop=c(pops[[1]],pops[[2]]), testPop=RIL_admixed)
-      rP1=evaluateGwpModel(trainPop=c(pops[[1]]), testPop=RIL_pop1)
-      rP2=evaluateGwpModel(trainPop=c(pops[[2]]), testPop=RIL_pop2)
-      rP1P2=evaluateGwpModel(trainPop=c(pops[[1]]), testPop=RIL_pop2)
-      rP2P1=evaluateGwpModel(trainPop=c(pops[[2]]), testPop=RIL_pop1)
-      rCvP1P2=crossValAccuracy(pop=c(pops[[1]],pops[[2]]))
-      rCvP1=crossValAccuracy(pop=pops[[1]])
-      rCvP2=crossValAccuracy(pop=pops[[2]])
-
       # Calculate isoeliteness for each trait
       isoElite_T1 <- isoEliteness(parent1, parent2, founderPop, 1)
       isoElite_T2 <- isoEliteness(parent1, parent2, founderPop, 2)
       isoEliteAtt <- mean(c(isoElite_T1, isoElite_T2))
       isoElite_T3 <- isoEliteness(parent1, parent2, founderPop, 3)
       
-      # Calculate the phenotypic variance for w
-      RILvar <- as.data.frame(pheno(setPheno(RIL_admixed,
-                                             h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding),
-                                             reps=n.rilReps))) %>%
-        dplyr::mutate(w=calculateBreedingFitness(Trait1, Trait2, Trait3)) %>%
-        dplyr::summarize(T1=var(Trait1),
-                         T2=var(Trait2),
-                         T3=var(Trait3),
-                         w=var(w))
-  
-      # Store admixed, within, and cross-population prediction accuracies
-      RIL.list[[length(RIL.list) + 1]] <- data.frame(
-                        qtl=n.L,
-                        founder=f,
-                        rep=rep,
-                        model=GS_MODEL,
-                        isoElite=isoEliteAtt,
-                        isoEliteDes=isoElite_T3,
-                        rAdmixed=rAdmixed,
-                        rP1=rP1,
-                        rP2=rP2,
-                        rP1P2=rP1P2,
-                        rP2P1=rP2P1,
-                        rCvP1P2=rCvP1P2,
-                        rCvP1=rCvP1,
-                        rCvP2=rCvP2,
-                        varT1=RILvar$T1,
-                        varT2=RILvar$T2,
-                        varT3=RILvar$T3,
-                        varW=RILvar$w
-                      )
+      if (STORE_RIL_DATA) {
+        rAdmixed=evaluateGwpModel(trainPop=c(pops[[1]],pops[[2]]), testPop=RIL_admixed)
+        rP1=evaluateGwpModel(trainPop=c(pops[[1]]), testPop=RIL_pop1)
+        rP2=evaluateGwpModel(trainPop=c(pops[[2]]), testPop=RIL_pop2)
+        rP1P2=evaluateGwpModel(trainPop=c(pops[[1]]), testPop=RIL_pop2)
+        rP2P1=evaluateGwpModel(trainPop=c(pops[[2]]), testPop=RIL_pop1)
+        rCvP1P2=crossValAccuracy(pop=c(pops[[1]],pops[[2]]))
+        rCvP1=crossValAccuracy(pop=pops[[1]])
+        rCvP2=crossValAccuracy(pop=pops[[2]])
+        
+        # Calculate the phenotypic variance for w
+        RILvar <- as.data.frame(pheno(setPheno(RIL_admixed,
+                                               h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding),
+                                               reps=n.rilReps))) %>%
+          dplyr::mutate(w=calculateBreedingFitness(Trait1, Trait2, Trait3)) %>%
+          dplyr::summarize(T1=var(Trait1),
+                           T2=var(Trait2),
+                           T3=var(Trait3),
+                           w=var(w))
+        
+        # Store admixed, within, and cross-population prediction accuracies
+        RIL.list[[length(RIL.list) + 1]] <- data.frame(
+                          qtl=n.L,
+                          founder=f,
+                          rep=rep,
+                          model=GS_MODEL,
+                          isoElite=isoEliteAtt,
+                          isoEliteDes=isoElite_T3,
+                          rAdmixed=rAdmixed,
+                          rP1=rP1,
+                          rP2=rP2,
+                          rP1P2=rP1P2,
+                          rP2P1=rP2P1,
+                          rCvP1P2=rCvP1P2,
+                          rCvP1=rCvP1,
+                          rCvP2=rCvP2,
+                          varT1=RILvar$T1,
+                          varT2=RILvar$T2,
+                          varT3=RILvar$T3,
+                          varW=RILvar$w
+                        )
+      } # STORE_RIL_DATA
       
       # Run recurrent selection to improve the admixed RIL
       rs_result <- recurrentSelection(RIL_admixed, parent1, parent2)
