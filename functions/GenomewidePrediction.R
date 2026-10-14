@@ -384,21 +384,21 @@ recurrentSelection <- function(basePop, parent1, parent2) {
     # --------- SEASON 4 (SUMMER) ---------
     # NEED TO GET RID OF THIS LINE?
     #ps_S3 <- selectWithinFam(ps_S3, nInd=2, trait=suitability)
-    ps_S3 <- self(ps_S3, nProgeny=20, keepParents=FALSE)
+    ps_S4 <- self(ps_S3, nProgeny=20, keepParents=FALSE)
     
     # --------- SEASON 5 (WINTER) ---------
-    ps_S4 <- self(ps_S3, nProgeny=3)
+    ps_S5 <- self(ps_S4, nProgeny=3)
     
     # --------- SEASON 6 (SUMMER) ---------
-    ps_S4 <- selectFam(ps_S4, nFam=n.topFamilies, trait=breedingFitness)
-    ps_S4 <- selectWithinFam(ps_S4, nInd=1, use="rand")
-    ps_S5 <- self(ps_S4, nProgeny=20)
+    ps_S5 <- selectFam(ps_S5, nFam=n.topFamilies, trait=breedingFitness)
+    ps_S5 <- selectWithinFam(ps_S5, nInd=1, use="rand")
+    ps_S6 <- self(ps_S5, nProgeny=20)
     
     # --------- SEASON 7 (WINTER) ---------
-    ps_S6 <- self(ps_S5)
+    ps_S7 <- self(ps_S6)
     
     # --------- SEASON 7 (SUMMER) ---------
-    ps_topLines <- selectWithinFam(ps_S6, nInd=1, use="rand")
+    ps_topLines <- selectWithinFam(ps_S7, nInd=1, use="rand")
     return (ps_topLines)
   }
   for (cycle in 1:PHENO_CYCLES) {
