@@ -114,7 +114,6 @@ getParams <- function() {
     initTraitVal=n.initTraitVal,
     var=n.var,
     shape=n.shape,
-    a=n.a,
     L=n.L,
     relAA=n.relAA,
     sampling=SAMPLING,

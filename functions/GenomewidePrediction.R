@@ -109,7 +109,7 @@ trainRRBLUPModel <- function(trainPop) {
 }
 
 # Create a training population with the mean phenotypes from the curPop lines, plus
-# plus the top 360 lines from the previous training population, based on phenotype
+# plus the top 160 lines from the previous training population, based on phenotype
 # Returns: a training population
 createTrainPop <- function(curPop,
                            prevTrainPop,

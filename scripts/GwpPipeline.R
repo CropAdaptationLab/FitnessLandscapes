@@ -23,9 +23,9 @@ library(reshape2)
 library(tibble)
 library(tidyr)
 
-#rm(list = ls())
+rm(list = ls())
 
-#set.seed(123)
+set.seed(123)
 
 # Set to false if running on Alpine
 runLocal = TRUE
@@ -50,7 +50,7 @@ source("functions/TraitArchitecture.R")
 source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
-n.popResets <- 3000
+n.popResets <- 7000
 # Number of adaptive walk replications per pair of subpopulations
 n.reps <- 1
 
@@ -83,7 +83,7 @@ for (GS_MODEL in model_vec) {
   if (!dir.exists(sim_dir)) dir.create(sim_dir)
   
   # Reset the founder population n.popResets times
-  for (f in 1:n.popResets) {
+  for (f in 3765:n.popResets) {
     pop_dir <- file.path(sim_dir, paste0("FounderPopulation", f))
     if (!dir.exists(pop_dir)) dir.create(pop_dir)
     print(paste0("Founder Reset ", f))
@@ -176,17 +176,21 @@ for (GS_MODEL in model_vec) {
       } # STORE_RIL_DATA
       
       # Run recurrent selection to improve the admixed RIL
-      rs_result <- recurrentSelection(RIL_admixed, parent1, parent2)
-      if (length(rs_result) > 0) {
-        RS.list[[length(RS.list) + 1]] <- rs_result %>%
-          dplyr::mutate(qtl=n.L,
-                        founder=f,
-                        rep=rep,
-                        model=GS_MODEL,
-                        type="Admixed",
-                        isoElite=isoEliteAtt,
-                        isoEliteDes=isoElite_T3,
-                        .before=1)
+      # FOCUS ON GETTING LOW AND HIGH REPLICATES
+      # TODO REMOVE THIS LINE
+      if (isoEliteAtt < 0.8 | isoEliteAtt > 0.95) {
+        rs_result <- recurrentSelection(RIL_admixed, parent1, parent2)
+        if (length(rs_result) > 0) {
+          RS.list[[length(RS.list) + 1]] <- rs_result %>%
+            dplyr::mutate(qtl=n.L,
+                          founder=f,
+                          rep=rep,
+                          model=GS_MODEL,
+                          type="Admixed",
+                          isoElite=isoEliteAtt,
+                          isoEliteDes=isoElite_T3,
+                          .before=1)
+        }
       }
 
       # Just calculate isoeliteness for the P1 unadmixed family
@@ -198,7 +202,9 @@ for (GS_MODEL in model_vec) {
       # Run recurrent selection to improve the unadmixed RIL
       # Only do this in even pop resets (because it's only being used as a negative control)
       # Only use P1
-      if (f %% 2 == 0) {
+      # TODO REMOVE THIS LINE
+      if (FALSE) {
+      #if (f %% 2 == 0) {
         rs_result <- recurrentSelection(RIL_pop1, res_pop1[1], res_pop1[2])
         if (length(rs_result) > 0) {
           RS.list[[length(RS.list) + 1]] <- rs_result %>%
