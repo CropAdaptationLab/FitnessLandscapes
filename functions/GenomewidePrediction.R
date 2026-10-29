@@ -145,21 +145,22 @@ createTrainPop <- function(curPop,
 # season: The season number
 # cycle: The cycle number
 # sel: The selection type (e.g. "GS", "PS", etc.)
-# pop: The initial population for that cycle
+# pop_init: The initial population for that cycle
+# ebv_pop: The population that had its ebvs estimated
 # Returns: a dataframe tabulating all metrics
-cycleMetrics <- function(founders, pop, season, cycle, sel) {
+cycleMetrics <- function(founders, pop_init, season, cycle, sel, ebv_pop=NA) {
   # Calulate accuracy of predictions
   r <- NA
   if (!(sel %in% c("PS", "isoMAS-PS"))) {
-    suppressWarnings(r <- cor(calculateW_GWP(gv(founders)), ebv(founders))[1])
+    suppressWarnings(r <- cor(calculateW_GWP(gv(ebv_pop)), ebv(ebv_pop))[1])
   }
   
   # Genome-wide heterozygosity
-  genome_het <- meanHetLocus(pullSnpGeno(pop, snpChip=2))
+  genome_het <- meanHetLocus(pullSnpGeno(pop_init, snpChip=2))
   # Attained trait heterozygosity
-  attained_het <- meanHetLocus(getUniqueQtl(pop))
+  attained_het <- meanHetLocus(getUniqueQtl(pop_init))
   # Desired trait heterozygosity
-  desired_het <- meanHetLocus(pullQtlGeno(pop, trait=3))
+  desired_het <- meanHetLocus(pullQtlGeno(pop_init, trait=3))
   
   # Calculate mean breeding fitness of GS population
   w <- as.data.frame(pheno(founders)) %>%
@@ -532,14 +533,14 @@ recurrentSelection <- function(basePop, parent1, parent2) {
       gsMAS_noUpdate_S1_topLines <- selectTopLines(gsMAS_noUpdate_S1)
     }
 
-    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_S1_topLines[[1]], gs_S0, season, cycle, "GS")
-    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_S1_topLines[[1]], gsMAS_S0, season, cycle, "isoMAS-GS")
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gs_S1_topLines[[1]], gs_S0, season, cycle, "GS", ebv_pop=gs_S1)
+    results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_S1_topLines[[1]], gsMAS_S0, season, cycle, "isoMAS-GS", ebv_pop=gsMAS_S1)
     
     if (TEST_CONTROLS) {
-      results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_PERFECT_S1_topLines[[1]], gsMAS_PERFECT_S0, season, cycle, "isoMAS-GS_perfect")
-      results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_LOW_S1_topLines[[1]], gsMAS_LOW_S0, season, cycle, "isoMAS-GS_low")
-      results_list[[length(results_list) + 1]] <- cycleMetrics(gs_noUpdate_S1_topLines[[1]], gs_noUpdate_S0, season, cycle, "GS_noUpdate")
-      results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_noUpdate_S1_topLines[[1]], gsMAS_noUpdate_S0, season, cycle, "isoMAS-GS_noUpdate")
+      results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_PERFECT_S1_topLines[[1]], gsMAS_PERFECT_S0, season, cycle, "isoMAS-GS_perfect", ebv_pop=gsMAS_PERFECT_S1)
+      results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_LOW_S1_topLines[[1]], gsMAS_LOW_S0, season, cycle, "isoMAS-GS_low", ebv_pop=gsMAS_LOW_S1)
+      results_list[[length(results_list) + 1]] <- cycleMetrics(gs_noUpdate_S1_topLines[[1]], gs_noUpdate_S0, season, cycle, "GS_noUpdate", ebv_pop=gs_noUpdate_S1)
+      results_list[[length(results_list) + 1]] <- cycleMetrics(gsMAS_noUpdate_S1_topLines[[1]], gsMAS_noUpdate_S0, season, cycle, "isoMAS-GS_noUpdate", ebv_pop=gsMAS_noUpdate_S1)
     }
     
     # Close the cycle, and advance the selected founders for a yield trial
