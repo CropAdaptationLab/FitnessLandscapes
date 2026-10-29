@@ -65,6 +65,8 @@ n.maxW <- 148 # Maximum mean w for the top RILs to evaluate recurrent selection
 TEST_CONTROLS <- TRUE # Whether to include the GS controls (no update, perfect markers, etc.)
 n.GSprogeny <- 5 # Number of GS seeds produced per cross
 n.PSprogeny <- 10 # Number of PS seeds produced per cross
+isoMAS_low <- 0.8 # Cutoff for low founder isoMAS
+isoMAS_high <- 0.95 # Cutoff for high foudner isoMAS
 
 # PLOTTING
 saveQtlPlots <- FALSE # Save linkage map plots
@@ -155,6 +157,10 @@ getParams <- function() {
     topFamilies=n.topFamilies,
     GS_PHENO=GS_PHENO,
     GS_MODEL=GS_MODEL,
+    GSprogeny=n.GSprogeny,
+    PSprogeny=n.PSprogeny,
+    isoMAS_low=isoMAS_low,
+    isoMAS_high=isoMAS_high,
     minW=n.minW,
     maxW=n.maxW,
     TEST_CONTROLS=TEST_CONTROLS

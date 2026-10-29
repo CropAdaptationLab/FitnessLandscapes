@@ -50,7 +50,7 @@ source("functions/TraitArchitecture.R")
 source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
-n.popResets <- 5000
+n.popResets <- 7000
 # Number of adaptive walk replications per pair of subpopulations
 n.reps <- 1
 
@@ -75,8 +75,13 @@ model_vec <- c("RRBLUP")
 output_dir <- file.path(base_dir, paste0("Sim_", format(Sys.time(), "%F_%H_%M")))
 if (!dir.exists(output_dir)) dir.create(output_dir)
 
+# Counter for each level of founder isoMAS
+iterCounter <- matrix(c(0,0,0), ncol=3)
+colnames(iterCounter) <- c("Low", "Moderate", "High")
+
 for (GS_MODEL in model_vec) {
   print(paste0("Model: ", GS_MODEL))
+  print(iterCounter[1,])
   
   # The directory for this number of QTL
   sim_dir <- file.path(output_dir, GS_MODEL)
@@ -132,6 +137,15 @@ for (GS_MODEL in model_vec) {
       isoEliteAtt <- mean(c(isoElite_T1, isoElite_T2))
       isoElite_T3 <- isoEliteness(parent1, parent2, founderPop, 3)
       
+      # Determine founder isoMAS
+      if (isoEliteAtt >= isoMAS_high) {
+        isoMAS <- "High"
+      } else if (isoEliteAtt <= isoMAS_low) {
+        isoMAS <- "Low"
+      } else {
+        isoMAS <- "Moderate"
+      }
+
       if (STORE_RIL_DATA) {
         rAdmixed=evaluateGwpModel(trainPop=c(pops[[1]],pops[[2]]), testPop=RIL_admixed)
         rP1=evaluateGwpModel(trainPop=c(pops[[1]]), testPop=RIL_pop1)
@@ -176,22 +190,22 @@ for (GS_MODEL in model_vec) {
       } # STORE_RIL_DATA
       
       # Run recurrent selection to improve the admixed RIL
-      # FOCUS ON GETTING LOW AND HIGH REPLICATES
-      # TODO REMOVE THIS LINE
-      #if (isoEliteAtt <= 0.8 | isoEliteAtt >= 0.95) {
-      rs_result <- recurrentSelection(RIL_admixed, parent1, parent2)
-      if (length(rs_result) > 0) {
-        RS.list[[length(RS.list) + 1]] <- rs_result %>%
-          dplyr::mutate(qtl=n.L,
-                        founder=f,
-                        rep=rep,
-                        model=GS_MODEL,
-                        type="Admixed",
-                        isoElite=isoEliteAtt,
-                        isoEliteDes=isoElite_T3,
-                        .before=1)
+      # Focus on getting high and low replicates
+      if (isoMAS == "Low" | isoMAS == "High" | (runif(1) < 0.5)) {
+        rs_result <- recurrentSelection(RIL_admixed, parent1, parent2)
+        if (length(rs_result) > 0) {
+          iterCounter[1,isoMAS] <- iterCounter[1,isoMAS] + 1
+          RS.list[[length(RS.list) + 1]] <- rs_result %>%
+            dplyr::mutate(qtl=n.L,
+                          founder=f,
+                          rep=rep,
+                          model=GS_MODEL,
+                          type="Admixed",
+                          isoElite=isoEliteAtt,
+                          isoEliteDes=isoElite_T3,
+                          .before=1)
+        }
       }
-      #}
 
       # Just calculate isoeliteness for the P1 unadmixed family
       isoElite_T1 <- isoEliteness(res_pop1[1], res_pop1[2], founderPop, 1)
@@ -203,8 +217,7 @@ for (GS_MODEL in model_vec) {
       # Only do this in even pop resets (because it's only being used as a negative control)
       # Only use P1
       # TODO REMOVE THIS LINE
-      #if (FALSE) {
-      if (f %% 2 == 0) {
+      if (FALSE) { # (f %% 2 == 0) {
         rs_result <- recurrentSelection(RIL_pop1, res_pop1[1], res_pop1[2])
         if (length(rs_result) > 0) {
           RS.list[[length(RS.list) + 1]] <- rs_result %>%

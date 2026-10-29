@@ -14,18 +14,18 @@ library(purrr)
 library(tibble)
 library(tidyr)
 
-setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/10_25_7000reps")
+#setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/10_25_7000reps")
 
 # This comes from a different simulation run
-RIL.df <- rbind(read.csv("ril_results.csv"))
+#RIL.df <- rbind(read.csv("ril_results.csv"))
 
 # Across many runs
-RS.df <- rbind(read.csv("rs_results.csv"))
+#RS.df <- rbind(read.csv("rs_results.csv"))
 
 #write.table(RS.df, file.path(output_dir, "rs_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
 #write.table(RIL.df, file.path(output_dir, "ril_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
 
-output_dir <- getwd()
+#output_dir <- getwd()
 
 read_costs <- function(fname) {
   costs.df <- read.csv(fname, check.names=FALSE) %>%
@@ -333,9 +333,9 @@ for (GS_MODEL in c("RRBLUP")) {
     )) %>%
     dplyr::mutate(
       ie_cat = dplyr::case_when(
-        isoElite >= highIe ~ "High",
-        isoElite > lowIe & isoElite < highIe ~ "Moderate",
-        isoElite <=  lowIe ~ "Low"
+        isoElite >= isoMAS_high ~ "High",
+        isoElite > isoMAS_low & isoElite < isoMAS_high ~ "Moderate",
+        isoElite <=  isoMAS_low ~ "Low"
       ),
       ie_cat=factor(ie_cat, levels=c("Low", "Moderate", "High"))) %>%
     dplyr::mutate(
