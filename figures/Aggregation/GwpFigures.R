@@ -1062,6 +1062,13 @@ for (GS_MODEL in c("RRBLUP")) {
     dplyr::group_by(type, sel, ie_cat, year) %>%
     dplyr::summarize(meanGain=mean(gain)) %>%
     write.csv(file.path(output_dir, "year2_genetic_gain.csv"), quote=FALSE)
+  
+  gs.df %>%
+    dplyr::filter(type=="Admixed") %>% 
+    dplyr::filter(sel %in% c("GS", "isoMAS-GS")) %>%
+    dplyr::group_by(type, sel, ie_cat, year) %>%
+    dplyr::summarize(meanR=mean(r)) %>%
+    write.csv(file.path(output_dir, "gs_R.csv"), quote=FALSE)
 }
 
 # ANOVA

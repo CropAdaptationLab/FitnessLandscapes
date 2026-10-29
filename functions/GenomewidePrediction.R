@@ -150,7 +150,7 @@ createTrainPop <- function(curPop,
 cycleMetrics <- function(founders, pop, season, cycle, sel) {
   # Calulate accuracy of predictions
   r <- NA
-  if (!(sel %in% c("PS", "PSieMAS"))) {
+  if (!(sel %in% c("PS", "isoMAS-PS"))) {
     suppressWarnings(r <- cor(calculateW_GWP(gv(founders)), ebv(founders))[1])
   }
   
