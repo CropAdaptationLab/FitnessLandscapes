@@ -151,7 +151,7 @@ createTrainPop <- function(curPop,
 cycleMetrics <- function(founders, pop_init, season, cycle, sel, ebv_pop=NA) {
   # Calulate accuracy of predictions
   r <- NA
-  if (!(sel %in% c("PS", "isoMAS-PS"))) {
+  if (!is.na(ebv_pop)) {
     suppressWarnings(r <- cor(calculateW_GWP(gv(ebv_pop)), ebv(ebv_pop))[1])
   }
   
@@ -184,7 +184,7 @@ cycleMetrics <- function(founders, pop_init, season, cycle, sel, ebv_pop=NA) {
     genome_het=genome_het,
     attained_het=attained_het,
     desired_het=desired_het,
-    gvar=varG(founders)[3,3]))
+    gvar=varG(pop_init)[3,3]))
 }
 
 # Carry out marker-assisted selection

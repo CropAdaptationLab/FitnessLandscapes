@@ -50,7 +50,7 @@ source("functions/TraitArchitecture.R")
 source("scripts/GlobalParameters.R")
 
 # Number of founder populations to simulate
-n.popResets <- 7000
+n.popResets <- 15000
 # Number of adaptive walk replications per pair of subpopulations
 n.reps <- 1
 
@@ -59,6 +59,9 @@ TEST_CONTROLS <- TRUE
 
 # Whether to evaluate GWP prediction on the RIL families
 STORE_RIL_DATA <- FALSE
+
+# Whether to evaluate unadmixed RIL families
+UNADMIXED <- FALSE
 
 # Phenotype to use for genomic selection
 GS_PHENO <- "pheno" # gv
@@ -81,15 +84,15 @@ colnames(iterCounter) <- c("Low", "Moderate", "High")
 
 for (GS_MODEL in model_vec) {
   print(paste0("Model: ", GS_MODEL))
-  print(iterCounter[1,])
   
   # The directory for this number of QTL
   sim_dir <- file.path(output_dir, GS_MODEL)
   if (!dir.exists(sim_dir)) dir.create(sim_dir)
   
   # Reset the founder population n.popResets times
-  for (f in 1:n.popResets) {
+  for (f in 10357:n.popResets) {
     pop_dir <- file.path(sim_dir, paste0("FounderPopulation", f))
+    print(iterCounter[1,])
     if (!dir.exists(pop_dir)) dir.create(pop_dir)
     print(paste0("Founder Reset ", f))
     source("scripts/CreateFounderPop.R")
@@ -147,19 +150,15 @@ for (GS_MODEL in model_vec) {
       }
 
       if (STORE_RIL_DATA) {
-        rAdmixed=evaluateGwpModel(trainPop=c(pops[[1]],pops[[2]]), testPop=RIL_admixed)
-        rP1=evaluateGwpModel(trainPop=c(pops[[1]]), testPop=RIL_pop1)
-        rP2=evaluateGwpModel(trainPop=c(pops[[2]]), testPop=RIL_pop2)
-        rP1P2=evaluateGwpModel(trainPop=c(pops[[1]]), testPop=RIL_pop2)
-        rP2P1=evaluateGwpModel(trainPop=c(pops[[2]]), testPop=RIL_pop1)
-        rCvP1P2=crossValAccuracy(pop=c(pops[[1]],pops[[2]]))
-        rCvP1=crossValAccuracy(pop=pops[[1]])
-        rCvP2=crossValAccuracy(pop=pops[[2]])
+        rAdmixed=crossValAccuracy(pop=RIL_admixed)
+        rCvP1P2=crossValAccuracy(pop=c(RIL_pop1, RIL_pop2))
+        rCvP1=crossValAccuracy(pop=RIL_pop1)
+        rCvP2=crossValAccuracy(pop=RIL_pop2)
+        rP1P2=evaluateGwpModel(trainPop=RIL_pop1, testPop=RIL_pop2)
+        rP2P1=evaluateGwpModel(trainPop=RIL_pop2, testPop=RIL_pop1)
         
-        # Calculate the phenotypic variance for w
-        RILvar <- as.data.frame(pheno(setPheno(RIL_admixed,
-                                               h2=c(n.h2Breeding, n.h2Breeding, n.yieldH2Breeding),
-                                               reps=n.rilReps))) %>%
+        # Calculate the genetic variance the admixed RIL
+        RILvar <- as.data.frame(gv(RIL_admixed)) %>%
           dplyr::mutate(w=calculateBreedingFitness(Trait1, Trait2, Trait3)) %>%
           dplyr::summarize(T1=var(Trait1),
                            T2=var(Trait2),
@@ -175,8 +174,6 @@ for (GS_MODEL in model_vec) {
                           isoElite=isoEliteAtt,
                           isoEliteDes=isoElite_T3,
                           rAdmixed=rAdmixed,
-                          rP1=rP1,
-                          rP2=rP2,
                           rP1P2=rP1P2,
                           rP2P1=rP2P1,
                           rCvP1P2=rCvP1P2,
@@ -217,7 +214,7 @@ for (GS_MODEL in model_vec) {
       # Only do this in even pop resets (because it's only being used as a negative control)
       # Only use P1
       # TODO REMOVE THIS LINE
-      if (FALSE) { # (f %% 2 == 0) {
+      if (UNADMIXED) { # (f %% 2 == 0) {
         rs_result <- recurrentSelection(RIL_pop1, res_pop1[1], res_pop1[2])
         if (length(rs_result) > 0) {
           RS.list[[length(RS.list) + 1]] <- rs_result %>%
