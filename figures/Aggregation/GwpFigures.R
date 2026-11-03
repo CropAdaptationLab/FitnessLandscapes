@@ -16,16 +16,17 @@ library(purrr)
 library(tibble)
 library(tidyr)
 
-#setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/11_2_10356reps")
-#output_dir <- getwd()
+setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/11_3_11621reps")
+output_dir <- getwd()
 
-#RIL.df <- rbind(read.csv("../11_2_10356/ril_results.csv"))
+RIL.df <- rbind(read.csv("../11_2_10356reps/ril_results.csv"))
 
 # Across many runs
-#RS.df <- rbind(read.csv("../11_2_10356/rs_results.csv"))
+RS.df <- rbind(read.csv("../11_2_10356reps/rs_results.csv"),
+               read.csv("../Sim_2026-11-02_13_30/RRBLUP/rs_results.csv"))
 
-#write.table(RS.df, file.path(output_dir, "rs_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
-#write.table(RIL.df, file.path(output_dir, "ril_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
+write.table(RS.df, file.path(output_dir, "rs_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
+write.table(RIL.df, file.path(output_dir, "ril_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
 
 read_costs <- function(fname) {
   costs.df <- read.csv(fname, check.names=FALSE) %>%
@@ -72,16 +73,15 @@ theme <- theme_minimal(base_size = 10,
     aspect.ratio=1)
 
 scale_color_gwp <- scale_color_manual(name = "Scenario",
-                                values = c("CV (Single Subpopulation)" = "steelblue2",
-                                           "CV (Both Subpopulations)" = "navy",
-                                           "Unadmixed" = "#7EBD4F",
+                                values = c("CV (Both Subpopulations)" = "navy",
+                                           "Within-family" = "#2F3FD6",
                                            "Admixed" = "goldenrod1",
-                                           "Cross-population" = "#A66A28"),
+                                           "Cross-family" = "#D61FA8"),
                                 breaks = c("CV (Single Subpopulation)",
                                            "CV (Both Subpopulations)",
-                                           "Unadmixed",
+                                           "Within-family",
                                            "Admixed", 
-                                           "Cross-population"))
+                                           "Cross-family"))
 
 color_scheme <- c(
   "PS" = "#8E44C6",
@@ -134,8 +134,8 @@ gwp.df <- RIL.df %>%
     values_to = "r"
   ) %>%
   dplyr::mutate(type = case_when(
-    type %in% c("rP1P2", "rP2P1") ~ "Cross-population",
-    type %in% c("rCvP1", "rCvP2") ~ "Unadmixed",
+    type %in% c("rP1P2", "rP2P1") ~ "Cross-family",
+    type %in% c("rCvP1", "rCvP2") ~ "Within-family",
     type == "rCvP1P2" ~ "CV (Both Subpopulations)",
     type == "rAdmixed" ~ "Admixed",
     TRUE ~ type
@@ -149,10 +149,10 @@ gwp.df <- RIL.df %>%
 
 gwp.df$type <- factor(gwp.df$type,
                       levels=c(
-                        "Unadmixed",
+                        "Within-family",
                         "CV (Both Subpopulations)",
                         "Admixed",
-                        "Cross-population"))
+                        "Cross-family"))
 
 gwp.df <- gwp.df %>%
   dplyr::filter(type != "CV (Both Subpopulations)")
@@ -397,9 +397,9 @@ for (GS_MODEL in c("RRBLUP")) {
                      genHt = mean(genome_het),
                      attHt = mean(attained_het),
                      desHt = mean(desired_het),
-                     r_CI = 1.96*(sd(r) / sqrt(n())),
+                     r_CI = 1.96 * (sd(r, na.rm = TRUE) / sqrt(sum(!is.na(r)))),
                      r = mean(r, na.rm=TRUE),
-                     gvar_CI = 1.96*(sd(gvar) / sqrt(n())),
+                     gvar_CI = 1.96 * (sd(gvar, na.rm = TRUE) / sqrt(sum(!is.na(gvar)))),
                      gvar = mean(gvar, na.rm=TRUE)) %>%
     dplyr::mutate(upper_bound_gain=gain+gain_CI,
                   lower_bound_gain=gain-gain_CI,
@@ -653,7 +653,7 @@ for (GS_MODEL in c("RRBLUP")) {
         title = paste0(ie, " Founder isoMAS"),
       ) +
       scale_x_continuous(breaks=seq(from=0, to=n.Y, by=4)) +
-      scale_y_continuous(limits = yrange) +
+      scale_y_continuous(limits = yrange, labels = scales::label_number(accuracy = 1)) +
       scale_color_sel +
       theme +
       theme(
@@ -689,7 +689,7 @@ for (GS_MODEL in c("RRBLUP")) {
       plotCostByIe(yearMean.df, "Moderate", cost_var="unit_cost_high_low", ylabel=FALSE) +
       plotCostByIe(yearMean.df, "High", cost_var="unit_cost_high_low", ylabel=FALSE) +
     plot_layout(nrow=5, ncol= 4, heights=c(0.2, 1, 1, 1, 1), widths=c(0.2, 1, 1, 1), guides = "collect", axes = "collect") &
-    theme(legend.position = "none")
+    theme(legend.position = "bottom", legend.direction="horizontal")
   
   ggplot2::ggsave(filename = paste0("Costs_", GS_MODEL, ".jpg"),
                   path=output_dir,
@@ -1034,7 +1034,7 @@ for (GS_MODEL in c("RRBLUP")) {
   
   geneticGainAll.df %>%
     dplyr::group_by(type, sel, year, ie_cat) %>%
-    dplyr::filter(sel %in% c("PS", "isoMAS-PS", "GS", "isoMAS-GS")) %>%
+    dplyr::filter(sel %in% c("PS", "isoMAS-PS", "GS", "isoMAS-GS", "GS (No Update)", "isoMAS-GS (No Update)")) %>%
     dplyr::summarize(meanGain=mean(gain),
                      gainSD=sd(gain))%>%
     write.csv(file.path(output_dir, "genetic_gain.csv"), quote=FALSE)
