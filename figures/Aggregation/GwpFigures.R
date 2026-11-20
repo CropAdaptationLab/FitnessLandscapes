@@ -19,14 +19,13 @@ library(tidyr)
 setwd("~/Documents/CSU/FitnessLandscapes/output/GWP/11_3_11621reps")
 output_dir <- getwd()
 
-RIL.df <- rbind(read.csv("../11_2_10356reps/ril_results.csv"))
+RIL.df <- rbind(read.csv("../11_3_11621reps/ril_results.csv"))
 
 # Across many runs
-RS.df <- rbind(read.csv("../11_2_10356reps/rs_results.csv"),
-               read.csv("../Sim_2026-11-02_13_30/RRBLUP/rs_results.csv"))
+RS.df <- rbind(read.csv("../11_3_11621reps/rs_results.csv"))
 
-write.table(RS.df, file.path(output_dir, "rs_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
-write.table(RIL.df, file.path(output_dir, "ril_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
+#write.table(RS.df, file.path(output_dir, "rs_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
+#write.table(RIL.df, file.path(output_dir, "ril_results.csv"), col.names=TRUE, quote=FALSE, sep=",")
 
 read_costs <- function(fname) {
   costs.df <- read.csv(fname, check.names=FALSE) %>%
@@ -85,13 +84,13 @@ scale_color_gwp <- scale_color_manual(name = "Scenario",
 
 color_scheme <- c(
   "PS" = "#8E44C6",
-  "isoMAS-PS" = "#eec7ff",
+  "isoPS" = "#eec7ff",
   "GS" = "#2EBD65",
   "GS (No Update)" = "#b7edba",
-  "isoMAS-GS (Low Density)" = "#FFD4A8",
-  "isoMAS-GS" = "#F06A00",
-  "isoMAS-GS (No Update)" = "#C14B00",
-  "isoMAS-GS (Perfect Markers)" = "#7A2900")
+  "isoGS (Low Density)" = "#FFD4A8",
+  "isoGS" = "#F06A00",
+  "isoGS (No Update)" = "#C14B00",
+  "isoGS (Perfect Markers)" = "#7A2900")
 
 scale_fill_sel <- scale_fill_manual(name = "Scheme",
                                       values = color_scheme)
@@ -99,20 +98,20 @@ scale_fill_sel <- scale_fill_manual(name = "Scheme",
 scale_color_sel_controls <- scale_color_manual(name = "Scheme",
                                       values = color_scheme,
                                       limits = c("PS",
-                                                 "isoMAS-PS",
+                                                 "isoPS",
                                                  "GS",
-                                                 "isoMAS-GS",
-                                                 "isoMAS-GS (Low Density)",
-                                                 "isoMAS-GS (Perfect Markers)",
+                                                 "isoGS",
+                                                 "isoGS (Low Density)",
+                                                 "isoGS (Perfect Markers)",
                                                  "GS (No Update)",
-                                                 "isoMAS-GS (No Update)"))
+                                                 "isoGS (No Update)"))
 
 scale_color_sel <- scale_color_manual(name = "Scheme",
                                                values = color_scheme,
                                                limits = c("PS",
-                                                          "isoMAS-PS",
+                                                          "isoPS",
                                                           "GS",
-                                                          "isoMAS-GS"))
+                                                          "isoGS"))
 
 # Determine a string representation of the correlation and significance
 sig_cor <- stat_cor(method="pearson",
@@ -297,12 +296,12 @@ for (GS_MODEL in c("RRBLUP")) {
     dplyr::filter(wGV[1] >= n.minW & wGV[1] <= n.maxW) %>%
     dplyr::mutate(gain = wGV - wGV[1]) %>%
     dplyr::mutate(sel = case_when(
-      sel == "isoMAS-GS" ~ "isoMAS-GS",
-      sel == "isoMAS-GS_low" ~ "isoMAS-GS (Low Density)",
-      sel == "isoMAS-GS_perfect" ~ "isoMAS-GS (Perfect Markers)",
+      sel == "isoMAS-GS" ~ "isoGS",
+      sel == "isoMAS-GS_low" ~ "isoGS (Low Density)",
+      sel == "isoMAS-GS_perfect" ~ "isoGS (Perfect Markers)",
       sel == "GS_noUpdate" ~ "GS (No Update)",
-      sel == "isoMAS-PS" ~ "isoMAS-PS",
-      sel == "isoMAS-GS_noUpdate" ~ "isoMAS-GS (No Update)",
+      sel == "isoMAS-PS" ~ "isoPS",
+      sel == "isoMAS-GS_noUpdate" ~ "isoGS (No Update)",
       TRUE ~ sel
     )) %>%
     dplyr::mutate(
@@ -320,29 +319,29 @@ for (GS_MODEL in c("RRBLUP")) {
       type=factor(type, levels=c("Admixed",
                                  "Unadmixed")),
       sel=factor(sel, levels=c("PS",
-                               "isoMAS-PS",
+                               "isoPS",
                                "GS",
-                               "isoMAS-GS (Low Density)",
-                               "isoMAS-GS",
-                               "isoMAS-GS (Perfect Markers)",
+                               "isoGS (Low Density)",
+                               "isoGS",
+                               "isoGS (Perfect Markers)",
                                "GS (No Update)",
-                               "isoMAS-GS (No Update)")),
+                               "isoGS (No Update)")),
       pop=factor(pop, levels=c("Admixed PS",
-                               "Admixed isoMAS-PS",
+                               "Admixed isoPS",
                                "Admixed GS",
-                               "Admixed isoMAS-GS (Low Density)",
-                               "Admixed isoMAS-GS",
-                               "Admixed isoMAS-GS (Perfect Markers)",
+                               "Admixed isoGS (Low Density)",
+                               "Admixed isoGS",
+                               "Admixed isoGS (Perfect Markers)",
                                "Admixed GS (No Update)",
-                               "Admixed isoMAS-GS (No Update)",
+                               "Admixed isoGS (No Update)",
                                "Unadmixed PS",
-                               "Unadmixed isoMAS-PS",
+                               "Unadmixed isoPS",
                                "Unadmixed GS",
-                               "Unadmixed isoMAS-GS (Low Density)",
-                               "Unadmixed isoMAS-GS",
-                               "Unadmixed isoMAS-GS (Perfect Markers)",
+                               "Unadmixed isoGS (Low Density)",
+                               "Unadmixed isoGS",
+                               "Unadmixed isoGS (Perfect Markers)",
                                "Unadmixed GS (No Update)",
-                               "Unadmixed isoMAS-GS (No Update)")))
+                               "Unadmixed isoGS (No Update)")))
   
   gs.df %>% 
     filter(type == "Admixed") %>% 
@@ -470,7 +469,7 @@ for (GS_MODEL in c("RRBLUP")) {
       scale_x_continuous(breaks=seq(from=0, to=n.Y, by=4)) +
       #scale_y_continuous(limits = c(minYearW, maxYearW)) +
       labs(
-        title = paste0(ie, " Founder isoMAS"),
+        title = paste0(ie, " Founder Isoeliteness"),
         x = "Year",
         y = "Genetic Gain\n(Realized Yield Units)"
       ) +
@@ -503,7 +502,7 @@ for (GS_MODEL in c("RRBLUP")) {
                     linewidth = 0.3,
                     alpha = 0.6) +
       scale_color_manual(
-        name = "Founder isoMAS",
+        name = "Founder\nIsoeliteness",
         values =c(
           "Low" = "#cc0000",
           "Moderate" = "grey40",
@@ -541,7 +540,7 @@ for (GS_MODEL in c("RRBLUP")) {
                   width=8,
                   height=4)
   
-  (plotAllCurvesGain("isoMAS-GS") | (plotAllCurvesGain("isoMAS-PS", FALSE))) +
+  (plotAllCurvesGain("isoGS") | (plotAllCurvesGain("isoPS", FALSE))) +
     plot_layout(guides = "collect", axes = "collect") +
     plot_annotation(tag_levels='a',
                     theme = theme(plot.tag = element_text(family = "Helvetica", size = 6)))
@@ -563,7 +562,7 @@ for (GS_MODEL in c("RRBLUP")) {
     if (withControls) {
       colorscale <- scale_color_sel_controls
     } else {
-      df <- df %>% dplyr::filter(sel %in% c("GS", "PS", "isoMAS-PS", "isoMAS-GS"))
+      df <- df %>% dplyr::filter(sel %in% c("GS", "PS", "isoPS", "isoGS"))
       colorscale <- scale_color_sel
     }
     df %>%
@@ -579,7 +578,7 @@ for (GS_MODEL in c("RRBLUP")) {
       labs(
         x = "Year",
         y = "Genetic Gain\n(Realized Yield Units)",
-        title = paste0(ie, " Founder isoMAS"),
+        title = paste0(ie, " Founder Isoeliteness"),
       ) +
       scale_x_continuous(breaks=seq(from=0, to=n.Y, by=4)) +
       scale_y_continuous(limits = c(-2, maxYearGain)) +
@@ -632,16 +631,16 @@ for (GS_MODEL in c("RRBLUP")) {
 
   plotCostByIe <- function(df, ie, withControls=FALSE, cost_var="unit_cost_low_high", ylabel=TRUE) {
     if (cost_var == "unit_cost_low_high") {
-      yrange <- c(0, 10)
+      yrange <- c(1, 10)
     } else if (cost_var == "unit_cost_low_low") {
-      yrange <- c(0, 10)
+      yrange <- c(0, 4)
     } else if (cost_var == "unit_cost_high_high") {
-      yrange <- c(2, 18)
+      yrange <- c(4, 19)
     } else if (cost_var == "unit_cost_high_low") {
-      yrange <- c(2, 18)
+      yrange <- c(2, 19)
     }
     
-    df %>% dplyr::filter(sel %in% c("GS", "PS", "isoMAS-PS", "isoMAS-GS")) %>%
+    df %>% dplyr::filter(sel %in% c("GS", "PS", "isoPS", "isoGS")) %>%
       dplyr::filter(year > 0) %>%
       dplyr::filter(type == "Admixed") %>%
       dplyr::filter(ie_cat == ie) %>%
@@ -658,50 +657,66 @@ for (GS_MODEL in c("RRBLUP")) {
       theme +
       theme(
         axis.title.y = if (!ylabel) element_blank() else element_text(),
-        plot.title = element_blank()
-        #axis.text.y = if (!ylabel) element_blank() else element_text()
+        plot.title = element_blank(),
+        axis.text.y = if (!ylabel) element_blank() else element_text()
       )
   }
   
   col_label <- function(label) {
-    wrap_elements(full = textGrob(label, gp = gpar(fontsize = 8, fontface = "bold", fontfamily = "Helvetica")))
+    wrap_elements(full = textGrob(label, gp = gpar(fontsize = 10, fontface = "bold", fontfamily = "Helvetica")))
   }
   
   row_label <- function(label) {
-    wrap_elements(full = textGrob(label, rot = 90, gp = gpar(fontsize = 8, fontface = "bold", fontfamily = "Helvetica")))
+    wrap_elements(full = textGrob(label, gp = gpar(fontsize = 10, fontface = "bold", fontfamily = "Helvetica")))
   }
   
-  plot_spacer() + col_label("Low Founders isoMAS") + col_label("Moderate Founders isoMAS") + col_label("High Founders isoMAS") +
+  plot_spacer() + col_label("Low\nFounder Isoeliteness") + col_label("Moderate\nFounder Isoeliteness") + col_label("High\nFounder Isoeliteness") +
     row_label("Low Labor,\nHigh Sequencing") +
        plotCostByIe(yearMean.df, "Low", cost_var="unit_cost_low_high", ylabel=TRUE) +
        plotCostByIe(yearMean.df, "Moderate", cost_var="unit_cost_low_high", ylabel=FALSE) +
        plotCostByIe(yearMean.df, "High", cost_var="unit_cost_low_high", ylabel=FALSE) +
-    row_label("Low Labor,\nLow Sequencing") +
-      plotCostByIe(yearMean.df, "Low", cost_var="unit_cost_low_low", ylabel=TRUE) +
-      plotCostByIe(yearMean.df, "Moderate", cost_var="unit_cost_low_low", ylabel=FALSE) +
-      plotCostByIe(yearMean.df, "High", cost_var="unit_cost_low_low", ylabel=FALSE) +
     row_label("High Labor,\nHigh Sequencing") +
        plotCostByIe(yearMean.df, "Low", cost_var="unit_cost_high_high", ylabel=TRUE) +
        plotCostByIe(yearMean.df, "Moderate", cost_var="unit_cost_high_high", ylabel=FALSE) +
        plotCostByIe(yearMean.df, "High", cost_var="unit_cost_high_high", ylabel=FALSE) +
-    row_label("High Labor,\nLow Sequencing") +
-      plotCostByIe(yearMean.df, "Low", cost_var="unit_cost_high_low", ylabel=TRUE) +
-      plotCostByIe(yearMean.df, "Moderate", cost_var="unit_cost_high_low", ylabel=FALSE) +
-      plotCostByIe(yearMean.df, "High", cost_var="unit_cost_high_low", ylabel=FALSE) +
-    plot_layout(nrow=5, ncol= 4, heights=c(0.2, 1, 1, 1, 1), widths=c(0.2, 1, 1, 1), guides = "collect", axes = "collect") &
+    plot_layout(nrow=3, ncol= 4, heights=c(0.2, 1, 1), widths=c(0.5, 1, 1, 1), guides = "collect", axes = "collect") &
     theme(legend.position = "bottom", legend.direction="horizontal")
   
   ggplot2::ggsave(filename = paste0("Costs_", GS_MODEL, ".jpg"),
                   path=output_dir,
                   device = "jpg",
-                  width=9,
-                  height=12,
+                  width=8,
+                  height=6,
                   dpi=600)
   ggplot2::ggsave(filename = paste0("Costs_", GS_MODEL, ".pdf"),
                   path=output_dir,
                   device = "pdf",
-                  width=9,
-                  height=12)
+                  width=7,
+                  height=6)
+  
+  plot_spacer() + col_label("Low\nFounder Isoeliteness") + col_label("Moderate\nFounder Isoeliteness") + col_label("High\nFounder Isoeliteness") +
+    row_label("Low Labor,\nLow Sequencing") +
+      plotCostByIe(yearMean.df, "Low", cost_var="unit_cost_low_low", ylabel=TRUE) +
+      plotCostByIe(yearMean.df, "Moderate", cost_var="unit_cost_low_low", ylabel=FALSE) +
+      plotCostByIe(yearMean.df, "High", cost_var="unit_cost_low_low", ylabel=FALSE) +
+    row_label("High Labor,\nLow Sequencing") +
+      plotCostByIe(yearMean.df, "Low", cost_var="unit_cost_high_low", ylabel=TRUE) +
+      plotCostByIe(yearMean.df, "Moderate", cost_var="unit_cost_high_low", ylabel=FALSE) +
+      plotCostByIe(yearMean.df, "High", cost_var="unit_cost_high_low", ylabel=FALSE) +
+    plot_layout(nrow=3, ncol= 4, heights=c(0.2, 1, 1), widths=c(0.5, 1, 1, 1), guides = "collect", axes = "collect") &
+    theme(legend.position = "bottom", legend.direction="horizontal")
+  
+  ggplot2::ggsave(filename = paste0("Costs_Supp_", GS_MODEL, ".jpg"),
+                  path=output_dir,
+                  device = "jpg",
+                  width=8,
+                  height=6,
+                  dpi=600)
+  ggplot2::ggsave(filename = paste0("Costs_Supp_", GS_MODEL, ".pdf"),
+                  path=output_dir,
+                  device = "pdf",
+                  width=8,
+                  height=6)
   
   geneticGainAll.df <- gs.df %>%
     dplyr::filter(year %in% c(4, 12, 20)) %>% 
@@ -752,7 +767,7 @@ for (GS_MODEL in c("RRBLUP")) {
       coord_cartesian(ylim = c(minDiscreteGain, maxDiscreteGain)) +
       labs(
         title  = paste0("Years: ", years),
-        x = "Founder isoMAS",
+        x = "Founder\nIsoeliteness",
         y = "Genetic Gain\n(Realized Yield Units)"
       ) + 
       scale_color_sel_controls +
@@ -817,7 +832,7 @@ for (GS_MODEL in c("RRBLUP")) {
         y = "Genetic Gain\n(Realized Yield Units)"
       ) + 
       scale_color_manual(
-        name = "Founder isoMAS",
+        name = "Founder\nIsoeliteness",
         values =c(
           "Low" = "#cc0000",
           "Moderate" = "grey40",
@@ -867,7 +882,7 @@ for (GS_MODEL in c("RRBLUP")) {
     geom_point(size=1) +
     labs(
       x = "Year",
-      y = "Correlation (r) between\nIsoeliteness and Genetic Gain",
+      y = "Correlation (r) between Genetic Gain\nand Founder Isoeliteness",
     ) +
     scale_x_continuous(breaks=seq(from=0, to=n.Y, by=4)) +
     scale_color_sel_controls +
@@ -925,7 +940,7 @@ for (GS_MODEL in c("RRBLUP")) {
       )
   }
   ((hetPlot("GS", "Low") | hetPlot("GS", "Moderate", FALSE) | hetPlot("GS", "High", FALSE)) /
-    (hetPlot("isoMAS-GS", "Low") | hetPlot("isoMAS-GS", "Moderate", FALSE) | hetPlot("isoMAS-GS", "High", FALSE))) +
+    (hetPlot("isoGS", "Low") | hetPlot("isoGS", "Moderate", FALSE) | hetPlot("isoGS", "High", FALSE))) +
     plot_layout(guides = "collect", axes = "collect")
   
   ggplot2::ggsave(filename = paste0("Heterozygosity_", GS_MODEL, ".jpg"),
@@ -945,7 +960,7 @@ for (GS_MODEL in c("RRBLUP")) {
     yearMean.df %>%
       dplyr::filter(ie_cat==ie,
                     type == "Admixed",
-                    sel %in% c("isoMAS-GS", "GS")) %>%
+                    sel %in% c("isoGS", "GS")) %>%
       ggplot(aes(x = year, y = r, color = sel, group = sel)) +
       geom_line(na.rm = TRUE) +
       geom_point(na.rm = TRUE) +
@@ -955,7 +970,7 @@ for (GS_MODEL in c("RRBLUP")) {
                     linewidth = 0.2,
                     alpha = 0.6) +
       labs(
-        title = paste0(ie, " Founder isoMAS"),
+        title = paste0(ie, " Founder Isoeliteness"),
         x = "Year",
         y = expression("GWP accuracy for realized yield (r"[MG]*")"),
       ) +
@@ -963,7 +978,7 @@ for (GS_MODEL in c("RRBLUP")) {
       coord_cartesian(ylim = c(0, 0.65)) +
       scale_color_manual(name = "Scheme",
                          values = color_scheme,
-                         limits = c("GS", "isoMAS-GS")) +
+                         limits = c("GS", "isoGS")) +
       theme +
       theme(
         axis.title.y = if (!ylabel) element_blank() else element_text(),
@@ -991,7 +1006,7 @@ for (GS_MODEL in c("RRBLUP")) {
     yearMean.df %>%
       dplyr::filter(ie_cat==ie,
                     type == "Admixed",
-                    sel %in% c("isoMAS-GS", "GS", "isoMAS-PS", "PS"),
+                    sel %in% c("isoGS", "GS", "isoPS", "PS"),
                     year > 0) %>%
       ggplot(aes(x = year, y = gvar, color = sel, group = sel)) +
       geom_line(na.rm = TRUE) +
@@ -1002,7 +1017,7 @@ for (GS_MODEL in c("RRBLUP")) {
                     linewidth = 0.2,
                     alpha = 0.6) +
       labs(
-        title = paste0(ie, " Founder isoMAS"),
+        title = paste0(ie, " Founder Isoeliteness"),
         x = "Year",
         y = expression("Realized Yield\nGenetic Variance"),
       ) +
@@ -1034,7 +1049,7 @@ for (GS_MODEL in c("RRBLUP")) {
   
   geneticGainAll.df %>%
     dplyr::group_by(type, sel, year, ie_cat) %>%
-    dplyr::filter(sel %in% c("PS", "isoMAS-PS", "GS", "isoMAS-GS", "GS (No Update)", "isoMAS-GS (No Update)")) %>%
+    dplyr::filter(sel %in% c("PS", "isoPS", "GS", "isoGS", "GS (No Update)", "isoGS (No Update)")) %>%
     dplyr::summarize(meanGain=mean(gain),
                      gainSD=sd(gain))%>%
     write.csv(file.path(output_dir, "genetic_gain.csv"), quote=FALSE)
@@ -1047,7 +1062,7 @@ for (GS_MODEL in c("RRBLUP")) {
   
   gs.df %>%
     dplyr::filter(type=="Admixed") %>% 
-    dplyr::filter(sel %in% c("GS", "isoMAS-GS")) %>%
+    dplyr::filter(sel %in% c("GS", "isoGS")) %>%
     dplyr::group_by(type, sel, ie_cat, year) %>%
     dplyr::summarize(meanR=mean(r, na.rm=TRUE),
                      sdR=sd(r, na.rm=TRUE)) %>%

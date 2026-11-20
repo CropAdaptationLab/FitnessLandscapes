@@ -1,4 +1,4 @@
-season,year,PS,isoMAS-PS,GS,isoMAS-GS
+season,year,PS,isoPS,GS,isoGS
 0,0.0,0,0,1000,1000
 1,0.5,1044,1044,1522,1522
 2,1.0,2061,4181,4151,4951
